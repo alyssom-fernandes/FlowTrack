@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { createClient } from '@supabase/supabase-js'
-import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate } from './types'
+import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate, Investment, InvestmentCreate } from './types'
 
 // ── Supabase ──────────────────────────────────────────────
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -106,6 +106,25 @@ export const transactionsService = {
     link.click()
     link.remove()
     window.URL.revokeObjectURL(url)
+  },
+}
+
+// ── Investments ───────────────────────────────────────────
+export const investmentsService = {
+  async list(): Promise<{ investments: Investment[]; total: number; total_invested: number; total_current_value: number; total_profitability: number; total_profitability_percent: number }> {
+    const { data } = await api.get('/api/v1/investments')
+    return data
+  },
+  async create(payload: InvestmentCreate): Promise<Investment> {
+    const { data } = await api.post('/api/v1/investments', payload)
+    return data
+  },
+  async update(id: string, payload: Partial<InvestmentCreate>): Promise<Investment> {
+    const { data } = await api.patch(`/api/v1/investments/${id}`, payload)
+    return data
+  },
+  async remove(id: string): Promise<void> {
+    await api.delete(`/api/v1/investments/${id}`)
   },
 }
 
