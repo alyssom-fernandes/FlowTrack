@@ -32,6 +32,12 @@
   --text-muted:     #aaaaaa;
   --text-hint:      #777777;
 
+  /* Brand */
+  --brand-afn:       #c44a5a;
+  --brand-secondary: rgba(255,255,255,0.28);
+  --brand-by:        rgba(255,255,255,0.20);
+  --logo-filter:     none;
+
   /* Status */
   --green:       #4caf7d;
   --green-soft:  rgba(76, 175, 125, 0.12);
@@ -96,15 +102,20 @@
   --border-focus:  #9D2449;
   --border-subtle: #e8e7e2;
 
-  --accent:        #9D2449;
-  --accent-hover:  #b82d56;
-  --accent-soft:   rgba(157, 36, 73, 0.08);
-  --accent-text:   #9D2449;
+  --accent:        #861E3E;
+  --accent-hover:  #721934;
+  --accent-soft:   rgba(134, 30, 62, 0.10);
+  --accent-text:   #861E3E;
 
   --text-primary:   #111111;
-  --text-secondary: #333333;
-  --text-muted:     #777777;
-  --text-hint:      #bbbbbb;
+  --text-secondary: #222222;
+  --text-muted:     #505050;
+  --text-hint:      #666666;
+
+  --brand-afn:       #861E3E;
+  --brand-secondary: #505050;
+  --brand-by:        #666666;
+  --logo-filter:     invert(1) hue-rotate(180deg);
 
   --green:      #2d9e65;
   --green-soft: rgba(45, 158, 101, 0.10);
@@ -165,6 +176,9 @@ img, svg {
   display: block;
   max-width: 100%;
 }
+
+/* ── LOGO THEME ADAPTATION ── */
+.ft-logo { filter: var(--logo-filter); transition: filter var(--transition); }
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }

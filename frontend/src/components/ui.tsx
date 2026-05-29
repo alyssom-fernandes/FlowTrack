@@ -176,10 +176,10 @@ export function AfnBrand({ showBy = true, size = 'sm' }: { showBy?: boolean; siz
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1875rem' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize, letterSpacing: '2px', color: '#c44a5a', WebkitTextStroke: '0.3px rgba(196,74,90,0.4)' }}>AFN</span>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize, letterSpacing: '2px', color: 'rgba(255,255,255,0.28)' }}>SYSTEMS</span>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize, letterSpacing: '2px', color: 'var(--brand-afn)' }}>AFN</span>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize, letterSpacing: '2px', color: 'var(--brand-secondary)' }}>SYSTEMS</span>
       </div>
-      {showBy && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: bySize, letterSpacing: '1.4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.2)', fontWeight: '700' }}>by Alyssom Fernandes</span>}
+      {showBy && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: bySize, letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--brand-by)', fontWeight: '700' }}>by Alyssom Fernandes</span>}
     </div>
   )
 }

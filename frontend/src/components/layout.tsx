@@ -23,7 +23,7 @@ export function Sidebar() {
     <aside style={{ width: 'var(--sidebar-width)', flexShrink: 0, background: 'var(--bg-sidebar)', borderRight: '0.5px solid var(--border)', display: 'flex', flexDirection: 'column', height: '100dvh', position: 'sticky', top: 0 }}>
       {/* Logo */}
       <div style={{ padding: '1rem 0.875rem', borderBottom: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <img src="/logo.png" alt="FlowTrack" style={{ height: '1.875rem', width: 'auto' }} />
+        <img src="/logo.png" alt="FlowTrack" className="ft-logo" style={{ height: '1.875rem', width: 'auto' }} />
       </div>
 
       {/* Nav */}
@@ -76,13 +76,13 @@ export function PageFooter() {
     <footer style={{ borderTop: '0.5px solid var(--border)', padding: '0.875rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: 'auto' }}>
       {/* AFN SYSTEMS — left */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize: '0.625rem', letterSpacing: '2px', color: '#c44a5a', WebkitTextStroke: '0.3px rgba(196,74,90,0.4)' }}>AFN</span>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize: '0.625rem', letterSpacing: '1.5px', color: 'rgba(255,255,255,0.28)' }}>SYSTEMS</span>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize: '0.625rem', letterSpacing: '2px', color: 'var(--brand-afn)' }}>AFN</span>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize: '0.625rem', letterSpacing: '1.5px', color: 'var(--brand-secondary)' }}>SYSTEMS</span>
       </div>
       {/* pipe */}
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem', color: 'rgba(255,255,255,0.15)' }}>|</span>
+      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem', color: 'var(--brand-secondary)' }}>|</span>
       {/* FlowTrack — right */}
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize: '0.6875rem', letterSpacing: '0.3px', color: 'rgba(255,255,255,0.28)' }}>FlowTrack</span>
+      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize: '0.6875rem', letterSpacing: '0.3px', color: 'var(--brand-secondary)' }}>FlowTrack</span>
     </footer>
   )
 }
