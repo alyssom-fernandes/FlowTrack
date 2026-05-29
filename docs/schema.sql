@@ -342,3 +342,17 @@ create policy "demo_users: insert own" on demo_users
   for insert with check (auth.uid() = user_id);
 create policy "demo_users: update own" on demo_users
   for update using (auth.uid() = user_id);
+
+-- ============================================================
+-- GRANTS (permissões de acesso por role)
+-- service_role: usado pelo backend FastAPI (bypass RLS via privileges)
+-- authenticated: usuários autenticados via Supabase Auth (RLS aplica)
+-- anon: usuários não autenticados (RLS aplica)
+-- ============================================================
+grant all on all tables    in schema public to service_role;
+grant all on all sequences in schema public to service_role;
+
+grant select, insert, update, delete on all tables    in schema public to authenticated;
+grant usage on all sequences                          in schema public to authenticated;
+
+grant select on categories, merchant_cache            to anon;
