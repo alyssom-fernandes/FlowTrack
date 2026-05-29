@@ -1,7 +1,3 @@
-// ============================================================
-// FlowTrack — TypeScript Types
-// ============================================================
-
 // ── Auth ──────────────────────────────────────────────────
 export interface User {
   id: string
@@ -183,7 +179,7 @@ export interface InvestmentCreate {
   notes?: string
 }
 
-// ── Sync Queue (offline) ──────────────────────────────────
+// ── Sync Queue ────────────────────────────────────────────
 export type SyncAction = 'create' | 'update' | 'delete'
 export type SyncItemStatus = 'pending' | 'retrying' | 'failed'
 
@@ -199,12 +195,6 @@ export interface SyncQueueItem {
   created_at: Date
 }
 
-// ── API ───────────────────────────────────────────────────
-export interface ApiError {
-  detail: string
-  status?: number
-}
-
 // ── Dashboard ─────────────────────────────────────────────
 export interface DashboardMetrics {
   total_balance: number
@@ -213,28 +203,25 @@ export interface DashboardMetrics {
   period: string
 }
 
-// ── Bank list ─────────────────────────────────────────────
-export interface BankOption {
-  name: string
-  color: string
-}
+// ── Banks ─────────────────────────────────────────────────
+export interface BankOption { name: string; color: string }
 
 export const BANK_LIST: BankOption[] = [
-  { name: 'Nubank',        color: '#820ad1' },
-  { name: 'Sicredi',       color: '#008000' },
-  { name: 'Itaú',          color: '#EC7000' },
-  { name: 'Bradesco',      color: '#CC092F' },
-  { name: 'Santander',     color: '#EC0000' },
-  { name: 'Caixa',         color: '#0070AF' },
+  { name: 'Nubank',          color: '#820ad1' },
+  { name: 'Sicredi',         color: '#008000' },
+  { name: 'Itaú',            color: '#EC7000' },
+  { name: 'Bradesco',        color: '#CC092F' },
+  { name: 'Santander',       color: '#EC0000' },
+  { name: 'Caixa',           color: '#0070AF' },
   { name: 'Banco do Brasil', color: '#FFDD00' },
-  { name: 'Inter',         color: '#FF7A00' },
-  { name: 'Sicoob',        color: '#007A3D' },
-  { name: 'C6 Bank',       color: '#242424' },
-  { name: 'Mercado Pago',  color: '#009EE3' },
-  { name: 'Will Bank',     color: '#FFDD00' },
-  { name: 'XP',            color: '#000000' },
-  { name: 'BTG',           color: '#0A0A0A' },
-  { name: 'Neon',          color: '#00D4AA' },
-  { name: 'PagBank',       color: '#00A859' },
-  { name: 'Outro',         color: '#9D2449' },
+  { name: 'Inter',           color: '#FF7A00' },
+  { name: 'Sicoob',          color: '#007A3D' },
+  { name: 'C6 Bank',         color: '#242424' },
+  { name: 'Mercado Pago',    color: '#009EE3' },
+  { name: 'Will Bank',       color: '#FFDD00' },
+  { name: 'XP',              color: '#000000' },
+  { name: 'BTG',             color: '#0A0A0A' },
+  { name: 'Neon',            color: '#00D4AA' },
+  { name: 'PagBank',         color: '#00A859' },
+  { name: 'Outro',           color: '#9D2449' },
 ]

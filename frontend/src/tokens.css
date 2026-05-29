@@ -28,9 +28,9 @@
 
   /* Text */
   --text-primary:   #ffffff;
-  --text-secondary: #e0e0e0;
-  --text-muted:     #888888;
-  --text-hint:      #666666;
+  --text-secondary: #f0f0f0;
+  --text-muted:     #aaaaaa;
+  --text-hint:      #777777;
 
   /* Status */
   --green:       #4caf7d;
