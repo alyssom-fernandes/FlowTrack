@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { createClient } from '@supabase/supabase-js'
-import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse } from './types'
+import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate } from './types'
 
 // ── Supabase ──────────────────────────────────────────────
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -106,5 +106,24 @@ export const transactionsService = {
     link.click()
     link.remove()
     window.URL.revokeObjectURL(url)
+  },
+}
+
+// ── Goals ─────────────────────────────────────────────────
+export const goalsService = {
+  async list(): Promise<{ goals: Goal[]; total: number }> {
+    const { data } = await api.get('/api/v1/goals')
+    return data
+  },
+  async create(payload: GoalCreate): Promise<Goal> {
+    const { data } = await api.post('/api/v1/goals', payload)
+    return data
+  },
+  async update(id: string, payload: Partial<GoalCreate>): Promise<Goal> {
+    const { data } = await api.patch(`/api/v1/goals/${id}`, payload)
+    return data
+  },
+  async remove(id: string): Promise<void> {
+    await api.delete(`/api/v1/goals/${id}`)
   },
 }
