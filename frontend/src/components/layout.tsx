@@ -73,7 +73,7 @@ export function BottomNavbar() {
 // ── PageFooter ────────────────────────────────────────────
 export function PageFooter() {
   return (
-    <footer style={{ borderTop: '0.5px solid var(--border)', padding: '0.875rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: 'auto' }}>
+    <footer style={{ borderTop: '0.5px solid var(--border)', padding: '0.5rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: 'auto' }}>
       {/* AFN SYSTEMS — left */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize: '0.625rem', letterSpacing: '2px', color: 'var(--brand-afn)' }}>AFN</span>

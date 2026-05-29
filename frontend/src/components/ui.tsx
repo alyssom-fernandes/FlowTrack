@@ -54,11 +54,11 @@ export function Card({ children, hover = false, accent = false, padding = 'md', 
         border: `0.5px solid ${accent ? 'rgba(157,36,73,0.3)' : 'var(--border)'}`,
         borderLeft: accent ? '2px solid var(--accent)' : undefined,
         borderRadius: 'var(--radius-lg)', padding: pads[padding],
-        transition: hover ? 'transform var(--transition), border-color var(--transition), background var(--transition)' : undefined,
+        transition: hover ? 'transform var(--transition), box-shadow var(--transition), background var(--transition)' : undefined,
         cursor: hover ? 'pointer' : undefined, ...style,
       }}
-      onMouseEnter={hover ? (e) => { const el = e.currentTarget; el.style.transform = 'translateY(-2px)'; el.style.borderColor = 'var(--accent)'; el.style.background = 'var(--bg-card-hover)' } : undefined}
-      onMouseLeave={hover ? (e) => { const el = e.currentTarget; el.style.transform = ''; el.style.borderColor = accent ? 'rgba(157,36,73,0.3)' : 'var(--border)'; el.style.background = 'var(--bg-card)' } : undefined}
+      onMouseEnter={hover ? (e) => { const el = e.currentTarget; el.style.transform = 'translateY(-2px)'; el.style.boxShadow = '0 0 0 1px var(--accent)'; el.style.background = 'var(--bg-card-hover)' } : undefined}
+      onMouseLeave={hover ? (e) => { const el = e.currentTarget; el.style.transform = ''; el.style.boxShadow = ''; el.style.background = 'var(--bg-card)' } : undefined}
       {...props}
     >{children}</div>
   )
