@@ -180,7 +180,7 @@ img, svg {
 /* light mode: drop-shadow escurece o contorno do "track" branco sem
    alterar o vinho; brightness reduz levemente para mais contraste */
 [data-theme='light'] .ft-logo {
-  filter: brightness(0.88) drop-shadow(0 0 1px rgba(0,0,0,0.55)) drop-shadow(0 0 2px rgba(0,0,0,0.3));
+  filter: brightness(0.38) saturate(1.8);
 }
 
 /* ── SCROLLBAR ── */
