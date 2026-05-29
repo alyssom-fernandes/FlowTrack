@@ -5,9 +5,10 @@ from app.core.config import get_settings
 
 @lru_cache()
 def get_supabase() -> Client:
-    """Returns Supabase client with anon key (for user-scoped operations)."""
+    """Returns Supabase client with service role key. JWT validation + explicit user_id
+    filtering in routers handles auth; service role bypasses RLS for backend operations."""
     settings = get_settings()
-    return create_client(settings.supabase_url, settings.supabase_anon_key)
+    return create_client(settings.supabase_url, settings.supabase_service_role_key)
 
 
 @lru_cache()

@@ -15,6 +15,7 @@ import { Profile } from './pages/Profile'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuthStore()
+  // Wait for auth check to complete before deciding
   if (isLoading) return <FullPageSpinner />
   if (!user) return <Navigate to="/login" replace />
   return <>{children}</>
@@ -24,15 +25,23 @@ export default function App() {
   const { setUser, setLoading } = useAuthStore()
 
   useEffect(() => {
+    // Get initial session on mount
     authService.getSession().then((session) => {
-      setUser(session?.user as ReturnType<typeof useAuthStore.getState>['user'])
+      if (session?.user) {
+        setUser(session.user as ReturnType<typeof useAuthStore.getState>['user'])
+      } else {
+        setUser(null)
+      }
       setLoading(false)
     })
+
+    // Listen for auth state changes (login/logout)
     const { data: { subscription } } = authService.onAuthStateChange((session: unknown) => {
       const s = session as { user?: ReturnType<typeof useAuthStore.getState>['user'] } | null
       setUser(s?.user ?? null)
       setLoading(false)
     })
+
     return () => subscription.unsubscribe()
   }, [])
 
@@ -49,7 +58,11 @@ export default function App() {
           { path: '/reports',      el: <Reports /> },
           { path: '/profile',      el: <Profile /> },
         ].map(({ path, el }) => (
-          <Route key={path} path={path} element={<ProtectedRoute><AppShell>{el}</AppShell></ProtectedRoute>} />
+          <Route key={path} path={path} element={
+            <ProtectedRoute>
+              <AppShell>{el}</AppShell>
+            </ProtectedRoute>
+          } />
         ))}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
