@@ -14,7 +14,8 @@ export function formatCurrencyCompact(value: number): string {
 }
 
 export function formatDate(dateStr: string, options?: Intl.DateTimeFormatOptions): string {
-  return new Intl.DateTimeFormat('pt-BR', options || { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(dateStr + 'T00:00:00'))
+  const d = dateStr.length > 10 ? new Date(dateStr) : new Date(dateStr + 'T00:00:00')
+  return new Intl.DateTimeFormat('pt-BR', options || { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d)
 }
 
 export function formatDateShort(dateStr: string): string {
