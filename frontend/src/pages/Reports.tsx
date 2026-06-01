@@ -154,7 +154,7 @@ function DonutChart({ slices }: { slices: Slice[] }) {
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ width: '0.625rem', height: '0.625rem', borderRadius: '50%', background: sl.color, flexShrink: 0 }} />
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {sl.icon ? `${sl.icon} ` : ''}{sl.label}
+              {resolveIcon(sl.icon)}{resolveIcon(sl.icon) ? ' ' : ''}{sl.label}
             </span>
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', flexShrink: 0 }}>
               {((sl.value / total) * 100).toFixed(0)}%
@@ -191,7 +191,7 @@ function TopExpenses({ transactions, categories }: { transactions: Transaction[]
           <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
-                {cat?.icon ? `${cat.icon} ` : ''}{desc}
+                {resolveIcon(cat?.icon)}{resolveIcon(cat?.icon) ? ' ' : ''}{desc}
               </span>
               <span style={{ fontSize: 'var(--font-size-sm)', fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: '500' }}>
                 {formatCurrency(val)}
@@ -213,6 +213,19 @@ const PALETTE = [
   '#EC4899','#14B8A6','#F97316','#6366F1','#84CC16',
 ]
 
+// Maps Feather/Lucide icon names (stored in DB) to display emojis
+const ICON_EMOJI: Record<string, string> = {
+  'utensils': '🍽️', 'car': '🚗', 'home': '🏠', 'heart': '❤️',
+  'book': '📚', 'music': '🎵', 'shirt': '👕', 'repeat': '🔄',
+  'trending-up': '📈', 'dollar-sign': '💰', 'arrow-right': '➡️',
+  'more-horizontal': '•',
+}
+
+function resolveIcon(icon?: string): string {
+  if (!icon) return ''
+  return ICON_EMOJI[icon] || ''
+}
+
 // ── Reports ───────────────────────────────────────────────
 export function Reports() {
   const [periodKey, setPeriodKey] = useState<PeriodKey>('mes')
@@ -226,7 +239,7 @@ export function Reports() {
     setLoading(true)
     try {
       const [txRes, catRes] = await Promise.all([
-        transactionsService.list({ start_date: period.start, end_date: period.end, page_size: 1000 }),
+        transactionsService.list({ start_date: period.start, end_date: period.end, page_size: 500 }),
         supabase.from('categories').select('*').order('name'),
       ])
       setTransactions(txRes.transactions ?? [])

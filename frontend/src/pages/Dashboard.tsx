@@ -154,6 +154,7 @@ export function Dashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <style>{`.ft-dash-bottom{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}@media(max-width:640px){.ft-dash-bottom{grid-template-columns:1fr}}`}</style>
       <div style={{ flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
 
         {/* Page header */}
@@ -172,8 +173,8 @@ export function Dashboard() {
         {/* Chart */}
         <ChartCard transactions={transactions} />
 
-        {/* Bottom grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+        {/* Bottom grid — responsive via CSS class */}
+        <div className="ft-dash-bottom">
 
           {/* Recent transactions */}
           <Card>

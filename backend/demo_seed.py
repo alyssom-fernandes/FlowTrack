@@ -21,7 +21,7 @@ import os
 import sys
 import hashlib
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -194,18 +194,18 @@ def build_transactions(user_id: str, nub_id: str, sic_id: str, cats: dict[str, s
         t(nub_id, "Farmácia Raia",            -52.80, ds(m1, 9),  "Saúde"),
         t(nub_id, "Decathlon Esportes",      -167.90, ds(m1, 23), "Saúde"),
 
-        # ── Mês atual ──────────────────────────────────────────────
-        t(sic_id, "Salário",                 5500.00, ds(m0, 2),  "Receita"),
-        t(sic_id, "Aluguel",                -1400.00, ds(m0, 4),  "Moradia"),
-        t(sic_id, "Condomínio",              -320.00, ds(m0, 4),  "Moradia"),
-        t(nub_id, "Vivo Fibra Internet",      -99.90, ds(m0, 5),  "Assinaturas"),
-        t(nub_id, "Netflix",                  -39.90, ds(m0, 10), "Assinaturas"),
-        t(nub_id, "Spotify",                  -21.90, ds(m0, 10), "Assinaturas"),
-        t(nub_id, "Smart Fit Academia",       -89.90, ds(m0, 5),  "Saúde"),
-        t(nub_id, "Supermercado Extra",      -278.30, ds(m0, 7),  "Alimentação"),
-        t(nub_id, "iFood Pizza",              -79.90, ds(m0, 11), "Alimentação"),
-        t(nub_id, "Uber",                     -31.20, ds(m0, 8),  "Transporte"),
-        t(nub_id, "Posto BR Combustível",    -190.00, ds(m0, 12), "Transporte"),
+        # ── Mês atual (todas no dia 1 para garantir visibilidade) ────
+        t(sic_id, "Salário",                 5500.00, ds(m0, 0),  "Receita"),
+        t(sic_id, "Aluguel",                -1400.00, ds(m0, 0),  "Moradia"),
+        t(sic_id, "Condomínio",              -320.00, ds(m0, 0),  "Moradia"),
+        t(nub_id, "Vivo Fibra Internet",      -99.90, ds(m0, 0),  "Assinaturas"),
+        t(nub_id, "Netflix",                  -39.90, ds(m0, 0),  "Assinaturas"),
+        t(nub_id, "Spotify",                  -21.90, ds(m0, 0),  "Assinaturas"),
+        t(nub_id, "Smart Fit Academia",       -89.90, ds(m0, 0),  "Saúde"),
+        t(nub_id, "Supermercado Extra",      -278.30, ds(m0, 0),  "Alimentação"),
+        t(nub_id, "iFood Pizza",              -79.90, ds(m0, 0),  "Alimentação"),
+        t(nub_id, "Uber",                     -31.20, ds(m0, 0),  "Transporte"),
+        t(nub_id, "Posto BR Combustível",    -190.00, ds(m0, 0),  "Transporte"),
     ]
 
     # Filtra transações com datas futuras
@@ -378,7 +378,7 @@ def sync_investments(user_id: str):
 
 def record_reset(user_id: str):
     sb.table("demo_users").upsert(
-        {"user_id": user_id, "last_reset": datetime.utcnow().isoformat()},
+        {"user_id": user_id, "last_reset": datetime.now(timezone.utc).isoformat()},
         on_conflict="user_id",
     ).execute()
 
