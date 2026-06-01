@@ -52,12 +52,14 @@ export function Sidebar() {
   )
 }
 
+const MOBILE_NAV = NAV.filter(item => item.path !== '/reports')
+
 // ── BottomNavbar ──────────────────────────────────────────
 export function BottomNavbar() {
   const location = useLocation()
   return (
     <nav style={{ width: '100%', background: 'var(--bg-sidebar)', borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'stretch', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {NAV.map((item) => {
+      {MOBILE_NAV.map((item) => {
         const isActive = location.pathname === item.path
         return (
           <Link key={item.path} to={item.path} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.1875rem', padding: '0.5rem 0.25rem', color: isActive ? 'var(--accent)' : 'var(--text-hint)', textDecoration: 'none', transition: 'color var(--transition)', minHeight: '3.25rem' }}>

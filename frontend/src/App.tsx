@@ -21,24 +21,27 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL || 'demo@flowtrack.app'
+
 export default function App() {
-  const { setUser, setLoading } = useAuthStore()
+  const { setUser, setLoading, setDemo } = useAuthStore()
 
   useEffect(() => {
-    // Get initial session on mount
     authService.getSession().then((session) => {
       if (session?.user) {
         setUser(session.user as ReturnType<typeof useAuthStore.getState>['user'])
+        setDemo(session.user.email === DEMO_EMAIL)
       } else {
         setUser(null)
+        setDemo(false)
       }
       setLoading(false)
     })
 
-    // Listen for auth state changes (login/logout)
     const { data: { subscription } } = authService.onAuthStateChange((session: unknown) => {
-      const s = session as { user?: ReturnType<typeof useAuthStore.getState>['user'] } | null
+      const s = session as { user?: ReturnType<typeof useAuthStore.getState>['user'] & { email?: string } } | null
       setUser(s?.user ?? null)
+      setDemo(s?.user?.email === DEMO_EMAIL)
       setLoading(false)
     })
 

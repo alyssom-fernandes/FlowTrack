@@ -19,6 +19,7 @@ from app.models import (
 )
 
 router = APIRouter()
+internal_router = APIRouter()
 logger = get_logger(__name__)
 
 
@@ -276,7 +277,8 @@ async def export_transactions(
 
 
 # ── Internal ──────────────────────────────────────────────
-@router.post("/internal/process-queue", tags=["Internal"], dependencies=[Depends(verify_internal_token)])
+@internal_router.post("/process-queue", tags=["Internal"], dependencies=[Depends(verify_internal_token)])
 async def process_queue():
+    from app.integrations.claude_api import process_categorization_queue
     logger.info("Processing categorization queue")
-    return {"status": "ok", "processed": 0}
+    return await process_categorization_queue(batch_size=20)

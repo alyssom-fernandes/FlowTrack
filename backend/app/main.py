@@ -5,7 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import get_settings
 from app.core.logging import setup_logging, correlation_id_middleware, get_logger
-from app.api.v1.routers import router
+from app.api.v1.routers import router, internal_router
 
 settings = get_settings()
 setup_logging(settings.app_env)
@@ -26,6 +26,7 @@ app.add_middleware(BaseHTTPMiddleware, dispatch=correlation_id_middleware)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins_list, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 app.include_router(router, prefix="/api/v1")
+app.include_router(internal_router, prefix="/internal")
 
 @app.get("/health", tags=["Health"])
 async def health_check():

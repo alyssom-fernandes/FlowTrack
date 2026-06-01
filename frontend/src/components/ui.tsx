@@ -154,10 +154,7 @@ export function Badge({ children, variant = 'default', size = 'sm' }: BadgeProps
 // ── Spinner ───────────────────────────────────────────────
 export function Spinner({ size = 20, color = 'var(--accent)' }: { size?: number; color?: string }) {
   return (
-    <>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <span style={{ display: 'inline-block', width: size, height: size, border: '2px solid var(--border)', borderTopColor: color, borderRadius: '50%', animation: 'spin 0.6s linear infinite', flexShrink: 0 }} />
-    </>
+    <span style={{ display: 'inline-block', width: size, height: size, border: '2px solid var(--border)', borderTopColor: color, borderRadius: '50%', animation: 'spin 0.6s linear infinite', flexShrink: 0 }} />
   )
 }
 
