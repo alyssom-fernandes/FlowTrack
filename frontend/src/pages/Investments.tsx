@@ -267,7 +267,7 @@ export function Investments() {
 
         {/* Metrics */}
         {investments.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+          <div className="ft-metrics-grid">
             <MetricCard label="Total investido"   value={formatCurrency(totals.invested)} />
             <MetricCard label="Valor atual"        value={formatCurrency(totals.current)} />
             <MetricCard label="Rentabilidade total"

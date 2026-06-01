@@ -11,7 +11,7 @@ const NAV = [
   { path: '/investments',  label: 'Investimentos',mLabel: 'Investir',   icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg> },
   { path: '/goals',        label: 'Metas',        mLabel: 'Metas',      icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg> },
   { path: '/reports',      label: 'Relatórios',   mLabel: 'Relatórios', icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> },
-  { path: '/profile',      label: 'Perfil',       mLabel: 'Perfil',     icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><rect x="8" y="3" width="8" height="8"/></svg> },
+  { path: '/profile',      label: 'Perfil',       mLabel: 'Perfil',     icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
 ]
 
 // ── Sidebar ───────────────────────────────────────────────
@@ -42,7 +42,7 @@ export function Sidebar() {
 
       {/* Footer: user · Sair */}
       <div style={{ padding: '0.625rem 0.875rem', borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem' }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-hint)" strokeWidth="1.5" strokeLinecap="square"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><rect x="8" y="3" width="8" height="8"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-hint)" strokeWidth="1.5" strokeLinecap="square"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: '500' }}>{displayName}</span>
         <span style={{ color: 'var(--text-hint)', fontSize: 'var(--font-size-sm)' }}>·</span>
         <button onClick={() => authService.signOut()} style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', cursor: 'pointer', background: 'none', border: 'none', padding: 0, fontFamily: 'var(--font)', transition: 'color var(--transition)' }}
@@ -53,7 +53,7 @@ export function Sidebar() {
   )
 }
 
-const MOBILE_NAV = NAV.filter(item => item.path !== '/reports')
+const MOBILE_NAV = NAV
 
 // ── BottomNavbar ──────────────────────────────────────────
 export function BottomNavbar() {
@@ -96,7 +96,7 @@ function OfflineBanner() {
   if (isOnline && !isSyncing) return null
   return (
     <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
+      position: 'sticky', top: 0, zIndex: 50, flexShrink: 0,
       padding: '0.375rem 1rem', textAlign: 'center',
       background: isSyncing ? 'var(--accent-soft)' : 'var(--red-soft)',
       borderBottom: `0.5px solid ${isSyncing ? 'var(--accent)' : 'var(--red)'}`,
@@ -115,17 +115,19 @@ export function AppShell({ children }: { children: ReactNode }) {
       <style>{`
         .ft-sidebar { display: none; }
         .ft-bottom { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; }
-        .ft-main { padding-bottom: calc(3.5rem + env(safe-area-inset-bottom)); }
+        .ft-main { padding-bottom: calc(3.5rem + env(safe-area-inset-bottom)); overflow-x: hidden; }
         @media (min-width: 768px) {
           .ft-sidebar { display: flex !important; }
           .ft-bottom  { display: none !important; }
           .ft-main    { padding-bottom: 0 !important; }
         }
       `}</style>
-      <OfflineBanner />
       <div style={{ display: 'flex', minHeight: '100dvh', background: 'var(--bg)' }}>
         <div className="ft-sidebar"><Sidebar /></div>
-        <main className="ft-main" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>{children}</main>
+        <main className="ft-main" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <OfflineBanner />
+          {children}
+        </main>
         <div className="ft-bottom"><BottomNavbar /></div>
       </div>
     </>

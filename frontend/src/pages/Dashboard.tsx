@@ -164,7 +164,7 @@ export function Dashboard() {
         </div>
 
         {/* Metrics */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+        <div className="ft-metrics-grid">
           <MetricCard label="Saldo total" value={formatCurrencyCompact(totalBalance)} sub={accounts.length > 0 ? `${accounts.length} conta${accounts.length > 1 ? 's' : ''}` : 'Sem contas'} />
           <MetricCard label="Receitas" value={formatCurrencyCompact(income)} sub="↑ este mês" subColor="var(--green)" />
           <MetricCard label="Gastos" value={formatCurrencyCompact(expenses)} sub="↓ este mês" subColor="var(--red)" />

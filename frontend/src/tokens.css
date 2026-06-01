@@ -47,6 +47,7 @@
 
   /* Typography */
   --font:        'Outfit', sans-serif;
+  --font-mono:   'JetBrains Mono', monospace;
   --font-size-xs:   0.625rem;   /* 10px */
   --font-size-sm:   0.6875rem;  /* 11px */
   --font-size-base: 0.75rem;    /* 12px */
@@ -191,3 +192,16 @@ img, svg {
 
 /* ── ANIMATIONS ── */
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RESPONSIVE METRICS GRID ── */
+.ft-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+@media (max-width: 480px) {
+  .ft-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}

@@ -23,7 +23,7 @@ export function formatDateShort(dateStr: string): string {
 }
 
 export function toISODate(date: Date = new Date()): string {
-  return date.toISOString().split('T')[0]
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 export function getCurrentMonthRange() {
