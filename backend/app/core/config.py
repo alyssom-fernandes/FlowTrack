@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     supabase_service_role_key: str
     supabase_jwt_secret: str
 
-    # Anthropic
-    anthropic_api_key: str
+    # Anthropic (optional — AI categorization disabled if not set)
+    anthropic_api_key: str = ""
 
     # Internal security
     internal_api_token: str
