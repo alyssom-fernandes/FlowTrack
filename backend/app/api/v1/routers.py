@@ -93,7 +93,7 @@ async def list_transactions(
     account_id: Optional[str] = Query(None), category_id: Optional[str] = Query(None),
     start_date: Optional[date] = Query(None), end_date: Optional[date] = Query(None),
     type: Optional[str] = Query(None), search: Optional[str] = Query(None),
-    page: int = Query(default=1, ge=1), page_size: int = Query(default=50, ge=1, le=100),
+    page: int = Query(default=1, ge=1), page_size: int = Query(default=50, ge=1, le=500),
     user_id: str = Depends(get_current_user_id),
 ):
     try:
@@ -278,7 +278,7 @@ async def export_transactions(
 
 # ── Internal ──────────────────────────────────────────────
 @internal_router.post("/process-queue", tags=["Internal"], dependencies=[Depends(verify_internal_token)])
-async def process_queue():
+def process_queue():
     from app.integrations.claude_api import process_categorization_queue
     logger.info("Processing categorization queue")
-    return await process_categorization_queue(batch_size=20)
+    return process_categorization_queue(batch_size=20)

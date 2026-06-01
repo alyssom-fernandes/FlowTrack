@@ -6,7 +6,7 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def _build_category_prompt(category_names: list[str]) -> str:
+def _build_system_prompt(category_names: list[str]) -> str:
     return (
         "You are a Brazilian financial transaction categorizer. "
         "Given a transaction description, return ONLY the most appropriate category name "
@@ -15,7 +15,7 @@ def _build_category_prompt(category_names: list[str]) -> str:
     )
 
 
-async def process_categorization_queue(batch_size: int = 20) -> dict:
+def process_categorization_queue(batch_size: int = 20) -> dict:
     settings = get_settings()
     sb = get_supabase()
 
@@ -23,7 +23,6 @@ async def process_categorization_queue(batch_size: int = 20) -> dict:
         logger.warning("ANTHROPIC_API_KEY not configured — skipping AI categorization")
         return {"status": "skipped", "reason": "api_key_not_configured", "processed": 0}
 
-    # Load pending queue items with their transaction data
     queue_res = (
         sb.table("categorization_queue")
         .select("id, transaction_id, user_id")
@@ -36,18 +35,17 @@ async def process_categorization_queue(batch_size: int = 20) -> dict:
     if not items:
         return {"status": "ok", "processed": 0}
 
-    # Load categories once (shared system prompt — cacheable)
     cats_res = sb.table("categories").select("id, name").order("name").execute()
     categories = cats_res.data or []
     if not categories:
         logger.warning("No categories found in DB")
         return {"status": "ok", "processed": 0}
 
-    cat_by_name = {c["name"].lower(): c for c in categories}
+    cat_by_name_lower = {c["name"].lower(): c for c in categories}
     category_names = [c["name"] for c in categories]
-    system_prompt = _build_category_prompt(category_names)
 
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    system_prompt = _build_system_prompt(category_names)
     processed = 0
 
     for item in items:
@@ -56,21 +54,26 @@ async def process_categorization_queue(batch_size: int = 20) -> dict:
         queue_id = item["id"]
 
         try:
-            # Get transaction
-            txn_res = sb.table("transactions").select("id, description, description_normalized, amount").eq("id", txn_id).single().execute()
+            txn_res = (
+                sb.table("transactions")
+                .select("id, description, description_normalized, amount")
+                .eq("id", txn_id)
+                .single()
+                .execute()
+            )
             txn = txn_res.data
             if not txn:
                 _mark_queue(sb, queue_id, "failed")
                 continue
 
-            desc_norm = txn.get("description_normalized") or txn.get("description", "")
-            merchant_key = desc_norm[:80]
+            desc_norm = (txn.get("description_normalized") or txn.get("description", ""))[:80]
 
             # Check merchant cache first
             cache_res = (
                 sb.table("merchant_cache")
                 .select("category_id")
-                .eq("merchant_normalized", merchant_key)
+                .eq("normalized_description", desc_norm)
+                .eq("user_id", user_id)
                 .limit(1)
                 .execute()
             )
@@ -94,11 +97,11 @@ async def process_categorization_queue(batch_size: int = 20) -> dict:
                     "text": system_prompt,
                     "cache_control": {"type": "ephemeral"},
                 }],
-                messages=[{"role": "user", "content": desc_norm or txn["description"]}],
+                messages=[{"role": "user", "content": txn.get("description_normalized") or txn["description"]}],
             )
 
             cat_name = response.content[0].text.strip()
-            cat = cat_by_name.get(cat_name.lower())
+            cat = cat_by_name_lower.get(cat_name.lower())
 
             if cat:
                 sb.table("transactions").update({
@@ -107,13 +110,14 @@ async def process_categorization_queue(batch_size: int = 20) -> dict:
                     "confidence_score": 0.85,
                 }).eq("id", txn_id).execute()
 
-                # Populate merchant cache for future hits
+                # Upsert merchant cache
                 sb.table("merchant_cache").upsert({
-                    "merchant_normalized": merchant_key,
+                    "normalized_description": desc_norm,
                     "category_id": cat["id"],
                     "user_id": user_id,
-                    "confidence_score": 0.85,
-                }).execute()
+                    "confidence": 0.85,
+                    "source": "ai",
+                }, on_conflict="normalized_description,user_id").execute()
             else:
                 logger.warning("Claude returned unknown category", cat_name=cat_name, txn_id=txn_id)
 

@@ -64,8 +64,8 @@ export function useOnlineStatus() {
     for (const item of pending) {
       try {
         if (item.entity === 'transaction') {
-          if (item.action === 'create') await transactionsService.create(item.data as Parameters<typeof transactionsService.create>[0])
-          else if (item.action === 'update' && item.data.id) await transactionsService.update(item.data.id as string, item.data as Parameters<typeof transactionsService.update>[1])
+          if (item.action === 'create') await transactionsService.create(item.data as unknown as Parameters<typeof transactionsService.create>[0])
+          else if (item.action === 'update' && item.data.id) await transactionsService.update(item.data.id as string, item.data as unknown as Parameters<typeof transactionsService.update>[1])
           else if (item.action === 'delete' && item.data.id) await transactionsService.remove(item.data.id as string)
         }
         await syncQueueService.markDone(item.id)

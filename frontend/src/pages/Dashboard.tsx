@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { PageFooter } from '../components/layout'
 import { Card, Spinner } from '../components/ui'
 import { transactionsService, accountsService } from '../services'
-import { formatCurrency, formatCurrencyCompact, formatDateShort, getCurrentMonthRange } from '../utils'
+import { formatCurrency, formatCurrencyCompact, formatDateShort, getCurrentMonthRange, toISODate } from '../utils'
 import type { Transaction, Account } from '../types'
 
 // ── Metric Card ───────────────────────────────────────────
@@ -116,9 +116,12 @@ export function Dashboard() {
   useEffect(() => {
     const load = async () => {
       try {
-        const { start_date, end_date } = getCurrentMonthRange()
+        const now = new Date()
+        const { end_date } = getCurrentMonthRange()
+        // Fetch 6 months for the sparkline chart
+        const chartStart = toISODate(new Date(now.getFullYear(), now.getMonth() - 5, 1))
         const [txnRes, accRes] = await Promise.all([
-          transactionsService.list({ start_date, end_date, page_size: 100 }),
+          transactionsService.list({ start_date: chartStart, end_date, page_size: 500 }),
           accountsService.list(),
         ])
         setTransactions(txnRes.transactions || [])
@@ -132,11 +135,14 @@ export function Dashboard() {
     load()
   }, [])
 
-  // Metrics
+  // Current month range for metrics
+  const { start_date: monthStart } = getCurrentMonthRange()
+  const currentMonth = transactions.filter(t => t.transaction_date >= monthStart)
+
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
-  const income = transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
-  const expenses = Math.abs(transactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0))
-  const recentTxns = [...transactions].sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()).slice(0, 5)
+  const income = currentMonth.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
+  const expenses = Math.abs(currentMonth.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0))
+  const recentTxns = [...currentMonth].sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()).slice(0, 5)
 
   if (loading) {
     return (
@@ -190,16 +196,18 @@ export function Dashboard() {
                     <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: 'var(--red)', boxShadow: '0 0 0 3px var(--red-soft)', flexShrink: 0, marginTop: '0.25rem' }} />
                     <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>Gastos superam receitas este mês</span>
                   </div>
-                : <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>Nenhum alerta no momento.</p>
+                : currentMonth.length > 0
+                  ? <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>Finanças equilibradas este mês.</p>
+                  : <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>Nenhuma transação este mês.</p>
               }
             </Card>
 
             <Card accent>
               <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', letterSpacing: '0.07em', textTransform: 'uppercase', display: 'block', marginBottom: '0.375rem' }}>IA · Insight</span>
               <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                {transactions.length === 0
+                {currentMonth.length === 0
                   ? 'Adicione transações para receber insights personalizados.'
-                  : `Você registrou ${transactions.length} transação${transactions.length > 1 ? 'ões' : ''} este mês. ${expenses > 0 ? `Seus gastos estão em ${formatCurrencyCompact(expenses)}.` : ''}`
+                  : `Você registrou ${currentMonth.length} transaç${currentMonth.length > 1 ? 'ões' : 'ão'} este mês. ${expenses > 0 ? `Gastos em ${formatCurrencyCompact(expenses)}.` : ''} ${income > 0 ? `Receitas em ${formatCurrencyCompact(income)}.` : ''}`
                 }
               </p>
             </Card>
