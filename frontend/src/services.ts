@@ -102,6 +102,15 @@ export const transactionsService = {
   async remove(id: string): Promise<void> {
     await api.delete(`/api/v1/transactions/${id}`)
   },
+  async importPdf(accountId: string, file: File): Promise<{ bank: string; imported: number; skipped: number; total: number }> {
+    const form = new FormData()
+    form.append('account_id', accountId)
+    form.append('file', file)
+    const { data } = await api.post('/api/v1/import/pdf', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  },
   async exportCsv(filters: { start_date?: string; end_date?: string; account_id?: string } = {}): Promise<void> {
     const params = new URLSearchParams()
     Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v) })

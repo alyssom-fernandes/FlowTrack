@@ -2,7 +2,7 @@ import csv
 import io
 import hashlib
 import re
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from typing import Optional
 from datetime import date
@@ -276,6 +276,50 @@ async def export_transactions(
         return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=flowtrack_{date.today()}.csv"})
     except Exception as e:
         logger.error("export failed", error=str(e)); raise HTTPException(500, "Failed to export")
+
+
+# ── Import PDF ────────────────────────────────────────────
+@router.post("/import/pdf", tags=["Import"])
+async def import_pdf(
+    account_id: str = Form(...),
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user_id),
+):
+    from app.integrations.pdf_parser import parse_pdf, BANK_LABELS
+    if not (file.filename or '').lower().endswith('.pdf'):
+        raise HTTPException(400, "O arquivo deve ser um PDF.")
+    pdf_bytes = await file.read()
+    bank, transactions = parse_pdf(pdf_bytes)
+    if bank == 'unknown':
+        raise HTTPException(422, "Banco não reconhecido. Suportados: Nubank, Sicredi, Mercado Pago, Will Bank.")
+    imported = skipped = 0
+    for tx in transactions:
+        try:
+            desc_norm = normalize_desc(tx['description'])
+            tx_date = tx['transaction_date']
+            data = {
+                'user_id': user_id,
+                'account_id': account_id,
+                'description': tx['description'],
+                'description_normalized': desc_norm,
+                'amount': tx['amount'],
+                'transaction_date': tx_date,
+                'type': tx['type'],
+                'sync_status': 'synced',
+                'dedup_hash': dedup_hash(account_id, tx_date, tx['amount'], desc_norm),
+            }
+            result = get_supabase().table('transactions').insert(data).execute()
+            txn_id = result.data[0]['id'] if result.data else None
+            if txn_id:
+                is_demo = get_supabase().table('demo_users').select('user_id').eq('user_id', user_id).limit(1).execute()
+                if not is_demo.data:
+                    get_supabase().table('categorization_queue').insert({'user_id': user_id, 'transaction_id': txn_id, 'status': 'pending'}).execute()
+            imported += 1
+        except Exception as e:
+            skipped += 1
+            if 'dedup_hash' not in str(e) and 'unique' not in str(e).lower():
+                logger.warning("pdf_import_row_failed", error=str(e))
+    return {'bank': BANK_LABELS.get(bank, bank), 'imported': imported, 'skipped': skipped, 'total': len(transactions)}
 
 
 # ── Internal ──────────────────────────────────────────────

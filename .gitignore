@@ -45,3 +45,6 @@ frontend/.vite/
 .sentryclirc
 
 frontend/.env.local
+
+# Extratos de amostra — nunca commitar
+_samples/

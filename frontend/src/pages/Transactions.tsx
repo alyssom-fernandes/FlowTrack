@@ -335,6 +335,78 @@ function FilterBar({ filters, onChange, accounts, categories }: {
   )
 }
 
+// ── PdfImportStep ─────────────────────────────────────────
+function PdfStep({ file, accounts, onImported, onClose }: {
+  file: File; accounts: Account[]; onImported: () => void; onClose: () => void
+}) {
+  const [accountId, setAccountId] = useState(accounts[0]?.id || '')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<{ bank: string; imported: number; skipped: number } | null>(null)
+  const [errMsg, setErrMsg] = useState('')
+
+  const handleImport = async () => {
+    if (!accountId) return
+    setStatus('loading')
+    try {
+      const res = await transactionsService.importPdf(accountId, file)
+      setResult(res)
+      setStatus('done')
+    } catch (e: unknown) {
+      const ae = e as { response?: { data?: { detail?: string } } }
+      setErrMsg(ae.response?.data?.detail || 'Erro ao processar o PDF. Tente novamente.')
+      setStatus('error')
+    }
+  }
+
+  if (status === 'loading') return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem 0' }}>
+      <Spinner size={28} />
+      <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>Analisando PDF e importando...</p>
+    </div>
+  )
+
+  if (status === 'done' && result) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center', padding: '1rem 0' }}>
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.5" strokeLinecap="square">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+      <div>
+        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', marginBottom: '0.25rem' }}>{result.bank}</p>
+        <p style={{ fontSize: 'var(--font-size-lg)', fontWeight: '600', color: 'var(--text-primary)' }}>
+          {result.imported} transaç{result.imported === 1 ? 'ão importada' : 'ões importadas'}
+        </p>
+        {result.skipped > 0 && (
+          <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+            {result.skipped} ignorada{result.skipped > 1 ? 's' : ''} (duplicadas ou inválidas)
+          </p>
+        )}
+      </div>
+      <Button onClick={() => { onImported(); onClose() }}>Ver transações</Button>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+      {status === 'error' && (
+        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)', padding: '0.5rem 0.75rem', background: 'var(--red-soft)', borderRadius: 'var(--radius-md)' }}>{errMsg}</p>
+      )}
+      <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
+        Arquivo: <strong style={{ color: 'var(--text-secondary)' }}>{file.name}</strong>
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+        <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Conta *</label>
+        <select value={accountId} onChange={e => setAccountId(e.target.value)} style={sel}>
+          {accounts.map(a => <option key={a.id} value={a.id}>{a.name} — {a.bank_name}</option>)}
+        </select>
+      </div>
+      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+        <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+        <Button onClick={handleImport} disabled={!accountId}>Importar PDF</Button>
+      </div>
+    </div>
+  )
+}
+
 // ── CsvImportModal ────────────────────────────────────────
 type CsvStep = 'upload' | 'map' | 'importing' | 'done'
 
@@ -373,13 +445,14 @@ function CsvImportModal({ open, onClose, onImported, accounts }: {
   const [imported, setImported] = useState(0)
   const [skipped, setSkipped] = useState(0)
   const [error, setError] = useState('')
+  const [pdfFile, setPdfFile] = useState<File | null>(null)
 
   useEffect(() => {
     if (!open) {
       setStep('upload'); setHeaders([]); setRows([])
       setAccountId(''); setColDate(''); setColDesc('')
       setColAmount(''); setColCredit(''); setColDebit('')
-      setSplitMode(false); setImported(0); setSkipped(0); setError('')
+      setSplitMode(false); setImported(0); setSkipped(0); setError(''); setPdfFile(null)
     } else {
       setAccountId(accounts[0]?.id || '')
     }
@@ -389,6 +462,11 @@ function CsvImportModal({ open, onClose, onImported, accounts }: {
     const file = e.target.files?.[0]
     if (!file) return
     setError('')
+    // PDF → backend parsing
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+      setPdfFile(file)
+      return
+    }
     const reader = new FileReader()
     reader.onload = (evt) => {
       try {
@@ -457,24 +535,30 @@ function CsvImportModal({ open, onClose, onImported, accounts }: {
   const colSel: React.CSSProperties = { ...sel, fontSize: 'var(--font-size-sm)' }
 
   return (
-    <Modal open={open} onClose={onClose} title="Importar extrato CSV" width="36rem">
+    <Modal open={open} onClose={onClose} title="Importar extrato" width="36rem">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
         {error && <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)', padding: '0.5rem 0.75rem', background: 'var(--red-soft)', borderRadius: 'var(--radius-md)' }}>{error}</p>}
 
-        {step === 'upload' && (
+        {/* PDF flow — delegate to PdfStep */}
+        {pdfFile && (
+          <PdfStep file={pdfFile} accounts={accounts} onImported={onImported} onClose={onClose} />
+        )}
+
+        {!pdfFile && step === 'upload' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              Selecione um arquivo <strong>.csv</strong> exportado do seu banco (Nubank, Itaú, Bradesco, Santander e outros). O sistema detecta as colunas automaticamente.
+              Selecione um arquivo <strong>.csv</strong> ou <strong>.pdf</strong> do seu banco.<br />
+              <span style={{ color: 'var(--text-hint)' }}>PDF automático: Nubank, Sicredi, Mercado Pago, Will Bank. CSV: qualquer banco (você mapeia as colunas).</span>
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-              <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Arquivo CSV *</label>
-              <input type="file" accept=".csv,.txt" onChange={handleFile}
+              <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Arquivo *</label>
+              <input type="file" accept=".csv,.txt,.pdf" onChange={handleFile}
                 style={{ padding: '0.5rem', background: 'var(--bg-input)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-md)', color: 'var(--text-primary)', cursor: 'pointer', width: '100%' }} />
             </div>
           </div>
         )}
 
-        {step === 'map' && (
+        {!pdfFile && step === 'map' && (
           <>
             {/* Account */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
@@ -573,14 +657,14 @@ function CsvImportModal({ open, onClose, onImported, accounts }: {
           </>
         )}
 
-        {step === 'importing' && (
+        {!pdfFile && step === 'importing' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem 0' }}>
             <Spinner size={28} />
             <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>Importando transações...</p>
           </div>
         )}
 
-        {step === 'done' && (
+        {!pdfFile && step === 'done' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center', padding: '1rem 0' }}>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.5" strokeLinecap="square">
               <polyline points="20 6 9 17 4 12" />
