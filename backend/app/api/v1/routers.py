@@ -123,7 +123,9 @@ async def create_transaction(body: TransactionCreate, user_id: str = Depends(get
         result = get_supabase().table("transactions").insert(data).execute()
         txn = result.data[0]
         if not body.category_id:
-            get_supabase().table("categorization_queue").insert({"user_id": user_id, "transaction_id": txn["id"], "status": "pending"}).execute()
+            is_demo = get_supabase().table("demo_users").select("user_id").eq("user_id", user_id).limit(1).execute()
+            if not is_demo.data:
+                get_supabase().table("categorization_queue").insert({"user_id": user_id, "transaction_id": txn["id"], "status": "pending"}).execute()
         return txn
     except Exception as e:
         if "dedup_hash" in str(e) or "unique" in str(e).lower(): raise HTTPException(409, "Duplicate transaction")
