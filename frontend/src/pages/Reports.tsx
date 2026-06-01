@@ -152,9 +152,9 @@ function DonutChart({ slices }: { slices: Slice[] }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.375rem', minWidth: 0 }}>
         {slices.slice(0, 8).map((sl, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: '0.625rem', height: '0.625rem', borderRadius: '50%', background: sl.color, flexShrink: 0 }} />
+            <CategoryIconSvg icon={sl.icon} color={sl.color} />
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {resolveIcon(sl.icon)}{resolveIcon(sl.icon) ? ' ' : ''}{sl.label}
+              {sl.label}
             </span>
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', flexShrink: 0 }}>
               {((sl.value / total) * 100).toFixed(0)}%
@@ -190,9 +190,12 @@ function TopExpenses({ transactions, categories }: { transactions: Transaction[]
         return (
           <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
-                {resolveIcon(cat?.icon)}{resolveIcon(cat?.icon) ? ' ' : ''}{desc}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', overflow: 'hidden', maxWidth: '60%' }}>
+                {cat?.icon && <CategoryIconSvg icon={cat.icon} color={cat.color || 'var(--accent)'} />}
+                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {desc}
+                </span>
+              </div>
               <span style={{ fontSize: 'var(--font-size-sm)', fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: '500' }}>
                 {formatCurrency(val)}
               </span>
@@ -213,17 +216,31 @@ const PALETTE = [
   '#EC4899','#14B8A6','#F97316','#6366F1','#84CC16',
 ]
 
-// Maps Feather/Lucide icon names (stored in DB) to display emojis
-const ICON_EMOJI: Record<string, string> = {
-  'utensils': '🍽️', 'car': '🚗', 'home': '🏠', 'heart': '❤️',
-  'book': '📚', 'music': '🎵', 'shirt': '👕', 'repeat': '🔄',
-  'trending-up': '📈', 'dollar-sign': '💰', 'arrow-right': '➡️',
-  'more-horizontal': '•',
-}
-
-function resolveIcon(icon?: string): string {
-  if (!icon) return ''
-  return ICON_EMOJI[icon] || ''
+// ── Category SVG icons (Feather icon names → inline SVG) ───
+function CategoryIconSvg({ icon, color, size = 13 }: { icon?: string; color: string; size?: number }) {
+  if (!icon) return null
+  const s = { fill: 'none' as const, stroke: color, strokeWidth: '1.5', strokeLinecap: 'square' as const, strokeLinejoin: 'round' as const }
+  const shapes: Record<string, React.ReactNode> = {
+    'utensils':        <><path {...s} d="M3 2v7c0 1.1.9 2 2 2s2-.9 2-2V2M5 11v11M9 2v5c0 2.2 1.8 4 4 4v11"/></>,
+    'car':             <><path {...s} d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2"/><circle {...s} cx="7" cy="17" r="2"/><circle {...s} cx="17" cy="17" r="2"/></>,
+    'home':            <><path {...s} d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline {...s} points="9 22 9 12 15 12 15 22"/></>,
+    'heart':           <path {...s} d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>,
+    'book':            <><path {...s} d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path {...s} d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></>,
+    'music':           <><path {...s} d="M9 18V5l12-2v13"/><circle {...s} cx="6" cy="18" r="3"/><circle {...s} cx="18" cy="16" r="3"/></>,
+    'shirt':           <path {...s} d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z"/>,
+    'repeat':          <><polyline {...s} points="17 1 21 5 17 9"/><path {...s} d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline {...s} points="7 23 3 19 7 15"/><path {...s} d="M21 13v2a4 4 0 0 1-4 4H3"/></>,
+    'trending-up':     <><polyline {...s} points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline {...s} points="17 6 23 6 23 12"/></>,
+    'dollar-sign':     <><line {...s} x1="12" y1="1" x2="12" y2="23"/><path {...s} d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>,
+    'arrow-right':     <><line {...s} x1="5" y1="12" x2="19" y2="12"/><polyline {...s} points="12 5 19 12 12 19"/></>,
+    'more-horizontal': <><circle {...s} cx="12" cy="12" r="1"/><circle {...s} cx="19" cy="12" r="1"/><circle {...s} cx="5" cy="12" r="1"/></>,
+  }
+  const shape = shapes[icon]
+  if (!shape) return null
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+      {shape}
+    </svg>
+  )
 }
 
 // ── Reports ───────────────────────────────────────────────
