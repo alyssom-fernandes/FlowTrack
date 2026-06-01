@@ -14,6 +14,14 @@ import { Reports } from './pages/Reports'
 import { Profile } from './pages/Profile'
 import { ResetPassword } from './pages/ResetPassword'
 
+// ── Root redirect — forward recovery codes to /reset-password
+function RootRedirect() {
+  if (window.location.search.includes('code=')) {
+    return <Navigate to={`/reset-password${window.location.search}`} replace />
+  }
+  return <Navigate to="/dashboard" replace />
+}
+
 // ── Protected Route ───────────────────────────────────────
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuthStore()
@@ -44,7 +52,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<RootRedirect />} />
         {[
           { path: '/dashboard',    el: <Dashboard /> },
           { path: '/transactions', el: <Transactions /> },
