@@ -2,6 +2,7 @@ import { type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store'
 import { authService } from '../services'
+import { useOnlineStatus } from '../utils'
 
 // ── Nav items ─────────────────────────────────────────────
 const NAV = [
@@ -89,6 +90,24 @@ export function PageFooter() {
   )
 }
 
+// ── OfflineBanner ─────────────────────────────────────────
+function OfflineBanner() {
+  const { isOnline, isSyncing } = useOnlineStatus()
+  if (isOnline && !isSyncing) return null
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
+      padding: '0.375rem 1rem', textAlign: 'center',
+      background: isSyncing ? 'var(--accent-soft)' : 'var(--red-soft)',
+      borderBottom: `0.5px solid ${isSyncing ? 'var(--accent)' : 'var(--red)'}`,
+      fontSize: 'var(--font-size-sm)',
+      color: isSyncing ? 'var(--accent)' : 'var(--red)',
+    }}>
+      {isSyncing ? '↑ Sincronizando dados...' : '● Sem conexão — alterações serão salvas quando reconectar'}
+    </div>
+  )
+}
+
 // ── AppShell ──────────────────────────────────────────────
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -103,6 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           .ft-main    { padding-bottom: 0 !important; }
         }
       `}</style>
+      <OfflineBanner />
       <div style={{ display: 'flex', minHeight: '100dvh', background: 'var(--bg)' }}>
         <div className="ft-sidebar"><Sidebar /></div>
         <main className="ft-main" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>{children}</main>
