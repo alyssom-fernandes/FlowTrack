@@ -51,8 +51,18 @@ export const authService = {
       import.meta.env.VITE_DEMO_PASSWORD || 'demo123456'
     )
   },
-  onAuthStateChange(callback: (session: unknown) => void) {
-    return supabase.auth.onAuthStateChange((_event, session) => callback(session))
+  onAuthStateChange(callback: (session: unknown, event: string) => void) {
+    return supabase.auth.onAuthStateChange((event, session) => callback(session, event))
+  },
+  async updatePassword(newPassword: string) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw error
+  },
+  async sendPasswordReset(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/`,
+    })
+    if (error) throw error
   },
 }
 
