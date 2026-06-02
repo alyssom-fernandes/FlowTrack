@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { PageFooter } from '../components/layout'
 import { Card, Button, Input, Modal, Spinner } from '../components/ui'
-import { useAuthStore } from '../store'
+import { useAuthStore, useToastStore } from '../store'
 import { authService, accountsService, categoriesService } from '../services'
 import { formatCurrency, formatDate } from '../utils'
 import type { Account, AccountCreate, BankOption, Category, CategoryCreate } from '../types'
@@ -88,6 +88,8 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+const BLANK_ACCOUNT: AccountCreate = { name: '', bank_name: 'Nubank', bank_color: '#820ad1', account_type: 'checking', currency: 'BRL', balance: 0 }
+
 // ── AccountModal ──────────────────────────────────────────
 function AccountModal({ open, onClose, onSaved, initial }: {
   open: boolean
@@ -96,9 +98,8 @@ function AccountModal({ open, onClose, onSaved, initial }: {
   initial?: Account | null
 }) {
   const isEdit = !!initial
-  const blank: AccountCreate = { name: '', bank_name: 'Nubank', bank_color: '#820ad1', account_type: 'checking', currency: 'BRL', balance: 0 }
 
-  const [form, setForm] = useState<AccountCreate>(blank)
+  const [form, setForm] = useState<AccountCreate>(BLANK_ACCOUNT)
   const [balanceStr, setBalanceStr] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -109,7 +110,7 @@ function AccountModal({ open, onClose, onSaved, initial }: {
       setForm({ name: initial.name, bank_name: initial.bank_name, bank_color: initial.bank_color, account_type: initial.account_type, currency: initial.currency, balance: initial.balance })
       setBalanceStr(String(initial.balance))
     } else {
-      setForm(blank)
+      setForm(BLANK_ACCOUNT)
       setBalanceStr('')
     }
     setError('')
@@ -226,14 +227,14 @@ function AccountRow({ account, onEdit, onDeleted }: {
           </>
         ) : (
           <>
-            <button onClick={() => onEdit(account)} title="Editar" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+            <button onClick={() => onEdit(account)} title="Editar" aria-label="Editar conta" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
             </button>
-            <button onClick={() => setConfirmDelete(true)} title="Excluir" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+            <button onClick={() => setConfirmDelete(true)} title="Excluir" aria-label="Excluir conta" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--red)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
@@ -276,14 +277,14 @@ function CategoryRow({ cat, onEdit, onDeleted }: {
             </div>
           ) : (
             <>
-              <button onClick={() => onEdit(cat)} title="Editar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+              <button onClick={() => onEdit(cat)} title="Editar" aria-label="Editar categoria" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
                 onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-hint)')}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
               </button>
-              <button onClick={() => setConfirmDelete(true)} title="Excluir" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+              <button onClick={() => setConfirmDelete(true)} title="Excluir" aria-label="Excluir categoria" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
                 onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-hint)')}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
@@ -354,6 +355,7 @@ function CategoryModal({ open, onClose, onSaved, initial }: {
 // ── Profile ───────────────────────────────────────────────
 export function Profile() {
   const { user, isDemo } = useAuthStore()
+  const { toast } = useToastStore()
   const [signingOut, setSigningOut] = useState(false)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
@@ -385,8 +387,15 @@ export function Profile() {
     try { await authService.signOut() } finally { setSigningOut(false) }
   }
 
-  const handleAccountSaved = () => { loadAccounts(); setEditingAccount(null) }
-  const handleAccountDeleted = (id: string) => setAccounts(prev => prev.filter(a => a.id !== id))
+  const handleAccountSaved = () => {
+    loadAccounts()
+    toast({ message: editingAccount ? 'Conta atualizada!' : 'Conta criada!' })
+    setEditingAccount(null)
+  }
+  const handleAccountDeleted = (id: string) => {
+    setAccounts(prev => prev.filter(a => a.id !== id))
+    toast({ message: 'Conta excluída.' })
+  }
 
   const displayName = isDemo ? 'Demo' : (user?.email?.split('@')[0] || '—')
 
@@ -522,7 +531,7 @@ export function Profile() {
       <CategoryModal
         open={showCatModal}
         onClose={() => { setShowCatModal(false); setEditingCat(null) }}
-        onSaved={() => { loadCategories(); setEditingCat(null) }}
+        onSaved={() => { loadCategories(); toast({ message: editingCat ? 'Categoria atualizada!' : 'Categoria criada!' }); setEditingCat(null) }}
         initial={editingCat}
       />
 

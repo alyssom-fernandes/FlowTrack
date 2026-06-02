@@ -17,7 +17,7 @@ export function Login() {
   const [loading, setLoading] = useState(false)
   const [demoLoading, setDemoLoading] = useState(false)
 
-  useEffect(() => { if (user) navigate('/dashboard', { replace: true }) }, [user])
+  useEffect(() => { if (user) navigate('/dashboard', { replace: true }) }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

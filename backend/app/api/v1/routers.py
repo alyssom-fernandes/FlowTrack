@@ -16,7 +16,7 @@ from app.models import (
     GoalCreate, GoalUpdate, GoalResponse, GoalListResponse,
     InvestmentCreate, InvestmentUpdate, InvestmentResponse, InvestmentListResponse,
     CategoryCreate, CategoryUpdate, CategoryResponse, CategoryListResponse,
-    CategorizedByEnum, BulkTransactionCreate,
+    CategorizedByEnum, BulkTransactionCreate, TransferCreate,
 )
 
 router = APIRouter()
@@ -41,6 +41,18 @@ def calc_profitability(invested: float, current: float):
 
 def calc_progress(current: float, target: float) -> float:
     return round(min((current / target) * 100, 100), 2) if target > 0 else 0.0
+
+def _adjust_account_balance(sb, account_id: str, delta: float) -> None:
+    """Non-atomic balance adjustment. Sufficient for single-user personal finance."""
+    if delta == 0:
+        return
+    try:
+        acc = sb.table("accounts").select("balance").eq("id", account_id).single().execute()
+        if acc.data:
+            new_bal = round((acc.data["balance"] or 0) + delta, 2)
+            sb.table("accounts").update({"balance": new_bal}).eq("id", account_id).execute()
+    except Exception as e:
+        logger.warning("balance_adjust_failed", account_id=account_id, delta=delta, error=str(e))
 
 def _goal_period_range(goal: dict) -> tuple[str, str]:
     today = date.today()
@@ -188,12 +200,14 @@ async def create_transaction(body: TransactionCreate, user_id: str = Depends(get
         data.update({"user_id": user_id, "description_normalized": desc_norm, "sync_status": "synced",
                      "dedup_hash": dedup_hash(body.account_id, body.transaction_date, body.amount, desc_norm),
                      "transaction_date": str(body.transaction_date)})
-        result = get_supabase().table("transactions").insert(data).execute()
+        sb = get_supabase()
+        result = sb.table("transactions").insert(data).execute()
         txn = result.data[0]
+        _adjust_account_balance(sb, body.account_id, body.amount)
         if not body.category_id:
-            is_demo = get_supabase().table("demo_users").select("user_id").eq("user_id", user_id).limit(1).execute()
+            is_demo = sb.table("demo_users").select("user_id").eq("user_id", user_id).limit(1).execute()
             if not is_demo.data:
-                get_supabase().table("categorization_queue").insert({"user_id": user_id, "transaction_id": txn["id"], "status": "pending"}).execute()
+                sb.table("categorization_queue").insert({"user_id": user_id, "transaction_id": txn["id"], "status": "pending"}).execute()
         return txn
     except Exception as e:
         if "dedup_hash" in str(e) or "unique" in str(e).lower(): raise HTTPException(409, "Duplicate transaction")
@@ -207,8 +221,20 @@ async def update_transaction(transaction_id: str, body: TransactionUpdate, user_
         if not data: raise HTTPException(400, "No fields to update")
         if "category_id" in data and "categorized_by" not in data:
             data["categorized_by"] = "manual"; data["confidence_score"] = 1.0
-        result = get_supabase().table("transactions").update(data).eq("id", transaction_id).eq("user_id", user_id).execute()
+        sb = get_supabase()
+        old_res = sb.table("transactions").select("amount,account_id").eq("id", transaction_id).eq("user_id", user_id).single().execute()
+        result = sb.table("transactions").update(data).eq("id", transaction_id).eq("user_id", user_id).execute()
         if not result.data: raise HTTPException(404, "Transaction not found")
+        if old_res.data:
+            old_amount = old_res.data["amount"]
+            old_acc = old_res.data["account_id"]
+            new_amount = data.get("amount", old_amount)
+            new_acc = data.get("account_id", old_acc)
+            if old_acc == new_acc:
+                _adjust_account_balance(sb, old_acc, new_amount - old_amount)
+            else:
+                _adjust_account_balance(sb, old_acc, -old_amount)
+                _adjust_account_balance(sb, new_acc, new_amount)
         return result.data[0]
     except HTTPException: raise
     except Exception as e:
@@ -218,8 +244,12 @@ async def update_transaction(transaction_id: str, body: TransactionUpdate, user_
 @router.delete("/transactions/{transaction_id}", status_code=204, tags=["Transactions"])
 async def delete_transaction(transaction_id: str, user_id: str = Depends(get_current_user_id)):
     try:
-        result = get_supabase().table("transactions").delete().eq("id", transaction_id).eq("user_id", user_id).execute()
+        sb = get_supabase()
+        old_res = sb.table("transactions").select("amount,account_id").eq("id", transaction_id).eq("user_id", user_id).single().execute()
+        result = sb.table("transactions").delete().eq("id", transaction_id).eq("user_id", user_id).execute()
         if not result.data: raise HTTPException(404, "Transaction not found")
+        if old_res.data:
+            _adjust_account_balance(sb, old_res.data["account_id"], -old_res.data["amount"])
     except HTTPException: raise
     except Exception as e:
         logger.error("delete_transaction failed", error=str(e))
@@ -375,8 +405,10 @@ async def bulk_create_transactions(
     user_id: str = Depends(get_current_user_id),
 ):
     """Save a batch of transactions (used after PDF/CSV preview confirmation)."""
-    is_demo = get_supabase().table('demo_users').select('user_id').eq('user_id', user_id).limit(1).execute()
+    sb = get_supabase()
+    is_demo = sb.table('demo_users').select('user_id').eq('user_id', user_id).limit(1).execute()
     imported = skipped = 0
+    balance_delta = 0.0
     for tx in payload.transactions:
         try:
             desc_norm = normalize_desc(tx.description)
@@ -392,15 +424,18 @@ async def bulk_create_transactions(
                 'sync_status': 'synced',
                 'dedup_hash': dedup_hash(payload.account_id, tx_date, tx.amount, desc_norm),
             }
-            result = get_supabase().table('transactions').insert(data).execute()
+            result = sb.table('transactions').insert(data).execute()
             txn_id = result.data[0]['id'] if result.data else None
             if txn_id and not is_demo.data:
-                get_supabase().table('categorization_queue').insert({'user_id': user_id, 'transaction_id': txn_id, 'status': 'pending'}).execute()
+                sb.table('categorization_queue').insert({'user_id': user_id, 'transaction_id': txn_id, 'status': 'pending'}).execute()
             imported += 1
+            balance_delta += tx.amount
         except Exception as e:
             skipped += 1
             if 'dedup_hash' not in str(e) and 'unique' not in str(e).lower():
                 logger.warning("bulk_import_row_failed", error=str(e))
+    if imported > 0:
+        _adjust_account_balance(sb, payload.account_id, balance_delta)
     return {'imported': imported, 'skipped': skipped, 'total': len(payload.transactions)}
 
 
@@ -420,7 +455,10 @@ async def import_pdf(
     if not transactions:
         label = BANK_LABELS.get(bank, bank)
         raise HTTPException(422, f"O PDF foi identificado como {label}, mas nenhuma transação pôde ser extraída. Tente exportar novamente pelo app do banco.")
+    sb = get_supabase()
+    is_demo = sb.table('demo_users').select('user_id').eq('user_id', user_id).limit(1).execute()
     imported = skipped = 0
+    balance_delta = 0.0
     for tx in transactions:
         try:
             desc_norm = normalize_desc(tx['description'])
@@ -436,17 +474,18 @@ async def import_pdf(
                 'sync_status': 'synced',
                 'dedup_hash': dedup_hash(account_id, tx_date, tx['amount'], desc_norm),
             }
-            result = get_supabase().table('transactions').insert(data).execute()
+            result = sb.table('transactions').insert(data).execute()
             txn_id = result.data[0]['id'] if result.data else None
-            if txn_id:
-                is_demo = get_supabase().table('demo_users').select('user_id').eq('user_id', user_id).limit(1).execute()
-                if not is_demo.data:
-                    get_supabase().table('categorization_queue').insert({'user_id': user_id, 'transaction_id': txn_id, 'status': 'pending'}).execute()
+            if txn_id and not is_demo.data:
+                sb.table('categorization_queue').insert({'user_id': user_id, 'transaction_id': txn_id, 'status': 'pending'}).execute()
             imported += 1
+            balance_delta += tx['amount']
         except Exception as e:
             skipped += 1
             if 'dedup_hash' not in str(e) and 'unique' not in str(e).lower():
                 logger.warning("pdf_import_row_failed", error=str(e))
+    if imported > 0:
+        _adjust_account_balance(sb, account_id, balance_delta)
     return {'bank': BANK_LABELS.get(bank, bank), 'imported': imported, 'skipped': skipped, 'total': len(transactions)}
 
 
@@ -520,9 +559,131 @@ async def parse_ofx_preview(
     return {"transactions": transactions, "total": len(transactions)}
 
 
+# ── Transfers ─────────────────────────────────────────────
+@router.post("/transfers", status_code=201, tags=["Transactions"])
+async def create_transfer(body: TransferCreate, user_id: str = Depends(get_current_user_id)):
+    """Creates two linked transactions (debit + credit) atomically and adjusts both balances."""
+    try:
+        import uuid
+        sb = get_supabase()
+        if body.from_account_id == body.to_account_id:
+            raise HTTPException(400, "Conta de origem e destino devem ser diferentes.")
+        accs = sb.table("accounts").select("id,name").in_("id", [body.from_account_id, body.to_account_id]).eq("user_id", user_id).execute()
+        acc_map = {a["id"]: a["name"] for a in (accs.data or [])}
+        if body.from_account_id not in acc_map or body.to_account_id not in acc_map:
+            raise HTTPException(404, "Conta não encontrada.")
+        from_name = acc_map[body.from_account_id]
+        to_name = acc_map[body.to_account_id]
+        batch_id = str(uuid.uuid4())
+        tx_date = str(body.transaction_date)
+        debit_desc = body.description if body.description != "Transferência" else f"Transferência para {to_name}"
+        credit_desc = f"Transferência de {from_name}"
+        debit_norm = normalize_desc(debit_desc)
+        credit_norm = normalize_desc(credit_desc)
+        rows = [
+            {"user_id": user_id, "account_id": body.from_account_id,
+             "description": debit_desc, "description_normalized": debit_norm,
+             "amount": -abs(body.amount), "transaction_date": tx_date,
+             "type": "transfer", "sync_status": "synced", "import_batch_id": batch_id,
+             "notes": body.notes,
+             "dedup_hash": dedup_hash(body.from_account_id, body.transaction_date, -abs(body.amount), debit_norm)},
+            {"user_id": user_id, "account_id": body.to_account_id,
+             "description": credit_desc, "description_normalized": credit_norm,
+             "amount": abs(body.amount), "transaction_date": tx_date,
+             "type": "transfer", "sync_status": "synced", "import_batch_id": batch_id,
+             "notes": body.notes,
+             "dedup_hash": dedup_hash(body.to_account_id, body.transaction_date, abs(body.amount), credit_norm)},
+        ]
+        result = sb.table("transactions").insert(rows).execute()
+        _adjust_account_balance(sb, body.from_account_id, -abs(body.amount))
+        _adjust_account_balance(sb, body.to_account_id, abs(body.amount))
+        return {"transactions": result.data, "batch_id": batch_id}
+    except HTTPException: raise
+    except Exception as e:
+        logger.error("create_transfer failed", error=str(e))
+        raise HTTPException(500, "Failed to create transfer")
+
+
+# ── Summary ───────────────────────────────────────────────
+@router.get("/summary/monthly", tags=["Summary"])
+async def monthly_summary(months: int = Query(default=6, ge=1, le=24), user_id: str = Depends(get_current_user_id)):
+    """Aggregated income/expense per month — lightweight alternative to fetching 500 transactions."""
+    try:
+        from datetime import date
+        today = date.today()
+        start = date(today.year, today.month, 1)
+        for _ in range(months - 1):
+            if start.month == 1:
+                start = date(start.year - 1, 12, 1)
+            else:
+                start = date(start.year, start.month - 1, 1)
+        result = (get_supabase().table("transactions").select("transaction_date,amount")
+                  .eq("user_id", user_id)
+                  .gte("transaction_date", start.isoformat())
+                  .execute())
+        monthly: dict[str, dict] = {}
+        for t in (result.data or []):
+            key = t["transaction_date"][:7]
+            if key not in monthly:
+                monthly[key] = {"month": key, "income": 0.0, "expense": 0.0}
+            if t["amount"] > 0:
+                monthly[key]["income"] += t["amount"]
+            else:
+                monthly[key]["expense"] += abs(t["amount"])
+        for m in monthly.values():
+            m["income"] = round(m["income"], 2)
+            m["expense"] = round(m["expense"], 2)
+        return sorted(monthly.values(), key=lambda x: x["month"])
+    except Exception as e:
+        logger.error("monthly_summary failed", error=str(e))
+        raise HTTPException(500, "Failed to compute monthly summary")
+
+
 # ── Internal ──────────────────────────────────────────────
 @internal_router.post("/process-queue", tags=["Internal"], dependencies=[Depends(verify_internal_token)])
 def process_queue():
     from app.integrations.claude_api import process_categorization_queue
     logger.info("Processing categorization queue")
     return process_categorization_queue(batch_size=20)
+
+
+@internal_router.post("/generate-recurring", tags=["Internal"], dependencies=[Depends(verify_internal_token)])
+def generate_recurring():
+    """Generate recurring transactions for the current month based on last month's is_recurring=true."""
+    import calendar
+    sb = get_supabase()
+    today = date.today()
+    if today.month == 1:
+        last_first = date(today.year - 1, 12, 1)
+        last_last = date(today.year - 1, 12, 31)
+    else:
+        last_first = date(today.year, today.month - 1, 1)
+        last_last = date(today.year, today.month, 1) - timedelta(days=1)
+    recurring = sb.table("transactions").select("*").eq("is_recurring", True).gte("transaction_date", str(last_first)).lte("transaction_date", str(last_last)).execute().data or []
+    created = skipped = 0
+    for tx in recurring:
+        old_day = date.fromisoformat(tx["transaction_date"]).day
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        new_day = min(old_day, last_day)
+        new_date = date(today.year, today.month, new_day)
+        desc_norm = tx.get("description_normalized") or normalize_desc(tx["description"])
+        tx_date_str = str(new_date)
+        new_tx = {
+            "user_id": tx["user_id"], "account_id": tx["account_id"],
+            "category_id": tx.get("category_id"),
+            "description": tx["description"], "description_normalized": desc_norm,
+            "amount": tx["amount"], "transaction_date": tx_date_str,
+            "type": tx["type"], "is_recurring": True,
+            "sync_status": "synced", "categorized_by": "rule",
+            "dedup_hash": dedup_hash(tx["account_id"], tx_date_str, tx["amount"], desc_norm),
+        }
+        try:
+            sb.table("transactions").insert(new_tx).execute()
+            _adjust_account_balance(sb, tx["account_id"], tx["amount"])
+            created += 1
+        except Exception as e:
+            skipped += 1
+            if "dedup_hash" not in str(e) and "unique" not in str(e).lower():
+                logger.warning("recurring_gen_failed", error=str(e))
+    logger.info("generate_recurring done", created=created, skipped=skipped)
+    return {"created": created, "skipped": skipped}

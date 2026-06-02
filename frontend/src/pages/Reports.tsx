@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PageFooter } from '../components/layout'
 import { Card, Spinner } from '../components/ui'
-import { transactionsService, supabase } from '../services'
+import { transactionsService, categoriesService } from '../services'
 import { formatCurrency, formatCurrencyCompact, toISODate } from '../utils'
 import type { Transaction, Category } from '../types'
 
@@ -285,10 +285,10 @@ export function Reports() {
     try {
       const [txRes, catRes] = await Promise.all([
         transactionsService.list({ start_date: period.start, end_date: period.end, page_size: 500 }),
-        supabase.from('categories').select('*').order('name'),
+        categoriesService.list(),
       ])
       setTransactions(txRes.transactions ?? [])
-      setCategories((catRes.data as Category[]) ?? [])
+      setCategories(catRes.categories ?? [])
     } finally {
       setLoading(false)
     }

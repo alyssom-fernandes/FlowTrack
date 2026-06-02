@@ -81,7 +81,7 @@ export function useOnlineStatus() {
     window.addEventListener('offline', handleOffline)
     if (navigator.onLine) processQueue()
     return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline) }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return { isOnline, isSyncing }
 }

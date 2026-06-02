@@ -87,7 +87,7 @@ class GoalCreate(BaseModel):
 
 class GoalUpdate(BaseModel):
     name: Optional[str] = None; target_amount: Optional[float] = None
-    current_amount: Optional[float] = None; period: Optional[str] = None
+    period: Optional[str] = None
     end_date: Optional[date] = None; is_active: Optional[bool] = None
 
 class GoalResponse(BaseModel):
@@ -151,6 +151,15 @@ class CategoryResponse(BaseModel):
 class CategoryListResponse(BaseModel):
     categories: list[CategoryResponse]; total: int
 
+
+# ── Transfer ──────────────────────────────────────────────
+class TransferCreate(BaseModel):
+    from_account_id: str
+    to_account_id: str
+    amount: float = Field(..., gt=0, description="Positive amount to transfer")
+    description: str = "Transferência"
+    transaction_date: date
+    notes: Optional[str] = None
 
 # ── Import ────────────────────────────────────────────────
 class ParsedTransactionItem(BaseModel):

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { PageFooter } from '../components/layout'
 import { Button, Card, Input, Modal, Spinner } from '../components/ui'
 import { goalsService } from '../services'
+import { useToastStore } from '../store'
 import { formatCurrency, formatDate, toISODate } from '../utils'
 import type { Goal, GoalCreate, GoalType } from '../types'
 
@@ -80,14 +81,14 @@ function GoalCard({ goal, onEdit, onDeleted }: {
             </>
           ) : (
             <>
-              <button onClick={() => onEdit(goal)} title="Editar" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+              <button onClick={() => onEdit(goal)} title="Editar" aria-label="Editar meta" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
               </button>
-              <button onClick={() => setConfirmDelete(true)} title="Excluir" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+              <button onClick={() => setConfirmDelete(true)} title="Excluir" aria-label="Excluir meta" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--red)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
@@ -118,6 +119,10 @@ function GoalCard({ goal, onEdit, onDeleted }: {
   )
 }
 
+function blankGoal(): GoalCreate {
+  return { name: '', type: 'spending_limit', target_amount: 0, start_date: toISODate(), period: 'monthly' }
+}
+
 // ── GoalModal ─────────────────────────────────────────────
 function GoalModal({ open, onClose, onSaved, initial }: {
   open: boolean
@@ -126,13 +131,8 @@ function GoalModal({ open, onClose, onSaved, initial }: {
   initial?: Goal | null
 }) {
   const isEdit = !!initial
-  const today = toISODate()
-  const blank: GoalCreate = {
-    name: '', type: 'spending_limit', target_amount: 0,
-    start_date: today, period: 'monthly',
-  }
 
-  const [form, setForm] = useState<GoalCreate>(blank)
+  const [form, setForm] = useState<GoalCreate>(blankGoal)
   const [amountStr, setAmountStr] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -150,7 +150,7 @@ function GoalModal({ open, onClose, onSaved, initial }: {
       })
       setAmountStr(String(initial.target_amount))
     } else {
-      setForm(blank)
+      setForm(blankGoal())
       setAmountStr('')
     }
     setError('')
@@ -248,6 +248,7 @@ function GoalModal({ open, onClose, onSaved, initial }: {
 
 // ── Goals (main page) ─────────────────────────────────────
 export function Goals() {
+  const { toast } = useToastStore()
   const [goals, setGoals] = useState<Goal[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -265,8 +266,15 @@ export function Goals() {
 
   useEffect(() => { load() }, [])
 
-  const handleSaved = () => { load(); setEditing(null) }
-  const handleDeleted = (id: string) => setGoals(prev => prev.filter(g => g.id !== id))
+  const handleSaved = () => {
+    load()
+    setEditing(null)
+    toast({ message: editing ? 'Meta atualizada!' : 'Meta criada!' })
+  }
+  const handleDeleted = (id: string) => {
+    setGoals(prev => prev.filter(g => g.id !== id))
+    toast({ message: 'Meta excluída.' })
+  }
 
   const savings = goals.filter(g => g.type === 'savings_target')
   const limits  = goals.filter(g => g.type === 'spending_limit')

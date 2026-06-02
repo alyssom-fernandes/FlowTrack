@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store'
 import { authService } from './services'
 import { AppShell } from './components/layout'
-import { FullPageSpinner } from './components/ui'
+import { FullPageSpinner, ToastContainer, ErrorBoundary } from './components/ui'
 
 import { Login } from './pages/Login'
 import { Dashboard } from './pages/Dashboard'
@@ -45,9 +45,10 @@ export default function App() {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
+    <ErrorBoundary>
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -69,6 +70,8 @@ export default function App() {
         ))}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      <ToastContainer />
     </BrowserRouter>
+    </ErrorBoundary>
   )
 }

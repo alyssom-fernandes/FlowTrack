@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { PageFooter } from '../components/layout'
 import { Card, Spinner } from '../components/ui'
-import { transactionsService, accountsService, goalsService, supabase } from '../services'
-import { formatCurrency, formatCurrencyCompact, formatDateShort, getCurrentMonthRange, toISODate } from '../utils'
+import { transactionsService, accountsService, goalsService, categoriesService, summaryService } from '../services'
+import { formatCurrency, formatCurrencyCompact, formatDateShort, getCurrentMonthRange } from '../utils'
 import type { Transaction, Account, Goal, Category } from '../types'
 
 // ── Metric Card ───────────────────────────────────────────
@@ -36,25 +36,13 @@ function SparklineChart({ data, color }: { data: number[]; color: string }) {
 }
 
 // ── Chart Card ────────────────────────────────────────────
-function ChartCard({ transactions }: { transactions: Transaction[] }) {
-  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-  const now = new Date()
+type MonthlySummary = { month: string; income: number; expense: number }
 
-  // Last 6 months
-  const labels: string[] = []
-  const incomeData: number[] = []
-  const expenseData: number[] = []
-
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    labels.push(months[d.getMonth()])
-    const monthTxns = transactions.filter(t => {
-      const td = new Date(t.transaction_date)
-      return td.getFullYear() === d.getFullYear() && td.getMonth() === d.getMonth()
-    })
-    incomeData.push(monthTxns.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0))
-    expenseData.push(Math.abs(monthTxns.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0)))
-  }
+function ChartCard({ summary }: { summary: MonthlySummary[] }) {
+  const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  const labels = summary.map(s => monthNames[parseInt(s.month.split('-')[1], 10) - 1])
+  const incomeData = summary.map(s => s.income)
+  const expenseData = summary.map(s => s.expense)
 
   return (
     <Card style={{ marginBottom: '0.75rem' }}>
@@ -110,6 +98,7 @@ function TxnRow({ txn }: { txn: Transaction }) {
 // ── Dashboard ─────────────────────────────────────────────
 export function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummary[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -118,19 +107,19 @@ export function Dashboard() {
   useEffect(() => {
     const load = async () => {
       try {
-        const now = new Date()
-        const { end_date } = getCurrentMonthRange()
-        const chartStart = toISODate(new Date(now.getFullYear(), now.getMonth() - 5, 1))
-        const [txnRes, accRes, goalsRes, catRes] = await Promise.all([
-          transactionsService.list({ start_date: chartStart, end_date, page_size: 500 }),
+        const { start_date, end_date } = getCurrentMonthRange()
+        const [txnRes, accRes, goalsRes, catRes, summary] = await Promise.all([
+          transactionsService.list({ start_date, end_date, page_size: 200 }),
           accountsService.list(),
           goalsService.list(),
-          supabase.from('categories').select('*').order('name'),
+          categoriesService.list(),
+          summaryService.monthly(6),
         ])
         setTransactions(txnRes.transactions || [])
         setAccounts(accRes.accounts || [])
         setGoals(goalsRes.goals || [])
-        setCategories((catRes.data || []) as Category[])
+        setCategories(catRes.categories || [])
+        setMonthlySummary(summary)
       } catch (e) {
         console.error(e)
       } finally {
@@ -140,14 +129,11 @@ export function Dashboard() {
     load()
   }, [])
 
-  // Current month range for metrics
-  const { start_date: monthStart } = getCurrentMonthRange()
-  const currentMonth = transactions.filter(t => t.transaction_date >= monthStart)
-
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
-  const income = currentMonth.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
-  const expenses = Math.abs(currentMonth.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0))
-  const recentTxns = [...currentMonth].sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()).slice(0, 5)
+  const income = transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
+  const expenses = Math.abs(transactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0))
+  const recentTxns = [...transactions].sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()).slice(0, 5)
+  const currentMonth = transactions
 
   if (loading) {
     return (
@@ -176,7 +162,7 @@ export function Dashboard() {
         </div>
 
         {/* Chart */}
-        <ChartCard transactions={transactions} />
+        <ChartCard summary={monthlySummary} />
 
         {/* Bottom grid — responsive via CSS class */}
         <div className="ft-dash-bottom">

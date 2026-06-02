@@ -1,4 +1,5 @@
-import { useState, useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react'
+import { useState, useEffect, Component, type ButtonHTMLAttributes, type InputHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react'
+import { useToastStore } from '../store'
 
 // ── Button ────────────────────────────────────────────────
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -164,6 +165,66 @@ export function FullPageSpinner() {
       <Spinner size={32} />
     </div>
   )
+}
+
+// ── Toast ─────────────────────────────────────────────────
+export function ToastContainer() {
+  const { toasts, dismiss } = useToastStore()
+  if (!toasts.length) return null
+  const colors: Record<string, { bg: string; color: string; icon: string }> = {
+    success: { bg: 'var(--green)',  color: '#fff', icon: '✓' },
+    error:   { bg: 'var(--red)',    color: '#fff', icon: '✕' },
+    info:    { bg: 'var(--accent)', color: '#fff', icon: 'ℹ' },
+  }
+  return (
+    <div style={{ position: 'fixed', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '0.5rem',
+      bottom: '1.5rem', right: '1.5rem',
+    }}>
+      {toasts.map(t => {
+        const c = colors[t.variant] ?? colors.info
+        return (
+          <div key={t.id} onClick={() => dismiss(t.id)} style={{
+            display: 'flex', alignItems: 'center', gap: '0.625rem',
+            background: c.bg, color: c.color,
+            padding: '0.625rem 1rem', borderRadius: 'var(--radius-lg)',
+            fontSize: 'var(--font-size-md)', fontWeight: '500',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+            cursor: 'pointer', userSelect: 'none', maxWidth: '22rem',
+            animation: 'ft-slide-in 0.2s ease',
+          }}>
+            <span style={{ flexShrink: 0, fontWeight: '700' }}>{c.icon}</span>
+            <span>{t.message}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Error Boundary ────────────────────────────────────────
+interface EBState { hasError: boolean }
+export class ErrorBoundary extends Component<{ children: ReactNode }, EBState> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() { return { hasError: true } }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', gap: '1rem', background: 'var(--bg)', padding: '2rem' }}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth="1.5" strokeLinecap="square">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)', textAlign: 'center' }}>Algo deu errado. Recarregue a página.</p>
+          <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', padding: '0.5rem 1.25rem', fontSize: 'var(--font-size-md)', cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: '500' }}>
+            Recarregar
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
 // ── AFN Brand ─────────────────────────────────────────────

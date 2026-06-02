@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { PageFooter } from '../components/layout'
 import { Button, Card, Input, Modal, Spinner } from '../components/ui'
 import { investmentsService } from '../services'
+import { useToastStore } from '../store'
 import { formatCurrency, formatPercent } from '../utils'
 import type { Investment, InvestmentCreate, InvestmentType } from '../types'
 
@@ -101,14 +102,14 @@ function InvestmentCard({ inv, onEdit, onDeleted }: {
           </>
         ) : (
           <>
-            <button onClick={() => onEdit(inv)} title="Editar" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+            <button onClick={() => onEdit(inv)} title="Editar" aria-label="Editar investimento" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
             </button>
-            <button onClick={() => setConfirmDelete(true)} title="Excluir" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+            <button onClick={() => setConfirmDelete(true)} title="Excluir" aria-label="Excluir investimento" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--red)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
@@ -122,6 +123,8 @@ function InvestmentCard({ inv, onEdit, onDeleted }: {
   )
 }
 
+const BLANK_INVESTMENT: InvestmentCreate = { name: '', type: 'renda_fixa', institution: '', total_invested: 0, current_value: 0 }
+
 // ── InvestmentModal ───────────────────────────────────────
 function InvestmentModal({ open, onClose, onSaved, initial }: {
   open: boolean
@@ -130,9 +133,8 @@ function InvestmentModal({ open, onClose, onSaved, initial }: {
   initial?: Investment | null
 }) {
   const isEdit = !!initial
-  const blank: InvestmentCreate = { name: '', type: 'renda_fixa', institution: '', total_invested: 0, current_value: 0 }
 
-  const [form, setForm] = useState<InvestmentCreate>(blank)
+  const [form, setForm] = useState<InvestmentCreate>(BLANK_INVESTMENT)
   const [investedStr, setInvestedStr] = useState('')
   const [currentStr, setCurrentStr] = useState('')
   const [saving, setSaving] = useState(false)
@@ -145,7 +147,7 @@ function InvestmentModal({ open, onClose, onSaved, initial }: {
       setInvestedStr(String(initial.total_invested))
       setCurrentStr(String(initial.current_value))
     } else {
-      setForm(blank)
+      setForm(BLANK_INVESTMENT)
       setInvestedStr('')
       setCurrentStr('')
     }
@@ -216,6 +218,7 @@ function InvestmentModal({ open, onClose, onSaved, initial }: {
 
 // ── Investments (main page) ───────────────────────────────
 export function Investments() {
+  const { toast } = useToastStore()
   const [investments, setInvestments] = useState<Investment[]>([])
   const [totals, setTotals] = useState({ invested: 0, current: 0, profit: 0, profitPct: 0 })
   const [loading, setLoading] = useState(true)
@@ -235,8 +238,15 @@ export function Investments() {
 
   useEffect(() => { load() }, [])
 
-  const handleSaved = () => { load(); setEditing(null) }
-  const handleDeleted = (id: string) => setInvestments(prev => prev.filter(i => i.id !== id))
+  const handleSaved = () => {
+    load()
+    setEditing(null)
+    toast({ message: editing ? 'Investimento atualizado!' : 'Investimento criado!' })
+  }
+  const handleDeleted = (id: string) => {
+    setInvestments(prev => prev.filter(i => i.id !== id))
+    toast({ message: 'Investimento excluído.' })
+  }
 
   // Group by type preserving TYPE_ORDER
   const grouped = TYPE_ORDER.reduce<Record<string, Investment[]>>((acc, t) => {

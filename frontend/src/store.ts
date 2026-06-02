@@ -34,6 +34,29 @@ class SyncQueueDB extends Dexie {
 
 export const syncDB = new SyncQueueDB()
 
+// ── Toast Store ───────────────────────────────────────────
+interface ToastItem {
+  id: string
+  message: string
+  variant: 'success' | 'error' | 'info'
+}
+
+interface ToastState {
+  toasts: ToastItem[]
+  toast: (opts: { message: string; variant?: ToastItem['variant'] }) => void
+  dismiss: (id: string) => void
+}
+
+export const useToastStore = create<ToastState>((set) => ({
+  toasts: [],
+  toast: ({ message, variant = 'success' }) => {
+    const id = crypto.randomUUID()
+    set(s => ({ toasts: [...s.toasts, { id, message, variant }] }))
+    setTimeout(() => set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })), 3000)
+  },
+  dismiss: (id) => set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })),
+}))
+
 export const syncQueueService = {
   async add(item: Omit<SyncQueueItem, 'id' | 'retry_count' | 'max_retries' | 'next_retry_at' | 'status' | 'created_at'>): Promise<void> {
     await syncDB.queue.add({ ...item, id: crypto.randomUUID(), retry_count: 0, max_retries: 3, next_retry_at: new Date(), status: 'pending', created_at: new Date() })

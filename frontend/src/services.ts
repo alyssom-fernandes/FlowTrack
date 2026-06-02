@@ -92,8 +92,18 @@ export const transactionsService = {
     return data
   },
   async create(payload: TransactionCreate): Promise<Transaction> {
-    const { data } = await api.post('/api/v1/transactions', payload)
-    return data
+    try {
+      const { data } = await api.post('/api/v1/transactions', payload)
+      return data
+    } catch (error: unknown) {
+      const err = error as { code?: string }
+      if (err.code === 'ERR_NETWORK' || !navigator.onLine) {
+        const { syncQueueService } = await import('./store')
+        await syncQueueService.add({ entity: 'transaction', action: 'create', data: payload as unknown as Record<string, unknown> })
+        throw Object.assign(new Error('offline'), { offline: true })
+      }
+      throw error
+    }
   },
   async update(id: string, payload: TransactionUpdate): Promise<Transaction> {
     const { data } = await api.patch(`/api/v1/transactions/${id}`, payload)
@@ -181,6 +191,22 @@ export const categoriesService = {
   },
   async remove(id: string): Promise<void> {
     await api.delete(`/api/v1/categories/${id}`)
+  },
+}
+
+// ── Transfers ─────────────────────────────────────────────
+export const transfersService = {
+  async create(payload: { from_account_id: string; to_account_id: string; amount: number; description?: string; transaction_date: string; notes?: string }): Promise<{ transactions: unknown[]; batch_id: string }> {
+    const { data } = await api.post('/api/v1/transfers', payload)
+    return data
+  },
+}
+
+// ── Summary ───────────────────────────────────────────────
+export const summaryService = {
+  async monthly(months = 6): Promise<{ month: string; income: number; expense: number }[]> {
+    const { data } = await api.get(`/api/v1/summary/monthly?months=${months}`)
+    return data
   },
 }
 
