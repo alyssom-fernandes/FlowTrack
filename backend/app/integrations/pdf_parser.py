@@ -31,6 +31,50 @@ def _amount(s: str) -> Optional[float]:
         return None
 
 
+# Fix for Mercado Pago fatura PDFs that use the AYALFN+ custom font whose
+# ToUnicode CMap has wrong mappings (bug in MP's PDF generator). The font
+# encodes digits/symbols with shifted CIDs, so pdfplumber extracts wrong chars.
+_AYALFN_FIX = str.maketrans({
+    ord('M'): '4',   # CID 62 → visual 4
+    ord('z'): 'M',   # CID 63 → visual M
+    ord('$'): 'R',   # CID 60 → visual R
+    ord('4'): '$',   # CID 61 → visual $
+    ord('+'): '3',   # CID 55 → visual 3
+    ord(')'): '7',   # CID 51 → visual 7
+    ord('%'): '9',   # CID 48 → visual 9
+    ord('J'): '.',   # CID 45 → visual . (thousands separator)
+    ord('G'): 'ã',  # CID 68 → visual ã
+})
+
+
+def _extract_with_font_fix(page) -> str:
+    """Extract page text applying AYALFN+ corrections char-by-char."""
+    chars = page.chars
+    if not chars:
+        return page.extract_text() or ''
+    # Group chars into lines by rounded top position
+    from collections import defaultdict
+    rows: dict = defaultdict(list)
+    for c in chars:
+        rows[round(float(c['top']), -1)].append(c)
+    lines = []
+    for y in sorted(rows):
+        row = sorted(rows[y], key=lambda c: c['x0'])
+        text = ''
+        prev_x1 = None
+        for c in row:
+            if prev_x1 is not None and c['x0'] - prev_x1 > 3:
+                text += ' '
+            ch = c['text']
+            if 'AYALFN' in (c.get('fontname') or ''):
+                ch = ch.translate(_AYALFN_FIX)
+            text += ch
+            prev_x1 = c['x1']
+        if text.strip():
+            lines.append(text.strip())
+    return '\n'.join(lines)
+
+
 def _iso(d: str | int, m: str | int, y: str | int) -> str:
     return f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
 
@@ -373,13 +417,13 @@ def _mp_extrato(data: bytes) -> list[dict]:
 def _mp_fatura(data: bytes) -> list[dict]:
     txns = []
     with pdfplumber.open(io.BytesIO(data)) as pdf:
-        first = pdf.pages[0].extract_text() or ''
+        first = _extract_with_font_fix(pdf.pages[0])
         vm = re.search(r'[Vv]enc\w*\s*:?\s*(\d{2})/(\d{2})/(\d{4})', first)
         fatura_month = int(vm.group(2)) if vm else 1
         fatura_year  = int(vm.group(3)) if vm else 2026
 
         for page in pdf.pages:
-            text = page.extract_text() or ''
+            text = _extract_with_font_fix(page)
             for line in text.split('\n'):
                 line = line.strip()
                 # "DD/MM [desc] [Parcela X de Y] R$ X,XX"
