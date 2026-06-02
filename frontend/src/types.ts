@@ -179,6 +179,13 @@ export interface InvestmentCreate {
   notes?: string
 }
 
+export interface ParsedTransaction {
+  description: string
+  amount: number
+  transaction_date: string
+  type: 'credit' | 'debit'
+}
+
 // ── Sync Queue ────────────────────────────────────────────
 export type SyncAction = 'create' | 'update' | 'delete'
 export type SyncItemStatus = 'pending' | 'retrying' | 'failed'

@@ -129,3 +129,15 @@ class InvestmentListResponse(BaseModel):
     investments: list[InvestmentResponse]; total: int
     total_invested: float; total_current_value: float
     total_profitability: float; total_profitability_percent: float
+
+
+# ── Import ────────────────────────────────────────────────
+class ParsedTransactionItem(BaseModel):
+    description: str
+    amount: float
+    transaction_date: date
+    type: str = 'debit'
+
+class BulkTransactionCreate(BaseModel):
+    account_id: str
+    transactions: list[ParsedTransactionItem]

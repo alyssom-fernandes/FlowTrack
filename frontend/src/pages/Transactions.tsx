@@ -3,7 +3,7 @@ import { PageFooter } from '../components/layout'
 import { Button, Card, Input, Modal, Badge, Spinner } from '../components/ui'
 import { transactionsService, accountsService, supabase } from '../services'
 import { formatCurrency, formatDate, toISODate } from '../utils'
-import type { Transaction, TransactionCreate, TransactionUpdate, Account, Category } from '../types'
+import type { Transaction, TransactionCreate, TransactionUpdate, Account, Category, ParsedTransaction } from '../types'
 
 // ── Shared select style ───────────────────────────────────
 const sel: React.CSSProperties = {
@@ -335,43 +335,87 @@ function FilterBar({ filters, onChange, accounts, categories }: {
   )
 }
 
-// ── PdfImportStep ─────────────────────────────────────────
-function PdfStep({ file, accounts, onImported, onClose }: {
-  file: File; accounts: Account[]; onImported: () => void; onClose: () => void
-}) {
-  const [accountId, setAccountId] = useState(accounts[0]?.id || '')
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
-  const [result, setResult] = useState<{ bank: string; imported: number; skipped: number } | null>(null)
-  const [errMsg, setErrMsg] = useState('')
+// ── PdfPreviewFlow ────────────────────────────────────────
+interface PreviewTx extends ParsedTransaction {
+  _id: string
+  selected: boolean
+}
 
-  const handleImport = async () => {
-    if (!accountId) return
-    setStatus('loading')
+function PdfPreviewFlow({ files, accounts, onImported, onClose }: {
+  files: File[]; accounts: Account[]; onImported: () => void; onClose: () => void
+}) {
+  const [step, setStep] = useState<'parsing' | 'preview' | 'importing' | 'done'>('parsing')
+  const [txns, setTxns] = useState<PreviewTx[]>([])
+  const [bankLabels, setBankLabels] = useState<string[]>([])
+  const [accountId, setAccountId] = useState(accounts[0]?.id || '')
+  const [errMsg, setErrMsg] = useState('')
+  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null)
+
+  useEffect(() => {
+    const parseAll = async () => {
+      const allTxns: PreviewTx[] = []
+      const labels: string[] = []
+      const errors: string[] = []
+      for (const file of files) {
+        try {
+          const res = await transactionsService.parsePdf(file)
+          if (!labels.includes(res.bank)) labels.push(res.bank)
+          res.transactions.forEach(tx => allTxns.push({ ...tx, _id: `${Date.now()}-${Math.random()}`, selected: true }))
+        } catch (e: unknown) {
+          const ae = e as { response?: { data?: { detail?: string } } }
+          errors.push(ae.response?.data?.detail || `Erro ao processar ${file.name}.`)
+        }
+      }
+      setBankLabels(labels)
+      setTxns(allTxns)
+      if (errors.length) setErrMsg(errors.join(' '))
+      setStep('preview')
+    }
+    parseAll()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleAll = (checked: boolean) => setTxns(p => p.map(t => ({ ...t, selected: checked })))
+  const toggleOne = (_id: string) => setTxns(p => p.map(t => t._id === _id ? { ...t, selected: !t.selected } : t))
+  const updateTx = (_id: string, patch: Partial<PreviewTx>) => setTxns(p => p.map(t => t._id === _id ? { ...t, ...patch } : t))
+
+  const handleConfirm = async () => {
+    const selected: ParsedTransaction[] = txns.filter(t => t.selected).map(({ _id, selected, ...tx }) => tx)
+    if (!selected.length) return
+    setStep('importing')
     try {
-      const res = await transactionsService.importPdf(accountId, file)
+      const res = await transactionsService.bulkCreate(accountId, selected)
       setResult(res)
-      setStatus('done')
+      setStep('done')
     } catch (e: unknown) {
       const ae = e as { response?: { data?: { detail?: string } } }
-      setErrMsg(ae.response?.data?.detail || 'Erro ao processar o PDF. Tente novamente.')
-      setStatus('error')
+      setErrMsg(ae.response?.data?.detail || 'Erro ao importar. Tente novamente.')
+      setStep('preview')
     }
   }
 
-  if (status === 'loading') return (
+  if (step === 'parsing') return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem 0' }}>
       <Spinner size={28} />
-      <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>Analisando PDF e importando...</p>
+      <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>
+        Lendo {files.length > 1 ? `${files.length} PDFs` : files[0]?.name}...
+      </p>
     </div>
   )
 
-  if (status === 'done' && result) return (
+  if (step === 'importing') return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem 0' }}>
+      <Spinner size={28} />
+      <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>Importando transações...</p>
+    </div>
+  )
+
+  if (step === 'done' && result) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center', padding: '1rem 0' }}>
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.5" strokeLinecap="square">
         <polyline points="20 6 9 17 4 12" />
       </svg>
       <div>
-        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', marginBottom: '0.25rem' }}>{result.bank}</p>
+        {bankLabels.length > 0 && <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', marginBottom: '0.25rem' }}>{bankLabels.join(' · ')}</p>}
         <p style={{ fontSize: 'var(--font-size-lg)', fontWeight: '600', color: 'var(--text-primary)' }}>
           {result.imported} transaç{result.imported === 1 ? 'ão importada' : 'ões importadas'}
         </p>
@@ -385,23 +429,90 @@ function PdfStep({ file, accounts, onImported, onClose }: {
     </div>
   )
 
+  const selectedCount = txns.filter(t => t.selected).length
+  const allSelected = txns.length > 0 && selectedCount === txns.length
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-      {status === 'error' && (
-        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)', padding: '0.5rem 0.75rem', background: 'var(--red-soft)', borderRadius: 'var(--radius-md)' }}>{errMsg}</p>
+      {errMsg && (
+        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)', padding: '0.5rem 0.75rem', background: 'var(--red-soft)', borderRadius: 'var(--radius-md)' }}>
+          {errMsg}
+        </p>
       )}
-      <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-        Arquivo: <strong style={{ color: 'var(--text-secondary)' }}>{file.name}</strong>
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-        <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Conta *</label>
-        <select value={accountId} onChange={e => setAccountId(e.target.value)} style={sel}>
-          {accounts.map(a => <option key={a.id} value={a.id}>{a.name} — {a.bank_name}</option>)}
-        </select>
-      </div>
+
+      {txns.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '1.5rem 0', color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>
+          Nenhuma transação pôde ser extraída dos arquivos selecionados.
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 12rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+              <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Conta *</label>
+              <select value={accountId} onChange={e => setAccountId(e.target.value)} style={sel}>
+                {accounts.map(a => <option key={a.id} value={a.id}>{a.name} — {a.bank_name}</option>)}
+              </select>
+            </div>
+            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', paddingBottom: '0.5rem', flexShrink: 0 }}>
+              {bankLabels.length > 0 && <span style={{ color: 'var(--text-hint)' }}>{bankLabels.join(' · ')} · </span>}
+              <strong>{selectedCount}</strong> de {txns.length} selecionada{txns.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+
+          <div style={{ maxHeight: '320px', overflowY: 'auto', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-xs)' }}>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg-card-hover)' }}>
+                <tr>
+                  <th style={{ padding: '0.4rem 0.5rem', textAlign: 'center', width: '1.5rem' }}>
+                    <input type="checkbox" checked={allSelected} onChange={e => toggleAll(e.target.checked)} style={{ cursor: 'pointer' }} />
+                  </th>
+                  <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', color: 'var(--text-hint)', fontWeight: '500', whiteSpace: 'nowrap' }}>Data</th>
+                  <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', color: 'var(--text-hint)', fontWeight: '500', width: '100%' }}>Descrição</th>
+                  <th style={{ padding: '0.4rem 0.5rem', textAlign: 'right', color: 'var(--text-hint)', fontWeight: '500', whiteSpace: 'nowrap' }}>Valor (R$)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {txns.map(tx => (
+                  <tr key={tx._id} style={{ borderTop: '0.5px solid var(--border-subtle)', opacity: tx.selected ? 1 : 0.38 }}>
+                    <td style={{ padding: '0.3rem 0.5rem', textAlign: 'center' }}>
+                      <input type="checkbox" checked={tx.selected} onChange={() => toggleOne(tx._id)} style={{ cursor: 'pointer' }} />
+                    </td>
+                    <td style={{ padding: '0.3rem 0.5rem', whiteSpace: 'nowrap' }}>
+                      <input
+                        type="date" value={tx.transaction_date}
+                        onChange={e => updateTx(tx._id, { transaction_date: e.target.value })}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 'var(--font-size-xs)', fontFamily: 'var(--font)', cursor: 'pointer', padding: 0, width: '7rem' }}
+                      />
+                    </td>
+                    <td style={{ padding: '0.3rem 0.5rem' }}>
+                      <input
+                        value={tx.description}
+                        onChange={e => updateTx(tx._id, { description: e.target.value })}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 'var(--font-size-xs)', fontFamily: 'var(--font)', width: '100%', minWidth: '8rem', padding: 0 }}
+                      />
+                    </td>
+                    <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <input
+                        type="number" step="0.01" value={tx.amount}
+                        onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) updateTx(tx._id, { amount: v, type: v >= 0 ? 'credit' : 'debit' }) }}
+                        style={{ background: 'none', border: 'none', color: tx.amount >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 'var(--font-size-xs)', fontFamily: 'var(--font)', textAlign: 'right', width: '5.5rem', padding: 0 }}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
         <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-        <Button onClick={handleImport} disabled={!accountId}>Importar PDF</Button>
+        {txns.length > 0 && (
+          <Button onClick={handleConfirm} disabled={selectedCount === 0 || !accountId}>
+            Importar {selectedCount} transaç{selectedCount === 1 ? 'ão' : 'ões'}
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -445,28 +556,26 @@ function CsvImportModal({ open, onClose, onImported, accounts }: {
   const [imported, setImported] = useState(0)
   const [skipped, setSkipped] = useState(0)
   const [error, setError] = useState('')
-  const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const [pdfFiles, setPdfFiles] = useState<File[]>([])
 
   useEffect(() => {
     if (!open) {
       setStep('upload'); setHeaders([]); setRows([])
       setAccountId(''); setColDate(''); setColDesc('')
       setColAmount(''); setColCredit(''); setColDebit('')
-      setSplitMode(false); setImported(0); setSkipped(0); setError(''); setPdfFile(null)
+      setSplitMode(false); setImported(0); setSkipped(0); setError(''); setPdfFiles([])
     } else {
       setAccountId(accounts[0]?.id || '')
     }
   }, [open])
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
     setError('')
-    // PDF → backend parsing
-    if (file.name.toLowerCase().endsWith('.pdf')) {
-      setPdfFile(file)
-      return
-    }
+    const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'))
+    if (pdfs.length > 0) { setPdfFiles(pdfs); return }
+    const file = files[0]
     const reader = new FileReader()
     reader.onload = (evt) => {
       try {
@@ -539,26 +648,26 @@ function CsvImportModal({ open, onClose, onImported, accounts }: {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
         {error && <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)', padding: '0.5rem 0.75rem', background: 'var(--red-soft)', borderRadius: 'var(--radius-md)' }}>{error}</p>}
 
-        {/* PDF flow — delegate to PdfStep */}
-        {pdfFile && (
-          <PdfStep file={pdfFile} accounts={accounts} onImported={onImported} onClose={onClose} />
+          {/* PDF flow — preview before import */}
+        {pdfFiles.length > 0 && (
+          <PdfPreviewFlow files={pdfFiles} accounts={accounts} onImported={onImported} onClose={onClose} />
         )}
 
-        {!pdfFile && step === 'upload' && (
+        {pdfFiles.length === 0 && step === 'upload' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              Selecione um arquivo <strong>.csv</strong> ou <strong>.pdf</strong> do seu banco.<br />
-              <span style={{ color: 'var(--text-hint)' }}>PDF automático: Nubank, Sicredi, Mercado Pago, Will Bank. CSV: qualquer banco (você mapeia as colunas).</span>
+              Selecione um arquivo <strong>.csv</strong> ou um ou mais <strong>.pdf</strong> do seu banco.<br />
+              <span style={{ color: 'var(--text-hint)' }}>PDF automático (múltiplos permitidos): Nubank, Sicredi, Mercado Pago, Will Bank.<br />CSV: qualquer banco — você mapeia as colunas.</span>
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
               <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Arquivo *</label>
-              <input type="file" accept=".csv,.txt,.pdf" onChange={handleFile}
+              <input type="file" accept=".csv,.txt,.pdf" multiple onChange={handleFile}
                 style={{ padding: '0.5rem', background: 'var(--bg-input)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-md)', color: 'var(--text-primary)', cursor: 'pointer', width: '100%' }} />
             </div>
           </div>
         )}
 
-        {!pdfFile && step === 'map' && (
+        {pdfFiles.length === 0 && step === 'map' && (
           <>
             {/* Account */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
@@ -657,14 +766,14 @@ function CsvImportModal({ open, onClose, onImported, accounts }: {
           </>
         )}
 
-        {!pdfFile && step === 'importing' && (
+        {pdfFiles.length === 0 && step === 'importing' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem 0' }}>
             <Spinner size={28} />
             <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>Importando transações...</p>
           </div>
         )}
 
-        {!pdfFile && step === 'done' && (
+        {pdfFiles.length === 0 && step === 'done' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center', padding: '1rem 0' }}>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.5" strokeLinecap="square">
               <polyline points="20 6 9 17 4 12" />
@@ -781,10 +890,9 @@ export function Transactions() {
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <Button variant="secondary" size="sm" onClick={() => setShowImport(true)}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" style={{ transform: 'scaleY(-1)', transformOrigin: 'center' }} />
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
               </svg>
-              Importar CSV
+              Importar
             </Button>
             <Button variant="secondary" size="sm" loading={exporting} onClick={handleExport}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">

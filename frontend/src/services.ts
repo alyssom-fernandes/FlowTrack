@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { createClient } from '@supabase/supabase-js'
-import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate, Investment, InvestmentCreate } from './types'
+import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate, Investment, InvestmentCreate, ParsedTransaction } from './types'
 
 // ── Supabase ──────────────────────────────────────────────
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -109,6 +109,18 @@ export const transactionsService = {
     const { data } = await api.post('/api/v1/import/pdf', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
+    return data
+  },
+  async parsePdf(file: File): Promise<{ bank: string; transactions: ParsedTransaction[] }> {
+    const form = new FormData()
+    form.append('file', file)
+    const { data } = await api.post('/api/v1/import/pdf/parse', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  },
+  async bulkCreate(accountId: string, transactions: ParsedTransaction[]): Promise<{ imported: number; skipped: number; total: number }> {
+    const { data } = await api.post('/api/v1/transactions/bulk', { account_id: accountId, transactions })
     return data
   },
   async exportCsv(filters: { start_date?: string; end_date?: string; account_id?: string } = {}): Promise<void> {

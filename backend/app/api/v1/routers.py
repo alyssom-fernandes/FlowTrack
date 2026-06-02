@@ -15,7 +15,7 @@ from app.models import (
     TransactionCreate, TransactionUpdate, TransactionResponse, TransactionListResponse,
     GoalCreate, GoalUpdate, GoalResponse, GoalListResponse,
     InvestmentCreate, InvestmentUpdate, InvestmentResponse, InvestmentListResponse,
-    CategorizedByEnum,
+    CategorizedByEnum, BulkTransactionCreate,
 )
 
 router = APIRouter()
@@ -279,6 +279,60 @@ async def export_transactions(
 
 
 # ── Import PDF ────────────────────────────────────────────
+@router.post("/import/pdf/parse", tags=["Import"])
+async def parse_pdf_preview(
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Parse PDF and return transactions without saving — for preview before import."""
+    from app.integrations.pdf_parser import parse_pdf, BANK_LABELS
+    if not (file.filename or '').lower().endswith('.pdf'):
+        raise HTTPException(400, "O arquivo deve ser um PDF.")
+    pdf_bytes = await file.read()
+    bank, transactions = parse_pdf(pdf_bytes)
+    if bank == 'unknown':
+        raise HTTPException(422, "Banco não reconhecido. Suportados: Nubank, Sicredi, Mercado Pago, Will Bank.")
+    if not transactions:
+        label = BANK_LABELS.get(bank, bank)
+        raise HTTPException(422, f"O PDF foi identificado como {label}, mas nenhuma transação pôde ser extraída. Tente exportar novamente pelo app do banco.")
+    return {'bank': BANK_LABELS.get(bank, bank), 'transactions': transactions}
+
+
+@router.post("/transactions/bulk", tags=["Transactions"])
+async def bulk_create_transactions(
+    payload: BulkTransactionCreate,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Save a batch of transactions (used after PDF/CSV preview confirmation)."""
+    is_demo = get_supabase().table('demo_users').select('user_id').eq('user_id', user_id).limit(1).execute()
+    imported = skipped = 0
+    for tx in payload.transactions:
+        try:
+            desc_norm = normalize_desc(tx.description)
+            tx_date = str(tx.transaction_date)
+            data = {
+                'user_id': user_id,
+                'account_id': payload.account_id,
+                'description': tx.description,
+                'description_normalized': desc_norm,
+                'amount': tx.amount,
+                'transaction_date': tx_date,
+                'type': tx.type,
+                'sync_status': 'synced',
+                'dedup_hash': dedup_hash(payload.account_id, tx_date, tx.amount, desc_norm),
+            }
+            result = get_supabase().table('transactions').insert(data).execute()
+            txn_id = result.data[0]['id'] if result.data else None
+            if txn_id and not is_demo.data:
+                get_supabase().table('categorization_queue').insert({'user_id': user_id, 'transaction_id': txn_id, 'status': 'pending'}).execute()
+            imported += 1
+        except Exception as e:
+            skipped += 1
+            if 'dedup_hash' not in str(e) and 'unique' not in str(e).lower():
+                logger.warning("bulk_import_row_failed", error=str(e))
+    return {'imported': imported, 'skipped': skipped, 'total': len(payload.transactions)}
+
+
 @router.post("/import/pdf", tags=["Import"])
 async def import_pdf(
     account_id: str = Form(...),
@@ -292,6 +346,9 @@ async def import_pdf(
     bank, transactions = parse_pdf(pdf_bytes)
     if bank == 'unknown':
         raise HTTPException(422, "Banco não reconhecido. Suportados: Nubank, Sicredi, Mercado Pago, Will Bank.")
+    if not transactions:
+        label = BANK_LABELS.get(bank, bank)
+        raise HTTPException(422, f"O PDF foi identificado como {label}, mas nenhuma transação pôde ser extraída. Tente exportar novamente pelo app do banco.")
     imported = skipped = 0
     for tx in transactions:
         try:
