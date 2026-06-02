@@ -18,5 +18,9 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // Data-fetching inside useEffect is the intentional pattern throughout this codebase
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
 ])

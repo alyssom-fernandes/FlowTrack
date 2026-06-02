@@ -441,7 +441,9 @@ function PdfPreviewFlow({ files, accounts, onImported, onClose, fileParser, pars
   const updateTx = (_id: string, patch: Partial<PreviewTx>) => setTxns(p => p.map(t => t._id === _id ? { ...t, ...patch } : t))
 
   const handleConfirm = async () => {
-    const selected: ParsedTransaction[] = txns.filter(t => t.selected).map(({ _id, selected, ...tx }) => tx)
+    const selected: ParsedTransaction[] = txns
+      .filter(t => t.selected)
+      .map(t => ({ description: t.description, amount: t.amount, transaction_date: t.transaction_date, type: t.type }))
     if (!selected.length) return
     setStep('importing')
     try {
@@ -590,7 +592,7 @@ function parseCsvAmount(raw: string): number {
     const parts = s.split(',')
     s = parts[1] && parts[1].length <= 2 ? s.replace(',', '.') : s.replace(',', '')
   }
-  return parseFloat(s.replace(/[^0-9.\-]/g, ''))
+  return parseFloat(s.replace(/[^0-9.-]/g, ''))
 }
 
 function parseCsvDate(raw: string): string | null {

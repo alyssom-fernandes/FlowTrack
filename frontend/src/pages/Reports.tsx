@@ -139,18 +139,19 @@ function DonutChart({ slices }: { slices: Slice[] }) {
   if (total === 0) return <div style={{ textAlign: 'center', color: 'var(--text-hint)', padding: '2rem', fontSize: 'var(--font-size-sm)' }}>Sem gastos no período</div>
 
   const R = 52; const cx = 68; const cy = 68; const strokeW = 22
-  let cumAngle = -Math.PI / 2
+  const START = -Math.PI / 2
 
-  const arcs = slices.map(sl => {
+  const arcs = slices.reduce<{ sl: Slice; x1: number; y1: number; x2: number; y2: number; large: number; angle: number; endAngle: number }[]>((acc, sl) => {
+    const prevAngle = acc.length > 0 ? acc[acc.length - 1].endAngle : START
     const angle = (sl.value / total) * 2 * Math.PI
-    const x1 = cx + R * Math.cos(cumAngle)
-    const y1 = cy + R * Math.sin(cumAngle)
-    cumAngle += angle
-    const x2 = cx + R * Math.cos(cumAngle)
-    const y2 = cy + R * Math.sin(cumAngle)
+    const endAngle = prevAngle + angle
+    const x1 = cx + R * Math.cos(prevAngle)
+    const y1 = cy + R * Math.sin(prevAngle)
+    const x2 = cx + R * Math.cos(endAngle)
+    const y2 = cy + R * Math.sin(endAngle)
     const large = angle > Math.PI ? 1 : 0
-    return { sl, x1, y1, x2, y2, large, angle }
-  })
+    return [...acc, { sl, x1, y1, x2, y2, large, angle, endAngle }]
+  }, [])
 
   return (
     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
