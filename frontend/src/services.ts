@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { createClient } from '@supabase/supabase-js'
-import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate, Investment, InvestmentCreate, ParsedTransaction } from './types'
+import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate, Investment, InvestmentCreate, ParsedTransaction, Category, CategoryCreate, CategoryUpdate } from './types'
 
 // ── Supabase ──────────────────────────────────────────────
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -119,6 +119,14 @@ export const transactionsService = {
     })
     return data
   },
+  async parseOfx(file: File): Promise<{ transactions: ParsedTransaction[]; total: number }> {
+    const form = new FormData()
+    form.append('file', file)
+    const { data } = await api.post('/api/v1/import/ofx/parse', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  },
   async bulkCreate(accountId: string, transactions: ParsedTransaction[]): Promise<{ imported: number; skipped: number; total: number }> {
     const { data } = await api.post('/api/v1/transactions/bulk', { account_id: accountId, transactions })
     return data
@@ -154,6 +162,25 @@ export const investmentsService = {
   },
   async remove(id: string): Promise<void> {
     await api.delete(`/api/v1/investments/${id}`)
+  },
+}
+
+// ── Categories ────────────────────────────────────────────
+export const categoriesService = {
+  async list(): Promise<{ categories: Category[]; total: number }> {
+    const { data } = await api.get('/api/v1/categories')
+    return data
+  },
+  async create(payload: CategoryCreate): Promise<Category> {
+    const { data } = await api.post('/api/v1/categories', payload)
+    return data
+  },
+  async update(id: string, payload: CategoryUpdate): Promise<Category> {
+    const { data } = await api.patch(`/api/v1/categories/${id}`, payload)
+    return data
+  },
+  async remove(id: string): Promise<void> {
+    await api.delete(`/api/v1/categories/${id}`)
   },
 }
 

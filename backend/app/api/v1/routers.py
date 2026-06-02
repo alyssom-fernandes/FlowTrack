@@ -5,7 +5,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from typing import Optional
-from datetime import date
+from datetime import date, timedelta
 
 from app.core.security import get_current_user_id, verify_internal_token
 from app.core.database import get_supabase
@@ -15,6 +15,7 @@ from app.models import (
     TransactionCreate, TransactionUpdate, TransactionResponse, TransactionListResponse,
     GoalCreate, GoalUpdate, GoalResponse, GoalListResponse,
     InvestmentCreate, InvestmentUpdate, InvestmentResponse, InvestmentListResponse,
+    CategoryCreate, CategoryUpdate, CategoryResponse, CategoryListResponse,
     CategorizedByEnum, BulkTransactionCreate,
 )
 
@@ -40,6 +41,73 @@ def calc_profitability(invested: float, current: float):
 
 def calc_progress(current: float, target: float) -> float:
     return round(min((current / target) * 100, 100), 2) if target > 0 else 0.0
+
+def _goal_period_range(goal: dict) -> tuple[str, str]:
+    today = date.today()
+    period = goal.get("period", "monthly")
+    if period == "monthly":
+        first = date(today.year, today.month, 1)
+        if today.month == 12:
+            last = date(today.year, 12, 31)
+        else:
+            last = date(today.year, today.month + 1, 1) - timedelta(days=1)
+        return first.isoformat(), last.isoformat()
+    elif period == "yearly":
+        return date(today.year, 1, 1).isoformat(), date(today.year, 12, 31).isoformat()
+    else:
+        start = str(goal.get("start_date") or today)
+        end = str(goal.get("end_date") or today)
+        return start, end
+
+def _calc_goal_current(sb, user_id: str, goal: dict) -> float:
+    start, end = _goal_period_range(goal)
+    q = (sb.table("transactions").select("amount")
+         .eq("user_id", user_id)
+         .gte("transaction_date", start)
+         .lte("transaction_date", end))
+    if goal.get("category_id"):
+        q = q.eq("category_id", goal["category_id"])
+    txns = (q.execute().data) or []
+    if goal["type"] == "spending_limit":
+        return round(abs(sum(t["amount"] for t in txns if t["amount"] < 0)), 2)
+    return round(sum(t["amount"] for t in txns if t["amount"] > 0), 2)
+
+def _parse_ofx(content: bytes) -> list[dict]:
+    try:
+        text = content.decode("latin-1", errors="replace")
+    except Exception:
+        text = content.decode("utf-8", errors="replace")
+    blocks = re.findall(r"<STMTTRN>(.*?)</STMTTRN>", text, re.DOTALL | re.IGNORECASE)
+    if not blocks:
+        blocks = re.findall(r"<STMTTRN>(.*?)(?=<STMTTRN>|</BANKTRANLIST>|$)", text, re.DOTALL | re.IGNORECASE)
+    txns = []
+    for block in blocks:
+        def _field(tag: str) -> str:
+            m = re.search(rf"<{tag}>([^\n<]+)", block, re.IGNORECASE)
+            return m.group(1).strip() if m else ""
+        dtposted = _field("DTPOSTED")
+        trnamt = _field("TRNAMT")
+        memo = _field("MEMO") or _field("NAME") or ""
+        trntype = _field("TRNTYPE").upper()
+        if not dtposted or not trnamt:
+            continue
+        try:
+            tx_date = f"{dtposted[:4]}-{dtposted[4:6]}-{dtposted[6:8]}"
+        except Exception:
+            continue
+        try:
+            amount = float(trnamt.replace(",", "."))
+        except ValueError:
+            continue
+        if amount == 0:
+            continue
+        txns.append({
+            "description": (memo or trntype)[:200],
+            "amount": amount,
+            "transaction_date": tx_date,
+            "type": "credit" if amount > 0 else "debit",
+        })
+    return txns
 
 
 # ── Accounts ──────────────────────────────────────────────
@@ -162,9 +230,12 @@ async def delete_transaction(transaction_id: str, user_id: str = Depends(get_cur
 @router.get("/goals", response_model=GoalListResponse, tags=["Goals"])
 async def list_goals(user_id: str = Depends(get_current_user_id)):
     try:
-        result = get_supabase().table("goals").select("*").eq("user_id", user_id).eq("is_active", True).order("created_at").execute()
+        sb = get_supabase()
+        result = sb.table("goals").select("*").eq("user_id", user_id).eq("is_active", True).order("created_at").execute()
         goals = result.data or []
-        for g in goals: g["progress_percent"] = calc_progress(g["current_amount"], g["target_amount"])
+        for g in goals:
+            g["current_amount"] = _calc_goal_current(sb, user_id, g)
+            g["progress_percent"] = calc_progress(g["current_amount"], g["target_amount"])
         return GoalListResponse(goals=goals, total=len(goals))
     except Exception as e:
         logger.error("list_goals failed", error=str(e)); raise HTTPException(500, "Failed to list goals")
@@ -377,6 +448,76 @@ async def import_pdf(
             if 'dedup_hash' not in str(e) and 'unique' not in str(e).lower():
                 logger.warning("pdf_import_row_failed", error=str(e))
     return {'bank': BANK_LABELS.get(bank, bank), 'imported': imported, 'skipped': skipped, 'total': len(transactions)}
+
+
+# ── Categories ────────────────────────────────────────────
+@router.get("/categories", response_model=CategoryListResponse, tags=["Categories"])
+async def list_categories(user_id: str = Depends(get_current_user_id)):
+    try:
+        sb = get_supabase()
+        result = sb.table("categories").select("*").or_(f"is_default.eq.true,user_id.eq.{user_id}").order("name").execute()
+        cats = result.data or []
+        return CategoryListResponse(categories=cats, total=len(cats))
+    except Exception as e:
+        logger.error("list_categories failed", error=str(e))
+        raise HTTPException(500, "Failed to list categories")
+
+@router.post("/categories", response_model=CategoryResponse, status_code=201, tags=["Categories"])
+async def create_category(body: CategoryCreate, user_id: str = Depends(get_current_user_id)):
+    try:
+        data = body.model_dump(); data["user_id"] = user_id; data["is_default"] = False
+        result = get_supabase().table("categories").insert(data).execute()
+        return result.data[0]
+    except Exception as e:
+        logger.error("create_category failed", error=str(e))
+        raise HTTPException(500, "Failed to create category")
+
+@router.patch("/categories/{category_id}", response_model=CategoryResponse, tags=["Categories"])
+async def update_category(category_id: str, body: CategoryUpdate, user_id: str = Depends(get_current_user_id)):
+    try:
+        sb = get_supabase()
+        existing = sb.table("categories").select("id,is_default,user_id").eq("id", category_id).single().execute()
+        if not existing.data: raise HTTPException(404, "Category not found")
+        if existing.data.get("is_default") or existing.data.get("user_id") != user_id:
+            raise HTTPException(403, "Cannot edit default categories")
+        data = {k: v for k, v in body.model_dump().items() if v is not None}
+        if not data: raise HTTPException(400, "No fields to update")
+        result = sb.table("categories").update(data).eq("id", category_id).execute()
+        return result.data[0]
+    except HTTPException: raise
+    except Exception as e:
+        logger.error("update_category failed", error=str(e))
+        raise HTTPException(500, "Failed to update category")
+
+@router.delete("/categories/{category_id}", status_code=204, tags=["Categories"])
+async def delete_category(category_id: str, user_id: str = Depends(get_current_user_id)):
+    try:
+        sb = get_supabase()
+        existing = sb.table("categories").select("id,is_default,user_id").eq("id", category_id).single().execute()
+        if not existing.data: raise HTTPException(404, "Category not found")
+        if existing.data.get("is_default") or existing.data.get("user_id") != user_id:
+            raise HTTPException(403, "Cannot delete default categories")
+        sb.table("categories").delete().eq("id", category_id).execute()
+    except HTTPException: raise
+    except Exception as e:
+        logger.error("delete_category failed", error=str(e))
+        raise HTTPException(500, "Failed to delete category")
+
+
+# ── Import OFX ────────────────────────────────────────────
+@router.post("/import/ofx/parse", tags=["Import"])
+async def parse_ofx_preview(
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user_id),
+):
+    filename = (file.filename or "").lower()
+    if not (filename.endswith(".ofx") or filename.endswith(".qfx")):
+        raise HTTPException(400, "O arquivo deve ser OFX ou QFX.")
+    content = await file.read()
+    transactions = _parse_ofx(content)
+    if not transactions:
+        raise HTTPException(422, "Nenhuma transação encontrada no arquivo OFX. Verifique o arquivo e tente novamente.")
+    return {"transactions": transactions, "total": len(transactions)}
 
 
 # ── Internal ──────────────────────────────────────────────

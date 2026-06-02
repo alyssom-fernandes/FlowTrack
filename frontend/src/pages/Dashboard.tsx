@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { PageFooter } from '../components/layout'
 import { Card, Spinner } from '../components/ui'
-import { transactionsService, accountsService } from '../services'
+import { transactionsService, accountsService, goalsService, supabase } from '../services'
 import { formatCurrency, formatCurrencyCompact, formatDateShort, getCurrentMonthRange, toISODate } from '../utils'
-import type { Transaction, Account } from '../types'
+import type { Transaction, Account, Goal, Category } from '../types'
 
 // ── Metric Card ───────────────────────────────────────────
 function MetricCard({ label, value, sub, subColor }: { label: string; value: string; sub?: string; subColor?: string }) {
@@ -111,6 +111,8 @@ function TxnRow({ txn }: { txn: Transaction }) {
 export function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -118,14 +120,17 @@ export function Dashboard() {
       try {
         const now = new Date()
         const { end_date } = getCurrentMonthRange()
-        // Fetch 6 months for the sparkline chart
         const chartStart = toISODate(new Date(now.getFullYear(), now.getMonth() - 5, 1))
-        const [txnRes, accRes] = await Promise.all([
+        const [txnRes, accRes, goalsRes, catRes] = await Promise.all([
           transactionsService.list({ start_date: chartStart, end_date, page_size: 500 }),
           accountsService.list(),
+          goalsService.list(),
+          supabase.from('categories').select('*').order('name'),
         ])
         setTransactions(txnRes.transactions || [])
         setAccounts(accRes.accounts || [])
+        setGoals(goalsRes.goals || [])
+        setCategories((catRes.data || []) as Category[])
       } catch (e) {
         console.error(e)
       } finally {
@@ -190,26 +195,67 @@ export function Dashboard() {
 
           {/* Alerts + Insight */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {/* Alerts */}
             <Card>
               <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>Alertas</span>
-              {expenses > income && income > 0
-                ? <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                    <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: 'var(--red)', boxShadow: '0 0 0 3px var(--red-soft)', flexShrink: 0, marginTop: '0.25rem' }} />
-                    <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>Gastos superam receitas este mês</span>
+              {(() => {
+                const alerts: { color: string; bg: string; text: string }[] = []
+                if (expenses > income && income > 0)
+                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: 'Gastos superam receitas este mês' })
+                accounts.filter(a => a.balance < 0).forEach(a =>
+                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: `Saldo negativo: ${a.name}` }))
+                goals.filter(g => g.type === 'spending_limit' && g.progress_percent >= 80 && g.progress_percent < 100).forEach(g =>
+                  alerts.push({ color: 'var(--accent)', bg: 'var(--accent-soft)', text: `Meta "${g.name}" em ${g.progress_percent.toFixed(0)}% do limite` }))
+                goals.filter(g => g.type === 'spending_limit' && g.progress_percent >= 100).forEach(g =>
+                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: `Meta "${g.name}" excedida` }))
+                const uncategorized = currentMonth.filter(t => !t.category_id).length
+                if (uncategorized > 3)
+                  alerts.push({ color: 'var(--text-muted)', bg: 'var(--bg-input)', text: `${uncategorized} transações sem categoria este mês` })
+                if (alerts.length === 0)
+                  return <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>
+                    {currentMonth.length > 0 ? 'Tudo em ordem este mês.' : 'Nenhuma transação este mês.'}
+                  </p>
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {alerts.map((a, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', padding: '0.375rem 0.5rem', borderRadius: 'var(--radius-sm)', background: a.bg }}>
+                        <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: a.color, flexShrink: 0, marginTop: '0.3rem' }} />
+                        <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{a.text}</span>
+                      </div>
+                    ))}
                   </div>
-                : currentMonth.length > 0
-                  ? <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>Finanças equilibradas este mês.</p>
-                  : <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>Nenhuma transação este mês.</p>
-              }
+                )
+              })()}
             </Card>
 
+            {/* Insight */}
             <Card accent>
-              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', letterSpacing: '0.07em', textTransform: 'uppercase', display: 'block', marginBottom: '0.375rem' }}>IA · Insight</span>
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', letterSpacing: '0.07em', textTransform: 'uppercase', display: 'block', marginBottom: '0.375rem' }}>Insight do mês</span>
               <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                {currentMonth.length === 0
-                  ? 'Adicione transações para receber insights personalizados.'
-                  : `Você registrou ${currentMonth.length} transaç${currentMonth.length > 1 ? 'ões' : 'ão'} este mês. ${expenses > 0 ? `Gastos em ${formatCurrencyCompact(expenses)}.` : ''} ${income > 0 ? `Receitas em ${formatCurrencyCompact(income)}.` : ''}`
-                }
+                {(() => {
+                  if (currentMonth.length === 0) return 'Adicione transações para ver seu resumo mensal.'
+                  const debits = currentMonth.filter(t => t.amount < 0)
+                  const topCatId = debits.length > 0
+                    ? Object.entries(
+                        debits.reduce<Record<string, number>>((acc, t) => {
+                          const key = t.category_id || '__none__'
+                          acc[key] = (acc[key] || 0) + Math.abs(t.amount)
+                          return acc
+                        }, {})
+                      ).sort((a, b) => b[1] - a[1])[0]
+                    : null
+                  const topCatName = topCatId
+                    ? (categories.find(c => c.id === topCatId[0])?.name ?? 'Sem categoria')
+                    : null
+                  const today = new Date()
+                  const daysLeft = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate()
+                  const savingsRate = income > 0 ? Math.round(((income - expenses) / income) * 100) : 0
+                  const parts: string[] = []
+                  if (topCatName && topCatId) parts.push(`Maior gasto: ${topCatName} (${formatCurrency(topCatId[1])}).`)
+                  if (income > 0) parts.push(`Taxa de economia: ${savingsRate}%.`)
+                  if (daysLeft > 0) parts.push(`Faltam ${daysLeft} dias para fechar o mês.`)
+                  return parts.join(' ') || `${currentMonth.length} transações registradas este mês.`
+                })()}
               </p>
             </Card>
           </div>

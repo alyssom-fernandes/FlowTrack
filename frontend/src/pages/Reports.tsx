@@ -6,16 +6,18 @@ import { formatCurrency, formatCurrencyCompact, toISODate } from '../utils'
 import type { Transaction, Category } from '../types'
 
 // ── Period helpers ─────────────────────────────────────────
-type PeriodKey = 'mes' | '3meses' | '6meses' | 'ano'
+type PeriodKey = 'mes' | '3meses' | '6meses' | 'ano' | 'custom'
 
 interface Period { label: string; start: string; end: string }
 
-function buildPeriod(key: PeriodKey): Period {
+function buildPeriod(key: PeriodKey, customStart?: string, customEnd?: string): Period {
   const now = new Date()
   const end = toISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0))
   const labels: Record<PeriodKey, string> = {
-    mes: 'Este mês', '3meses': 'Últimos 3 meses', '6meses': 'Últimos 6 meses', ano: 'Este ano',
+    mes: 'Este mês', '3meses': 'Últimos 3 meses', '6meses': 'Últimos 6 meses',
+    ano: 'Este ano', custom: 'Personalizado',
   }
+  if (key === 'custom') return { label: labels.custom, start: customStart || toISODate(new Date(now.getFullYear(), now.getMonth(), 1)), end: customEnd || end }
   let start: string
   if (key === 'mes')    start = toISODate(new Date(now.getFullYear(), now.getMonth(), 1))
   else if (key === '3meses') start = toISODate(new Date(now.getFullYear(), now.getMonth() - 2, 1))
@@ -37,14 +39,27 @@ function monthLabel(key: string) {
 }
 
 // ── PeriodSelector ─────────────────────────────────────────
-const PERIODS: PeriodKey[] = ['mes', '3meses', '6meses', 'ano']
+const PERIODS: PeriodKey[] = ['mes', '3meses', '6meses', 'ano', 'custom']
 const PERIOD_LABELS: Record<PeriodKey, string> = {
-  mes: 'Mês', '3meses': '3 meses', '6meses': '6 meses', ano: 'Ano',
+  mes: 'Mês', '3meses': '3 meses', '6meses': '6 meses', ano: 'Ano', custom: 'Personalizado',
 }
 
-function PeriodSelector({ active, onChange }: { active: PeriodKey; onChange: (k: PeriodKey) => void }) {
+const sel: React.CSSProperties = {
+  background: 'var(--bg-input)', border: '0.5px solid var(--border)',
+  borderRadius: 'var(--radius-md)', padding: '0.3125rem 0.5rem',
+  fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)',
+  outline: 'none', fontFamily: 'var(--font)', cursor: 'pointer',
+}
+
+function PeriodSelector({ active, onChange, customStart, customEnd, onCustomChange }: {
+  active: PeriodKey
+  onChange: (k: PeriodKey) => void
+  customStart: string
+  customEnd: string
+  onCustomChange: (start: string, end: string) => void
+}) {
   return (
-    <div style={{ display: 'flex', gap: '0.375rem' }}>
+    <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', alignItems: 'center' }}>
       {PERIODS.map(k => (
         <button
           key={k}
@@ -59,6 +74,15 @@ function PeriodSelector({ active, onChange }: { active: PeriodKey; onChange: (k:
           }}
         >{PERIOD_LABELS[k]}</button>
       ))}
+      {active === 'custom' && (
+        <>
+          <input type="date" value={customStart} onChange={e => onCustomChange(e.target.value, customEnd)}
+            style={{ ...sel, height: '2rem' }} />
+          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>até</span>
+          <input type="date" value={customEnd} onChange={e => onCustomChange(customStart, e.target.value)}
+            style={{ ...sel, height: '2rem' }} />
+        </>
+      )}
     </div>
   )
 }
@@ -246,13 +270,16 @@ function CategoryIconSvg({ icon, color, size = 13 }: { icon?: string; color: str
 // ── Reports ───────────────────────────────────────────────
 export function Reports() {
   const [periodKey, setPeriodKey] = useState<PeriodKey>('mes')
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
 
-  const period = buildPeriod(periodKey)
+  const period = buildPeriod(periodKey, customStart, customEnd)
 
   const load = useCallback(async () => {
+    if (periodKey === 'custom' && (!customStart || !customEnd)) return
     setLoading(true)
     try {
       const [txRes, catRes] = await Promise.all([
@@ -264,7 +291,7 @@ export function Reports() {
     } finally {
       setLoading(false)
     }
-  }, [period.start, period.end])
+  }, [period.start, period.end, periodKey, customStart, customEnd])
 
   useEffect(() => { load() }, [load])
 
@@ -314,7 +341,13 @@ export function Reports() {
             <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '600', color: 'var(--text-primary)' }}>Relatórios</h1>
             <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>Análise das suas finanças</p>
           </div>
-          <PeriodSelector active={periodKey} onChange={setPeriodKey} />
+          <PeriodSelector
+            active={periodKey}
+            onChange={setPeriodKey}
+            customStart={customStart}
+            customEnd={customEnd}
+            onCustomChange={(s, e) => { setCustomStart(s); setCustomEnd(e) }}
+          />
         </div>
 
         {loading ? (

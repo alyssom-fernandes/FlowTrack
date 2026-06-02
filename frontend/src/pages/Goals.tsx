@@ -134,7 +134,6 @@ function GoalModal({ open, onClose, onSaved, initial }: {
 
   const [form, setForm] = useState<GoalCreate>(blank)
   const [amountStr, setAmountStr] = useState('')
-  const [currentStr, setCurrentStr] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -150,11 +149,9 @@ function GoalModal({ open, onClose, onSaved, initial }: {
         category_id: initial.category_id,
       })
       setAmountStr(String(initial.target_amount))
-      setCurrentStr(String(initial.current_amount))
     } else {
       setForm(blank)
       setAmountStr('')
-      setCurrentStr('')
     }
     setError('')
   }, [open, initial])
@@ -172,8 +169,7 @@ function GoalModal({ open, onClose, onSaved, initial }: {
     try {
       const payload: GoalCreate = { ...form, target_amount: target }
       if (isEdit && initial) {
-        const current = parseFloat(currentStr.replace(',', '.'))
-        await goalsService.update(initial.id, { ...payload, ...(isNaN(current) ? {} : { current_amount: current } as object) })
+        await goalsService.update(initial.id, payload)
       } else {
         await goalsService.create(payload)
       }
@@ -224,11 +220,13 @@ function GoalModal({ open, onClose, onSaved, initial }: {
           </div>
         </div>
 
-        {/* Valor atual (só edição) */}
-        {isEdit && (
-          <Input label="Valor atual (R$)" value={currentStr} onChange={e => setCurrentStr(e.target.value)}
-            placeholder="0,00" inputMode="decimal"
-            hint="Atualize manualmente o progresso acumulado" />
+        {/* Valor atual — calculado automaticamente das transações */}
+        {isEdit && initial && (
+          <div style={{ padding: '0.5rem 0.75rem', background: 'var(--accent-soft)', borderRadius: 'var(--radius-md)' }}>
+            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--accent)' }}>
+              Progresso atual calculado automaticamente das suas transações do período.
+            </span>
+          </div>
         )}
 
         {/* Datas */}

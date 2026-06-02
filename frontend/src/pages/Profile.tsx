@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { PageFooter } from '../components/layout'
 import { Card, Button, Input, Modal, Spinner } from '../components/ui'
 import { useAuthStore } from '../store'
-import { authService, accountsService } from '../services'
+import { authService, accountsService, categoriesService } from '../services'
 import { formatCurrency, formatDate } from '../utils'
-import type { Account, AccountCreate, BankOption } from '../types'
+import type { Account, AccountCreate, BankOption, Category, CategoryCreate } from '../types'
 import { BANK_LIST } from '../types'
 
 const THEME_KEY = 'ft-theme'
@@ -247,6 +247,110 @@ function AccountRow({ account, onEdit, onDeleted }: {
   )
 }
 
+// ── CategoryRow ───────────────────────────────────────────
+function CategoryRow({ cat, onEdit, onDeleted }: {
+  cat: Category
+  onEdit: (c: Category) => void
+  onDeleted: (id: string) => void
+}) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    try { await categoriesService.remove(cat.id); onDeleted(cat.id) }
+    finally { setDeleting(false); setConfirmDelete(false) }
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '0.5px solid var(--border-subtle)' }}>
+      <span style={{ width: '0.75rem', height: '0.75rem', borderRadius: '50%', background: cat.color, flexShrink: 0 }} />
+      <span style={{ flex: 1, fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)' }}>{cat.name}</span>
+      {cat.is_default
+        ? <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', fontStyle: 'italic' }}>padrão</span>
+        : confirmDelete
+          ? (
+            <div style={{ display: 'flex', gap: '0.25rem' }}>
+              <Button size="sm" variant="danger" loading={deleting} onClick={handleDelete}>Sim</Button>
+              <Button size="sm" variant="secondary" onClick={() => setConfirmDelete(false)}>Não</Button>
+            </div>
+          ) : (
+            <>
+              <button onClick={() => onEdit(cat)} title="Editar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-hint)')}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </button>
+              <button onClick={() => setConfirmDelete(true)} title="Excluir" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-hint)')}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+                </svg>
+              </button>
+            </>
+          )
+      }
+    </div>
+  )
+}
+
+// ── CategoryModal ─────────────────────────────────────────
+function CategoryModal({ open, onClose, onSaved, initial }: {
+  open: boolean; onClose: () => void; onSaved: () => void; initial?: Category | null
+}) {
+  const isEdit = !!initial
+  const [name, setName] = useState('')
+  const [color, setColor] = useState('#9D2449')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setName(initial?.name || '')
+    setColor(initial?.color || '#9D2449')
+    setError('')
+  }, [open, initial])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) { setError('Informe o nome.'); return }
+    setSaving(true); setError('')
+    try {
+      if (isEdit && initial) await categoriesService.update(initial.id, { name: name.trim(), color })
+      else await categoriesService.create({ name: name.trim(), color } as CategoryCreate)
+      onSaved(); onClose()
+    } catch {
+      setError('Erro ao salvar categoria.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Editar categoria' : 'Nova categoria'} width="22rem">
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+        <Input label="Nome *" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Alimentação" required />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+          <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Cor</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <input type="color" value={color} onChange={e => setColor(e.target.value)}
+              style={{ width: '2.5rem', height: '2rem', border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} />
+            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>{color}</span>
+          </div>
+        </div>
+        {error && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)' }}>{error}</span>}
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" loading={saving}>{isEdit ? 'Salvar' : 'Criar'}</Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 // ── Profile ───────────────────────────────────────────────
 export function Profile() {
   const { user, isDemo } = useAuthStore()
@@ -255,6 +359,10 @@ export function Profile() {
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [showAccountModal, setShowAccountModal] = useState(false)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loadingCats, setLoadingCats] = useState(true)
+  const [showCatModal, setShowCatModal] = useState(false)
+  const [editingCat, setEditingCat] = useState<Category | null>(null)
 
   const loadAccounts = () => {
     setLoadingAccounts(true)
@@ -263,7 +371,14 @@ export function Profile() {
       .finally(() => setLoadingAccounts(false))
   }
 
-  useEffect(() => { loadAccounts() }, [])
+  const loadCategories = () => {
+    setLoadingCats(true)
+    categoriesService.list()
+      .then(res => setCategories(res.categories || []))
+      .finally(() => setLoadingCats(false))
+  }
+
+  useEffect(() => { loadAccounts(); loadCategories() }, [])
 
   const handleSignOut = async () => {
     setSigningOut(true)
@@ -350,6 +465,33 @@ export function Profile() {
           )}
         </Card>
 
+        {/* Categorias */}
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '500' }}>
+              Categorias ({categories.length})
+            </span>
+            <Button size="sm" variant="ghost" onClick={() => { setEditingCat(null); setShowCatModal(true) }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><path d="M12 5v14M5 12h14"/></svg>
+              Nova categoria
+            </Button>
+          </div>
+          {loadingCats ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem 0' }}><Spinner size={20} /></div>
+          ) : categories.length === 0 ? (
+            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', padding: '0.75rem 0' }}>Nenhuma categoria encontrada.</p>
+          ) : (
+            categories.map(cat => (
+              <CategoryRow
+                key={cat.id}
+                cat={cat}
+                onEdit={c => { setEditingCat(c); setShowCatModal(true) }}
+                onDeleted={id => setCategories(prev => prev.filter(c => c.id !== id))}
+              />
+            ))
+          )}
+        </Card>
+
         {/* Aparência */}
         <Card>
           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '500', display: 'block', marginBottom: '0.75rem' }}>
@@ -375,6 +517,13 @@ export function Profile() {
         onClose={() => { setShowAccountModal(false); setEditingAccount(null) }}
         onSaved={handleAccountSaved}
         initial={editingAccount}
+      />
+
+      <CategoryModal
+        open={showCatModal}
+        onClose={() => { setShowCatModal(false); setEditingCat(null) }}
+        onSaved={() => { loadCategories(); setEditingCat(null) }}
+        initial={editingCat}
       />
 
       <PageFooter />

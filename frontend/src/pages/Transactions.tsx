@@ -71,12 +71,13 @@ function CategoryInline({ txn, categories, onSaved }: {
 }
 
 // ── TxnRow ────────────────────────────────────────────────
-function TxnRow({ txn, accounts, categories, onUpdated, onDeleted }: {
+function TxnRow({ txn, accounts, categories, onUpdated, onDeleted, onEdit }: {
   txn: Transaction
   accounts: Account[]
   categories: Category[]
   onUpdated: (t: Transaction) => void
   onDeleted: (id: string) => void
+  onEdit: (t: Transaction) => void
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -96,7 +97,7 @@ function TxnRow({ txn, accounts, categories, onUpdated, onDeleted }: {
 
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '1.875rem 1fr auto auto auto',
+      display: 'grid', gridTemplateColumns: '1.875rem 1fr auto auto auto auto',
       gap: '0.625rem', alignItems: 'center',
       padding: '0.625rem 0', borderBottom: '0.5px solid var(--border-subtle)',
     }}>
@@ -116,8 +117,17 @@ function TxnRow({ txn, accounts, categories, onUpdated, onDeleted }: {
 
       {/* Description + meta */}
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {txn.description}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+          <span style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {txn.description}
+          </span>
+          {txn.is_recurring && (
+            <span title="Recorrente" style={{ flexShrink: 0 }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-hint)" strokeWidth="1.5" strokeLinecap="square">
+                <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+              </svg>
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.125rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>{formatDate(txn.transaction_date)}</span>
@@ -134,6 +144,19 @@ function TxnRow({ txn, accounts, categories, onUpdated, onDeleted }: {
       <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '600', color: isPositive ? 'var(--green)' : 'var(--red)', flexShrink: 0, textAlign: 'right' }}>
         {isPositive ? '+' : ''}{formatCurrency(txn.amount)}
       </span>
+
+      {/* Edit */}
+      <button
+        onClick={() => onEdit(txn)}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1, flexShrink: 0 }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}
+        title="Editar"
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      </button>
 
       {/* Delete */}
       <div style={{ flexShrink: 0 }}>
@@ -163,30 +186,43 @@ function TxnRow({ txn, accounts, categories, onUpdated, onDeleted }: {
   )
 }
 
-// ── TransactionModal ──────────────────────────────────────
-function TransactionModal({ open, onClose, onSaved, accounts, categories }: {
+// ── TransactionModal (criar + editar) ─────────────────────
+function TransactionModal({ open, onClose, onSaved, accounts, categories, initial }: {
   open: boolean
   onClose: () => void
-  onSaved: () => void
+  onSaved: (t?: Transaction) => void
   accounts: Account[]
   categories: Category[]
+  initial?: Transaction | null
 }) {
+  const isEdit = !!initial
   const today = toISODate()
-  const [form, setForm] = useState<TransactionCreate>({
-    account_id: '', description: '', amount: 0,
-    transaction_date: today, type: 'debit',
-  })
+  const blank: TransactionCreate = { account_id: '', description: '', amount: 0, transaction_date: today, type: 'debit', is_recurring: false }
+  const [form, setForm] = useState<TransactionCreate>(blank)
   const [amountStr, setAmountStr] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (open) {
-      setForm({ account_id: accounts[0]?.id || '', description: '', amount: 0, transaction_date: today, type: 'debit' })
+    if (!open) return
+    if (initial) {
+      setForm({
+        account_id: initial.account_id,
+        description: initial.description,
+        amount: initial.amount,
+        transaction_date: initial.transaction_date,
+        type: initial.type,
+        category_id: initial.category_id,
+        notes: initial.notes,
+        is_recurring: initial.is_recurring,
+      })
+      setAmountStr(String(Math.abs(initial.amount)))
+    } else {
+      setForm({ ...blank, account_id: accounts[0]?.id || '' })
       setAmountStr('')
-      setError('')
     }
-  }, [open, accounts])
+    setError('')
+  }, [open, initial, accounts])
 
   const set = (field: keyof TransactionCreate, value: unknown) =>
     setForm(f => ({ ...f, [field]: value }))
@@ -202,8 +238,22 @@ function TransactionModal({ open, onClose, onSaved, accounts, categories }: {
     setError('')
     try {
       const finalAmount = form.type === 'debit' ? -Math.abs(amt) : Math.abs(amt)
-      await transactionsService.create({ ...form, amount: finalAmount })
-      onSaved()
+      if (isEdit && initial) {
+        const updated = await transactionsService.update(initial.id, {
+          account_id: form.account_id,
+          description: form.description,
+          amount: finalAmount,
+          transaction_date: form.transaction_date,
+          type: form.type,
+          category_id: form.category_id,
+          notes: form.notes,
+          is_recurring: form.is_recurring,
+        })
+        onSaved(updated)
+      } else {
+        await transactionsService.create({ ...form, amount: finalAmount })
+        onSaved()
+      }
       onClose()
     } catch {
       setError('Erro ao salvar transação. Tente novamente.')
@@ -213,7 +263,7 @@ function TransactionModal({ open, onClose, onSaved, accounts, categories }: {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Nova transação" width="26rem">
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Editar transação' : 'Nova transação'} width="26rem">
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
         {/* Conta */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
@@ -243,7 +293,7 @@ function TransactionModal({ open, onClose, onSaved, accounts, categories }: {
           </div>
         </div>
 
-        {/* Descrição + Valor na mesma linha */}
+        {/* Descrição + Valor */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.625rem' }}>
           <Input label="Descrição *" value={form.description} onChange={e => set('description', e.target.value)} placeholder="Ex: Supermercado" required />
           <Input label="Valor (R$) *" value={amountStr} onChange={e => setAmountStr(e.target.value)}
@@ -271,11 +321,18 @@ function TransactionModal({ open, onClose, onSaved, accounts, categories }: {
             style={{ ...sel, resize: 'vertical', lineHeight: 1.5 }} />
         </div>
 
+        {/* Recorrente */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', userSelect: 'none' }}>
+          <input type="checkbox" checked={!!form.is_recurring} onChange={e => set('is_recurring', e.target.checked)}
+            style={{ accentColor: 'var(--accent)', width: '0.9rem', height: '0.9rem', cursor: 'pointer' }} />
+          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>Transação recorrente</span>
+        </label>
+
         {error && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)' }}>{error}</span>}
 
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
           <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" loading={saving}>Salvar</Button>
+          <Button type="submit" loading={saving}>{isEdit ? 'Salvar alterações' : 'Salvar'}</Button>
         </div>
       </form>
     </Modal>
@@ -341,9 +398,14 @@ interface PreviewTx extends ParsedTransaction {
   selected: boolean
 }
 
-function PdfPreviewFlow({ files, accounts, onImported, onClose }: {
+type FileParserResult = { bank?: string; transactions: ParsedTransaction[] }
+
+function PdfPreviewFlow({ files, accounts, onImported, onClose, fileParser, parsingLabel }: {
   files: File[]; accounts: Account[]; onImported: () => void; onClose: () => void
+  fileParser?: (file: File) => Promise<FileParserResult>
+  parsingLabel?: string
 }) {
+  const parser = fileParser ?? ((f: File) => transactionsService.parsePdf(f))
   const [step, setStep] = useState<'parsing' | 'preview' | 'importing' | 'done'>('parsing')
   const [txns, setTxns] = useState<PreviewTx[]>([])
   const [bankLabels, setBankLabels] = useState<string[]>([])
@@ -358,8 +420,8 @@ function PdfPreviewFlow({ files, accounts, onImported, onClose }: {
       const errors: string[] = []
       for (const file of files) {
         try {
-          const res = await transactionsService.parsePdf(file)
-          if (!labels.includes(res.bank)) labels.push(res.bank)
+          const res = await parser(file)
+          if (res.bank && !labels.includes(res.bank)) labels.push(res.bank)
           res.transactions.forEach(tx => allTxns.push({ ...tx, _id: `${Date.now()}-${Math.random()}`, selected: true }))
         } catch (e: unknown) {
           const ae = e as { response?: { data?: { detail?: string } } }
@@ -397,7 +459,7 @@ function PdfPreviewFlow({ files, accounts, onImported, onClose }: {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem 0' }}>
       <Spinner size={28} />
       <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>
-        Lendo {files.length > 1 ? `${files.length} PDFs` : files[0]?.name}...
+        {parsingLabel ?? `Lendo ${files.length > 1 ? `${files.length} arquivos` : files[0]?.name}...`}
       </p>
     </div>
   )
@@ -557,13 +619,15 @@ function CsvImportModal({ open, onClose, onImported, accounts }: {
   const [skipped, setSkipped] = useState(0)
   const [error, setError] = useState('')
   const [pdfFiles, setPdfFiles] = useState<File[]>([])
+  const [ofxFiles, setOfxFiles] = useState<File[]>([])
 
   useEffect(() => {
     if (!open) {
       setStep('upload'); setHeaders([]); setRows([])
       setAccountId(''); setColDate(''); setColDesc('')
       setColAmount(''); setColCredit(''); setColDebit('')
-      setSplitMode(false); setImported(0); setSkipped(0); setError(''); setPdfFiles([])
+      setSplitMode(false); setImported(0); setSkipped(0); setError('')
+      setPdfFiles([]); setOfxFiles([])
     } else {
       setAccountId(accounts[0]?.id || '')
     }
@@ -573,6 +637,8 @@ function CsvImportModal({ open, onClose, onImported, accounts }: {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
     setError('')
+    const ofxs = files.filter(f => /\.(ofx|qfx)$/i.test(f.name))
+    if (ofxs.length > 0) { setOfxFiles(ofxs); return }
     const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'))
     if (pdfs.length > 0) { setPdfFiles(pdfs); return }
     const file = files[0]
@@ -653,21 +719,36 @@ function CsvImportModal({ open, onClose, onImported, accounts }: {
           <PdfPreviewFlow files={pdfFiles} accounts={accounts} onImported={onImported} onClose={onClose} />
         )}
 
-        {pdfFiles.length === 0 && step === 'upload' && (
+        {/* OFX flow */}
+        {ofxFiles.length > 0 && (
+          <PdfPreviewFlow
+            files={ofxFiles}
+            accounts={accounts}
+            onImported={onImported}
+            onClose={onClose}
+            fileParser={async (f) => {
+              const res = await transactionsService.parseOfx(f)
+              return { transactions: res.transactions }
+            }}
+            parsingLabel={`Lendo ${ofxFiles[0]?.name}...`}
+          />
+        )}
+
+        {pdfFiles.length === 0 && ofxFiles.length === 0 && step === 'upload' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              Selecione um arquivo <strong>.csv</strong> ou um ou mais <strong>.pdf</strong> do seu banco.<br />
-              <span style={{ color: 'var(--text-hint)' }}>PDF automático (múltiplos permitidos): Nubank, Sicredi, Mercado Pago, Will Bank.<br />CSV: qualquer banco — você mapeia as colunas.</span>
+              Selecione um arquivo <strong>.csv</strong>, <strong>.ofx</strong> ou um ou mais <strong>.pdf</strong> do seu banco.<br />
+              <span style={{ color: 'var(--text-hint)' }}>PDF automático (múltiplos permitidos): Nubank, Sicredi, Mercado Pago, Will Bank.<br />OFX: exportado pelo internet banking de qualquer banco.<br />CSV: qualquer banco — você mapeia as colunas.</span>
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
               <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Arquivo *</label>
-              <input type="file" accept=".csv,.txt,.pdf" multiple onChange={handleFile}
+              <input type="file" accept=".csv,.txt,.pdf,.ofx,.qfx" multiple onChange={handleFile}
                 style={{ padding: '0.5rem', background: 'var(--bg-input)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-md)', color: 'var(--text-primary)', cursor: 'pointer', width: '100%' }} />
             </div>
           </div>
         )}
 
-        {pdfFiles.length === 0 && step === 'map' && (
+        {pdfFiles.length === 0 && ofxFiles.length === 0 && step === 'map' && (
           <>
             {/* Account */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
@@ -766,14 +847,14 @@ function CsvImportModal({ open, onClose, onImported, accounts }: {
           </>
         )}
 
-        {pdfFiles.length === 0 && step === 'importing' && (
+        {pdfFiles.length === 0 && ofxFiles.length === 0 && step === 'importing' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem 0' }}>
             <Spinner size={28} />
             <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>Importando transações...</p>
           </div>
         )}
 
-        {pdfFiles.length === 0 && step === 'done' && (
+        {pdfFiles.length === 0 && ofxFiles.length === 0 && step === 'done' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center', padding: '1rem 0' }}>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.5" strokeLinecap="square">
               <polyline points="20 6 9 17 4 12" />
@@ -808,6 +889,7 @@ export function Transactions() {
   const [totalPages, setTotalPages] = useState(0)
   const [total, setTotal] = useState(0)
   const [showModal, setShowModal] = useState(false)
+  const [editingTxn, setEditingTxn] = useState<Transaction | null>(null)
   const [exporting, setExporting] = useState(false)
   const [showImport, setShowImport] = useState(false)
 
@@ -860,6 +942,13 @@ export function Transactions() {
   const handleDeleted = (id: string) => {
     setTransactions(prev => prev.filter(t => t.id !== id))
     setTotal(n => n - 1)
+  }
+
+  const handleEdit = (txn: Transaction) => setEditingTxn(txn)
+
+  const handleEditSaved = (updated?: Transaction) => {
+    if (updated) handleUpdated(updated)
+    setEditingTxn(null)
   }
 
   const handleExport = async () => {
@@ -939,6 +1028,7 @@ export function Transactions() {
                       categories={categories}
                       onUpdated={handleUpdated}
                       onDeleted={handleDeleted}
+                      onEdit={handleEdit}
                     />
                   ))}
                   {/* Pagination */}
@@ -965,6 +1055,15 @@ export function Transactions() {
         onSaved={() => load(1, filters)}
         accounts={accounts}
         categories={categories}
+      />
+
+      <TransactionModal
+        open={!!editingTxn}
+        onClose={() => setEditingTxn(null)}
+        onSaved={handleEditSaved}
+        accounts={accounts}
+        categories={categories}
+        initial={editingTxn}
       />
 
       <CsvImportModal

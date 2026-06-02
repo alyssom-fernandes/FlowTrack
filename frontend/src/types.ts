@@ -72,6 +72,7 @@ export interface TransactionCreate {
 }
 
 export interface TransactionUpdate {
+  account_id?: string
   category_id?: string
   description?: string
   amount?: number
@@ -110,6 +111,18 @@ export interface Category {
   color: string
   is_default: boolean
   created_at: string
+}
+
+export interface CategoryCreate {
+  name: string
+  color?: string
+  icon?: string
+}
+
+export interface CategoryUpdate {
+  name?: string
+  color?: string
+  icon?: string
 }
 
 // ── Goal ──────────────────────────────────────────────────

@@ -54,10 +54,11 @@ class TransactionCreate(BaseModel):
     installment_total: Optional[int] = None; notes: Optional[str] = None
 
 class TransactionUpdate(BaseModel):
-    category_id: Optional[str] = None; description: Optional[str] = None
-    amount: Optional[float] = None; transaction_date: Optional[date] = None
-    type: Optional[str] = None; is_recurring: Optional[bool] = None
-    notes: Optional[str] = None; categorized_by: Optional[CategorizedByEnum] = None
+    account_id: Optional[str] = None; category_id: Optional[str] = None
+    description: Optional[str] = None; amount: Optional[float] = None
+    transaction_date: Optional[date] = None; type: Optional[str] = None
+    is_recurring: Optional[bool] = None; notes: Optional[str] = None
+    categorized_by: Optional[CategorizedByEnum] = None
 
 class TransactionResponse(BaseModel):
     id: str; user_id: str; account_id: str; category_id: Optional[str] = None
@@ -129,6 +130,26 @@ class InvestmentListResponse(BaseModel):
     investments: list[InvestmentResponse]; total: int
     total_invested: float; total_current_value: float
     total_profitability: float; total_profitability_percent: float
+
+
+# ── Category ──────────────────────────────────────────────
+class CategoryCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=60)
+    color: str = "#9D2449"
+    icon: Optional[str] = None
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+
+class CategoryResponse(BaseModel):
+    id: str; user_id: Optional[str] = None
+    name: str; icon: Optional[str] = None; color: str
+    is_default: bool; created_at: datetime
+
+class CategoryListResponse(BaseModel):
+    categories: list[CategoryResponse]; total: int
 
 
 # ── Import ────────────────────────────────────────────────
