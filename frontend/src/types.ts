@@ -53,6 +53,7 @@ export interface Transaction {
   parser_version?: string
   sync_status: SyncStatus
   notes?: string
+  tags?: string[]
   created_at: string
   updated_at: string
 }
@@ -69,6 +70,7 @@ export interface TransactionCreate {
   installment_current?: number
   installment_total?: number
   notes?: string
+  tags?: string[]
 }
 
 export interface TransactionUpdate {
@@ -81,6 +83,7 @@ export interface TransactionUpdate {
   is_recurring?: boolean
   notes?: string
   categorized_by?: CategorizedBy
+  tags?: string[]
 }
 
 export interface TransactionFilters {
@@ -90,6 +93,7 @@ export interface TransactionFilters {
   end_date?: string
   type?: string
   search?: string
+  tag?: string
   page?: number
   page_size?: number
 }
@@ -197,6 +201,62 @@ export interface ParsedTransaction {
   amount: number
   transaction_date: string
   type: 'credit' | 'debit'
+}
+
+// ── Alert ─────────────────────────────────────────────────
+export interface Alert {
+  type: 'danger' | 'warning' | 'info'
+  message: string
+  category: 'budget' | 'account' | 'uncategorized' | 'recurring'
+  amount?: number
+}
+
+// ── Budget ────────────────────────────────────────────────
+export interface Budget {
+  id: string
+  user_id: string
+  category_id: string
+  month: string
+  limit_amount: number
+  spent: number
+  percent: number
+  category_name?: string
+  category_color?: string
+  created_at: string
+}
+
+export interface BudgetCreate {
+  category_id: string
+  month: string
+  limit_amount: number
+}
+
+// ── Insight ───────────────────────────────────────────────
+export interface InsightResponse {
+  text: string
+  generated_at: string
+  cached: boolean
+}
+
+// ── Cashflow ──────────────────────────────────────────────
+export interface CashflowEvent {
+  description: string
+  amount: number
+  source: 'recurring' | 'installment'
+}
+
+export interface CashflowDay {
+  date: string
+  events: CashflowEvent[]
+  cumulative_change: number
+  projected_balance: number
+}
+
+export interface CashflowProjection {
+  days: CashflowDay[]
+  starting_balance: number
+  projected_balance: number
+  has_negative_days: boolean
 }
 
 // ── Sync Queue ────────────────────────────────────────────

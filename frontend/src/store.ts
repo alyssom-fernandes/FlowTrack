@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import Dexie, { type EntityTable } from 'dexie'
-import type { User, SyncQueueItem } from './types'
+import type { User, SyncQueueItem, Alert } from './types'
 
 // ── Auth Store ────────────────────────────────────────────
 interface AuthState {
@@ -55,6 +55,32 @@ export const useToastStore = create<ToastState>((set) => ({
     setTimeout(() => set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })), 3000)
   },
   dismiss: (id) => set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })),
+}))
+
+// ── Alerts Store ──────────────────────────────────────────
+interface AlertsState {
+  alerts: Alert[]
+  count: number
+  loading: boolean
+  load: () => Promise<void>
+  clear: () => void
+}
+
+export const useAlertsStore = create<AlertsState>((set) => ({
+  alerts: [],
+  count: 0,
+  loading: false,
+  load: async () => {
+    set({ loading: true })
+    try {
+      const { alertsService } = await import('./services')
+      const res = await alertsService.list()
+      set({ alerts: res.alerts, count: res.total, loading: false })
+    } catch {
+      set({ loading: false })
+    }
+  },
+  clear: () => set({ alerts: [], count: 0 }),
 }))
 
 export const syncQueueService = {

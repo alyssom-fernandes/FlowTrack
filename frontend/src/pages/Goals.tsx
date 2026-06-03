@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { PageFooter } from '../components/layout'
 import { Button, Card, Input, Modal, Spinner } from '../components/ui'
-import { goalsService } from '../services'
+import { goalsService, categoriesService } from '../services'
 import { useToastStore } from '../store'
 import { formatCurrency, formatDate, toISODate } from '../utils'
-import type { Goal, GoalCreate, GoalType } from '../types'
+import type { Goal, GoalCreate, GoalType, Category } from '../types'
 
 // ── shared select style ───────────────────────────────────
 const sel: React.CSSProperties = {
@@ -27,8 +27,9 @@ function ProgressBar({ percent, type }: { percent: number; type: GoalType }) {
 }
 
 // ── GoalCard ──────────────────────────────────────────────
-function GoalCard({ goal, onEdit, onDeleted }: {
+function GoalCard({ goal, categories, onEdit, onDeleted }: {
   goal: Goal
+  categories: Category[]
   onEdit: (g: Goal) => void
   onDeleted: (id: string) => void
 }) {
@@ -44,6 +45,7 @@ function GoalCard({ goal, onEdit, onDeleted }: {
   const isSavings = goal.type === 'savings_target'
   const pct = goal.progress_percent ?? 0
   const overBudget = !isSavings && pct > 100
+  const linkedCat = goal.category_id ? categories.find(c => c.id === goal.category_id) : null
 
   return (
     <Card style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -59,6 +61,16 @@ function GoalCard({ goal, onEdit, onDeleted }: {
             }}>
               {isSavings ? 'Poupança' : 'Limite'}
             </span>
+            {linkedCat && (
+              <span style={{
+                padding: '0.0625rem 0.4rem', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', fontWeight: '500',
+                background: linkedCat.color ? `${linkedCat.color}22` : 'var(--bg-elevated)',
+                color: linkedCat.color || 'var(--text-muted)',
+                border: `0.5px solid ${linkedCat.color || 'var(--border)'}44`,
+              }}>
+                {linkedCat.name}
+              </span>
+            )}
             {overBudget && (
               <span style={{ padding: '0.0625rem 0.4rem', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', fontWeight: '500', background: 'var(--red-soft)', color: 'var(--red)' }}>
                 Excedido
@@ -124,11 +136,12 @@ function blankGoal(): GoalCreate {
 }
 
 // ── GoalModal ─────────────────────────────────────────────
-function GoalModal({ open, onClose, onSaved, initial }: {
+function GoalModal({ open, onClose, onSaved, initial, categories }: {
   open: boolean
   onClose: () => void
   onSaved: () => void
   initial?: Goal | null
+  categories: Category[]
 }) {
   const isEdit = !!initial
 
@@ -182,6 +195,8 @@ function GoalModal({ open, onClose, onSaved, initial }: {
     }
   }
 
+  const showCategorySelector = form.period === 'monthly' && form.type === 'spending_limit'
+
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? 'Editar meta' : 'Nova meta'} width="26rem">
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
@@ -220,6 +235,20 @@ function GoalModal({ open, onClose, onSaved, initial }: {
           </div>
         </div>
 
+        {/* Categoria vinculada (apenas para limites mensais) */}
+        {showCategorySelector && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+            <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Categoria vinculada</label>
+            <select value={form.category_id || ''} onChange={e => set('category_id', e.target.value || undefined)} style={sel}>
+              <option value="">Todas as categorias</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>
+              O progresso será calculado automaticamente com base nos gastos nesta categoria.
+            </span>
+          </div>
+        )}
+
         {/* Valor atual — calculado automaticamente das transações */}
         {isEdit && initial && (
           <div style={{ padding: '0.5rem 0.75rem', background: 'var(--accent-soft)', borderRadius: 'var(--radius-md)' }}>
@@ -250,6 +279,7 @@ function GoalModal({ open, onClose, onSaved, initial }: {
 export function Goals() {
   const { toast } = useToastStore()
   const [goals, setGoals] = useState<Goal[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<Goal | null>(null)
@@ -257,8 +287,9 @@ export function Goals() {
   const load = async () => {
     setLoading(true)
     try {
-      const res = await goalsService.list()
-      setGoals(res.goals || [])
+      const [goalsRes, catRes] = await Promise.all([goalsService.list(), categoriesService.list()])
+      setGoals(goalsRes.goals || [])
+      setCategories(catRes.categories || [])
     } finally {
       setLoading(false)
     }
@@ -319,7 +350,7 @@ export function Goals() {
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {limits.map(g => (
-                    <GoalCard key={g.id} goal={g}
+                    <GoalCard key={g.id} goal={g} categories={categories}
                       onEdit={(g) => { setEditing(g); setShowModal(true) }}
                       onDeleted={handleDeleted} />
                   ))}
@@ -334,7 +365,7 @@ export function Goals() {
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {savings.map(g => (
-                    <GoalCard key={g.id} goal={g}
+                    <GoalCard key={g.id} goal={g} categories={categories}
                       onEdit={(g) => { setEditing(g); setShowModal(true) }}
                       onDeleted={handleDeleted} />
                   ))}
@@ -350,6 +381,7 @@ export function Goals() {
         onClose={() => { setShowModal(false); setEditing(null) }}
         onSaved={handleSaved}
         initial={editing}
+        categories={categories}
       />
 
       <PageFooter />

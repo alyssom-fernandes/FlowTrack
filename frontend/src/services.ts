@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { createClient } from '@supabase/supabase-js'
-import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate, Investment, InvestmentCreate, ParsedTransaction, Category, CategoryCreate, CategoryUpdate } from './types'
+import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate, Investment, InvestmentCreate, ParsedTransaction, Category, CategoryCreate, CategoryUpdate, Alert, Budget, BudgetCreate, InsightResponse, CashflowProjection } from './types'
 
 // ── Supabase ──────────────────────────────────────────────
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -207,6 +207,57 @@ export const summaryService = {
   async monthly(months = 6): Promise<{ month: string; income: number; expense: number }[]> {
     const { data } = await api.get(`/api/v1/summary/monthly?months=${months}`)
     return data
+  },
+}
+
+// ── Alerts ───────────────────────────────────────────────
+export const alertsService = {
+  async list(): Promise<{ alerts: Alert[]; total: number }> {
+    const { data } = await api.get('/api/v1/alerts')
+    return data
+  },
+}
+
+// ── Cashflow ──────────────────────────────────────────────
+export const cashflowService = {
+  async projection(): Promise<CashflowProjection> {
+    const { data } = await api.get('/api/v1/cashflow/projection')
+    return data
+  },
+}
+
+// ── Insights ──────────────────────────────────────────────
+export const insightsService = {
+  async generate(startDate: string, endDate: string): Promise<InsightResponse> {
+    const { data } = await api.post('/api/v1/insights', { start_date: startDate, end_date: endDate })
+    return data
+  },
+}
+
+// ── Budgets ───────────────────────────────────────────────
+export const budgetsService = {
+  async list(month: string): Promise<{ budgets: Budget[]; total: number }> {
+    const { data } = await api.get(`/api/v1/budgets?month=${month}`)
+    return data
+  },
+  async create(payload: BudgetCreate): Promise<Budget> {
+    const { data } = await api.post('/api/v1/budgets', payload)
+    return data
+  },
+  async update(id: string, limitAmount: number): Promise<Budget> {
+    const { data } = await api.patch(`/api/v1/budgets/${id}`, { limit_amount: limitAmount })
+    return data
+  },
+  async remove(id: string): Promise<void> {
+    await api.delete(`/api/v1/budgets/${id}`)
+  },
+}
+
+// ── Tags ──────────────────────────────────────────────────
+export const tagsService = {
+  async list(): Promise<string[]> {
+    const { data } = await api.get('/api/v1/tags')
+    return data.tags || []
   },
 }
 

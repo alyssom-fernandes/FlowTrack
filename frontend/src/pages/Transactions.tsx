@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PageFooter } from '../components/layout'
 import { Button, Card, Input, Modal, Badge, Spinner } from '../components/ui'
-import { transactionsService, accountsService, categoriesService, transfersService } from '../services'
+import { transactionsService, accountsService, categoriesService, transfersService, tagsService } from '../services'
 import { useToastStore } from '../store'
 import { formatCurrency, formatDate, toISODate } from '../utils'
 import type { Transaction, TransactionCreate, TransactionUpdate, Account, Category, ParsedTransaction } from '../types'
@@ -147,6 +147,11 @@ function TxnRow({ txn, accounts, categories, onUpdated, onDeleted, onEdit }: {
           {txn.type === 'transfer' && (
             <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', fontStyle: 'italic' }}>transferência</span>
           )}
+          {(txn.tags || []).map(tag => (
+            <span key={tag} style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', background: 'var(--bg-elevated)', padding: '0 0.3rem', borderRadius: 'var(--radius-sm)', border: '0.5px solid var(--border)' }}>
+              #{tag}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -204,7 +209,7 @@ function TxnRow({ txn, accounts, categories, onUpdated, onDeleted, onEdit }: {
 }
 
 function blankTransaction(): TransactionCreate {
-  return { account_id: '', description: '', amount: 0, transaction_date: toISODate(), type: 'debit', is_recurring: false }
+  return { account_id: '', description: '', amount: 0, transaction_date: toISODate(), type: 'debit', is_recurring: false, tags: [] }
 }
 
 // ── TransactionModal (criar + editar) ─────────────────────
@@ -239,6 +244,7 @@ function TransactionModal({ open, onClose, onSaved, accounts, categories, initia
         is_recurring: initial.is_recurring,
         installment_current: initial.installment_current,
         installment_total: initial.installment_total,
+        tags: initial.tags || [],
       })
       setAmountStr(String(Math.abs(initial.amount)))
     } else {
@@ -285,6 +291,7 @@ function TransactionModal({ open, onClose, onSaved, accounts, categories, initia
           account_id: form.account_id, description: form.description, amount: finalAmount,
           transaction_date: form.transaction_date, type: form.type,
           category_id: form.category_id, notes: form.notes, is_recurring: form.is_recurring,
+          tags: form.tags,
         })
         onSaved(updated)
       } else if (installTotal > 1) {
@@ -392,6 +399,23 @@ function TransactionModal({ open, onClose, onSaved, accounts, categories, initia
             style={{ ...sel, resize: 'vertical', lineHeight: 1.5 }} />
         </div>
 
+        {/* Tags */}
+        {!isTransfer && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+            <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Tags</label>
+            <Input
+              value={(form.tags || []).join(', ')}
+              onChange={e => {
+                const raw = e.target.value
+                const tags = raw.split(',').map(t => t.trim()).filter(Boolean)
+                set('tags', tags)
+              }}
+              placeholder="Ex: viagem, reembolsável, aniversário"
+              hint="Separe múltiplas tags por vírgula"
+            />
+          </div>
+        )}
+
         {/* Recorrente + Parcelado (apenas em criação, não em transfer) */}
         {!isEdit && !isTransfer && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -440,13 +464,15 @@ interface Filters {
   category_id: string
   start_date: string
   end_date: string
+  tag: string
 }
 
-function FilterBar({ filters, onChange, accounts, categories }: {
+function FilterBar({ filters, onChange, accounts, categories, availableTags }: {
   filters: Filters
   onChange: (f: Filters) => void
   accounts: Account[]
   categories: Category[]
+  availableTags: string[]
 }) {
   const [searchInput, setSearchInput] = useState(filters.search)
   const [expanded, setExpanded] = useState(false)
@@ -459,7 +485,7 @@ function FilterBar({ filters, onChange, accounts, categories }: {
   useEffect(() => { setSearchInput(filters.search) }, [filters.search])
 
   const set = (k: keyof Filters, v: string) => onChange({ ...filters, [k]: v })
-  const activeExtra = [filters.account_id, filters.type, filters.category_id, filters.start_date, filters.end_date].filter(Boolean).length
+  const activeExtra = [filters.account_id, filters.type, filters.category_id, filters.start_date, filters.end_date, filters.tag].filter(Boolean).length
   const hasAny = !!filters.search || activeExtra > 0
 
   const extraFilters = (
@@ -480,6 +506,13 @@ function FilterBar({ filters, onChange, accounts, categories }: {
         <option value="">Todas as categorias</option>
         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
       </select>
+      {availableTags.length > 0 && (
+        <select value={filters.tag} onChange={e => set('tag', e.target.value)}
+          style={{ ...sel, width: 'auto', flex: '0 0 auto', height: '2rem', padding: '0 0.625rem' }}>
+          <option value="">Todas as tags</option>
+          {availableTags.map(t => <option key={t} value={t}>#{t}</option>)}
+        </select>
+      )}
       <input type="date" value={filters.start_date} onChange={e => set('start_date', e.target.value)}
         style={{ ...sel, width: 'auto', flex: '0 0 auto', height: '2rem', padding: '0 0.5rem' }} />
       <input type="date" value={filters.end_date} onChange={e => set('end_date', e.target.value)}
@@ -506,7 +539,7 @@ function FilterBar({ filters, onChange, accounts, categories }: {
           {extraFilters}
         </div>
         {hasAny && (
-          <Button variant="ghost" size="sm" onClick={() => { onChange({ search: '', account_id: '', type: '', category_id: '', start_date: '', end_date: '' }); setSearchInput('') }}>
+          <Button variant="ghost" size="sm" onClick={() => { onChange({ search: '', account_id: '', type: '', category_id: '', start_date: '', end_date: '', tag: '' }); setSearchInput('') }}>
             Limpar
           </Button>
         )}
@@ -1025,8 +1058,10 @@ export function Transactions() {
   const [exporting, setExporting] = useState(false)
   const [showImport, setShowImport] = useState(false)
 
+  const [availableTags, setAvailableTags] = useState<string[]>([])
+
   const [filters, setFilters] = useState<Filters>({
-    search: '', account_id: '', type: '', category_id: '', start_date: '', end_date: '',
+    search: '', account_id: '', type: '', category_id: '', start_date: '', end_date: '', tag: '',
   })
 
   const load = useCallback(async (p: number, f: Filters) => {
@@ -1040,6 +1075,7 @@ export function Transactions() {
         ...(f.category_id  && { category_id: f.category_id }),
         ...(f.start_date   && { start_date:  f.start_date }),
         ...(f.end_date     && { end_date:    f.end_date }),
+        ...(f.tag          && { tag:          f.tag }),
       })
       setTransactions(res.transactions || [])
       setTotal(res.total)
@@ -1053,9 +1089,11 @@ export function Transactions() {
     Promise.all([
       accountsService.list(),
       categoriesService.list(),
-    ]).then(([accRes, catRes]) => {
+      tagsService.list(),
+    ]).then(([accRes, catRes, tags]) => {
       setAccounts(accRes.accounts || [])
       setCategories(catRes.categories || [])
+      setAvailableTags(tags)
     })
   }, [])
 
@@ -1132,7 +1170,7 @@ export function Transactions() {
         </div>
 
         {/* Filters */}
-        <FilterBar filters={filters} onChange={handleFiltersChange} accounts={accounts} categories={categories} />
+        <FilterBar filters={filters} onChange={handleFiltersChange} accounts={accounts} categories={categories} availableTags={availableTags} />
 
         {/* List */}
         <Card style={{ flex: 1 }}>

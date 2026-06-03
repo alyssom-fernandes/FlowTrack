@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { PageFooter } from '../components/layout'
-import { Card, Spinner } from '../components/ui'
+import { Button, Card, Spinner } from '../components/ui'
 import { transactionsService, categoriesService } from '../services'
 import { formatCurrency, formatCurrencyCompact, toISODate } from '../utils'
 import type { Transaction, Category } from '../types'
@@ -24,6 +24,19 @@ function buildPeriod(key: PeriodKey, customStart?: string, customEnd?: string): 
   else if (key === '6meses') start = toISODate(new Date(now.getFullYear(), now.getMonth() - 5, 1))
   else                  start = toISODate(new Date(now.getFullYear(), 0, 1))
   return { label: labels[key], start, end }
+}
+
+function prevPeriod(period: Period): Period {
+  const startD = new Date(period.start + 'T00:00:00')
+  const endD   = new Date(period.end + 'T00:00:00')
+  const diffMs = endD.getTime() - startD.getTime()
+  const prevEnd = new Date(startD.getTime() - 1)
+  const prevStart = new Date(prevEnd.getTime() - diffMs)
+  return {
+    label: 'Período anterior',
+    start: toISODate(prevStart),
+    end: toISODate(prevEnd),
+  }
 }
 
 // ── Aggregation helpers ────────────────────────────────────
@@ -88,23 +101,34 @@ function PeriodSelector({ active, onChange, customStart, customEnd, onCustomChan
 }
 
 // ── SummaryCard ────────────────────────────────────────────
-function SummaryCard({ label, value, color }: { label: string; value: number; color?: string }) {
+function SummaryCard({ label, value, color, delta }: { label: string; value: number; color?: string; delta?: number }) {
   return (
     <Card hover style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
       <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
       <span style={{ fontSize: 'var(--font-size-2xl)', fontWeight: '700', color: color || 'var(--text-primary)', lineHeight: 1.1 }}>
         {formatCurrencyCompact(value)}
       </span>
+      {delta !== undefined && (
+        <span style={{ fontSize: 'var(--font-size-xs)', color: delta >= 0 ? 'var(--green)' : 'var(--red)' }}>
+          {delta >= 0 ? '+' : ''}{delta.toFixed(1)}% vs. período anterior
+        </span>
+      )}
     </Card>
   )
 }
 
 // ── BarChart ───────────────────────────────────────────────
-function BarChart({ months }: { months: { key: string; income: number; expense: number }[] }) {
-  const W = 320; const H = 120; const barW = 10; const gap = 4
-  const allVals = months.flatMap(m => [m.income, m.expense])
+function BarChart({ months, prevMonths }: {
+  months: { key: string; income: number; expense: number }[]
+  prevMonths?: { key: string; income: number; expense: number }[]
+}) {
+  const W = 320; const H = 120; const barW = prevMonths ? 7 : 10; const gap = 3
+  const allVals = [
+    ...months.flatMap(m => [m.income, m.expense]),
+    ...(prevMonths || []).flatMap(m => [m.income, m.expense]),
+  ]
   const max = Math.max(...allVals, 1)
-  const groupW = barW * 2 + gap + 8
+  const groupW = prevMonths ? barW * 4 + gap * 3 + 8 : barW * 2 + gap + 8
   const totalW = months.length * groupW
   const offsetX = Math.max(0, (W - totalW) / 2)
 
@@ -115,14 +139,16 @@ function BarChart({ months }: { months: { key: string; income: number; expense: 
           const x = offsetX + i * groupW
           const incH = (m.income / max) * H
           const expH = (m.expense / max) * H
+          const prev = prevMonths?.[i]
+          const prevIncH = prev ? (prev.income / max) * H : 0
+          const prevExpH = prev ? (prev.expense / max) * H : 0
           return (
             <g key={m.key}>
-              {/* income bar */}
-              <rect x={x} y={H - incH} width={barW} height={incH} rx="2" fill="var(--green)" opacity="0.85" />
-              {/* expense bar */}
-              <rect x={x + barW + gap} y={H - expH} width={barW} height={expH} rx="2" fill="var(--accent)" opacity="0.85" />
-              {/* month label */}
-              <text x={x + barW + gap / 2} y={H + 14} textAnchor="middle" fontSize="8" fill="var(--text-hint)">{monthLabel(m.key)}</text>
+              {prev && <rect x={x} y={H - prevIncH} width={barW} height={prevIncH} rx="2" fill="var(--green)" opacity="0.3" />}
+              <rect x={x + (prev ? barW + gap : 0)} y={H - incH} width={barW} height={incH} rx="2" fill="var(--green)" opacity="0.85" />
+              {prev && <rect x={x + barW * 2 + gap * 2} y={H - prevExpH} width={barW} height={prevExpH} rx="2" fill="var(--accent)" opacity="0.3" />}
+              <rect x={x + (prev ? barW * 3 + gap * 3 : barW + gap)} y={H - expH} width={barW} height={expH} rx="2" fill="var(--accent)" opacity="0.85" />
+              <text x={x + groupW / 2} y={H + 14} textAnchor="middle" fontSize="8" fill="var(--text-hint)">{monthLabel(m.key)}</text>
             </g>
           )
         })}
@@ -132,7 +158,7 @@ function BarChart({ months }: { months: { key: string; income: number; expense: 
 }
 
 // ── DonutChart ─────────────────────────────────────────────
-interface Slice { label: string; value: number; color: string; icon?: string }
+interface Slice { label: string; value: number; color: string; icon?: string; delta?: number }
 
 function DonutChart({ slices }: { slices: Slice[] }) {
   const total = slices.reduce((s, sl) => s + sl.value, 0)
@@ -158,14 +184,8 @@ function DonutChart({ slices }: { slices: Slice[] }) {
       <svg viewBox="0 0 136 136" style={{ width: '8.5rem', height: '8.5rem', flexShrink: 0 }}>
         {arcs.map(({ sl, x1, y1, x2, y2, large, angle }, i) => (
           angle > 0.01 ? (
-            <path
-              key={i}
-              d={`M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2}`}
-              fill="none"
-              stroke={sl.color}
-              strokeWidth={strokeW}
-              opacity="0.9"
-            />
+            <path key={i} d={`M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2}`}
+              fill="none" stroke={sl.color} strokeWidth={strokeW} opacity="0.9" />
           ) : null
         ))}
         <text x={cx} y={cy - 6} textAnchor="middle" fontSize="9" fill="var(--text-muted)">Total</text>
@@ -177,10 +197,15 @@ function DonutChart({ slices }: { slices: Slice[] }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.375rem', minWidth: 0 }}>
         {slices.slice(0, 8).map((sl, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <CategoryIconSvg icon={sl.icon} color={sl.color} />
+            <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: sl.color, flexShrink: 0 }} />
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {sl.label}
             </span>
+            {sl.delta !== undefined && (
+              <span style={{ fontSize: 'var(--font-size-xs)', color: sl.delta <= 0 ? 'var(--green)' : 'var(--red)', flexShrink: 0, fontWeight: '500' }}>
+                {sl.delta > 0 ? '+' : ''}{sl.delta.toFixed(0)}%
+              </span>
+            )}
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', flexShrink: 0 }}>
               {((sl.value / total) * 100).toFixed(0)}%
             </span>
@@ -202,7 +227,6 @@ function TopExpenses({ transactions, categories }: { transactions: Transaction[]
     byDesc[t.description] = (byDesc[t.description] || 0) + Math.abs(t.amount)
   })
   const top = Object.entries(byDesc).sort((a, b) => b[1] - a[1]).slice(0, 5)
-
   const expenses = transactions.filter(t => t.amount < 0)
   const total = expenses.reduce((s, t) => s + Math.abs(t.amount), 0)
 
@@ -215,12 +239,7 @@ function TopExpenses({ transactions, categories }: { transactions: Transaction[]
         return (
           <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', overflow: 'hidden', maxWidth: '60%' }}>
-                {cat?.icon && <CategoryIconSvg icon={cat.icon} color={cat.color || 'var(--accent)'} />}
-                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {desc}
-                </span>
-              </div>
+              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{desc}</span>
               <span style={{ fontSize: 'var(--font-size-sm)', fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: '500' }}>
                 {formatCurrency(val)}
               </span>
@@ -241,58 +260,38 @@ const PALETTE = [
   '#EC4899','#14B8A6','#F97316','#6366F1','#84CC16',
 ]
 
-// ── Category SVG icons (Feather icon names → inline SVG) ───
-function CategoryIconSvg({ icon, color, size = 13 }: { icon?: string; color: string; size?: number }) {
-  if (!icon) return null
-  const s = { fill: 'none' as const, stroke: color, strokeWidth: '1.5', strokeLinecap: 'square' as const, strokeLinejoin: 'round' as const }
-  const shapes: Record<string, React.ReactNode> = {
-    'utensils':        <><path {...s} d="M3 2v7c0 1.1.9 2 2 2s2-.9 2-2V2M5 11v11M9 2v5c0 2.2 1.8 4 4 4v11"/></>,
-    'car':             <><path {...s} d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2"/><circle {...s} cx="7" cy="17" r="2"/><circle {...s} cx="17" cy="17" r="2"/></>,
-    'home':            <><path {...s} d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline {...s} points="9 22 9 12 15 12 15 22"/></>,
-    'heart':           <path {...s} d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>,
-    'book':            <><path {...s} d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path {...s} d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></>,
-    'music':           <><path {...s} d="M9 18V5l12-2v13"/><circle {...s} cx="6" cy="18" r="3"/><circle {...s} cx="18" cy="16" r="3"/></>,
-    'shirt':           <path {...s} d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z"/>,
-    'repeat':          <><polyline {...s} points="17 1 21 5 17 9"/><path {...s} d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline {...s} points="7 23 3 19 7 15"/><path {...s} d="M21 13v2a4 4 0 0 1-4 4H3"/></>,
-    'trending-up':     <><polyline {...s} points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline {...s} points="17 6 23 6 23 12"/></>,
-    'dollar-sign':     <><line {...s} x1="12" y1="1" x2="12" y2="23"/><path {...s} d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>,
-    'arrow-right':     <><line {...s} x1="5" y1="12" x2="19" y2="12"/><polyline {...s} points="12 5 19 12 12 19"/></>,
-    'more-horizontal': <><circle {...s} cx="12" cy="12" r="1"/><circle {...s} cx="19" cy="12" r="1"/><circle {...s} cx="5" cy="12" r="1"/></>,
-  }
-  const shape = shapes[icon]
-  if (!shape) return null
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-      {shape}
-    </svg>
-  )
-}
-
 // ── Reports ───────────────────────────────────────────────
 export function Reports() {
   const [periodKey, setPeriodKey] = useState<PeriodKey>('mes')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [prevTransactions, setPrevTransactions] = useState<Transaction[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [comparing, setComparing] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
 
   const period = buildPeriod(periodKey, customStart, customEnd)
-
   const load = useCallback(async () => {
     if (periodKey === 'custom' && (!customStart || !customEnd)) return
     setLoading(true)
     try {
-      const [txRes, catRes] = await Promise.all([
-        transactionsService.list({ start_date: period.start, end_date: period.end, page_size: 500 }),
+      const currentPeriod = buildPeriod(periodKey, customStart, customEnd)
+      const prev = comparing ? prevPeriod(currentPeriod) : null
+      const [txRes, catRes, prevRes] = await Promise.all([
+        transactionsService.list({ start_date: currentPeriod.start, end_date: currentPeriod.end, page_size: 500 }),
         categoriesService.list(),
+        prev ? transactionsService.list({ start_date: prev.start, end_date: prev.end, page_size: 500 }) : Promise.resolve(null),
       ])
       setTransactions(txRes.transactions ?? [])
       setCategories(catRes.categories ?? [])
+      setPrevTransactions(prevRes?.transactions ?? [])
     } finally {
       setLoading(false)
     }
-  }, [period.start, period.end, periodKey, customStart, customEnd])
+  }, [periodKey, customStart, customEnd, comparing])
 
   useEffect(() => { load() }, [load])
 
@@ -302,6 +301,14 @@ export function Reports() {
   const totalExp = expenses.reduce((s, t) => s + Math.abs(t.amount), 0)
   const totalInc = income.reduce((s, t) => s + t.amount, 0)
   const balance  = totalInc - totalExp
+  // `period` is used for PDF export label and summary cards delta label
+
+  const prevExpenses = prevTransactions.filter(t => t.amount < 0)
+  const prevIncome   = prevTransactions.filter(t => t.amount > 0)
+  const prevTotalExp = prevExpenses.reduce((s, t) => s + Math.abs(t.amount), 0)
+  const prevTotalInc = prevIncome.reduce((s, t) => s + t.amount, 0)
+
+  const pctDelta = (curr: number, prev: number) => prev > 0 ? ((curr - prev) / prev) * 100 : undefined
 
   // monthly bar data
   const monthMap: Record<string, { income: number; expense: number }> = {}
@@ -313,6 +320,15 @@ export function Reports() {
   })
   const monthBars = Object.entries(monthMap).sort((a, b) => a[0].localeCompare(b[0])).map(([key, v]) => ({ key, ...v }))
 
+  const prevMonthMap: Record<string, { income: number; expense: number }> = {}
+  prevTransactions.forEach(t => {
+    const k = monthKey(t.transaction_date)
+    if (!prevMonthMap[k]) prevMonthMap[k] = { income: 0, expense: 0 }
+    if (t.amount > 0) prevMonthMap[k].income += t.amount
+    else prevMonthMap[k].expense += Math.abs(t.amount)
+  })
+  const prevMonthBars = comparing ? Object.entries(prevMonthMap).sort((a, b) => a[0].localeCompare(b[0])).map(([key, v]) => ({ key, ...v })) : undefined
+
   // category donut data
   const catMap = Object.fromEntries(categories.map(c => [c.id, c]))
   const catTotals: Record<string, number> = {}
@@ -320,17 +336,62 @@ export function Reports() {
     const k = t.category_id || '__sem__'
     catTotals[k] = (catTotals[k] || 0) + Math.abs(t.amount)
   })
+  const prevCatTotals: Record<string, number> = {}
+  prevExpenses.forEach(t => {
+    const k = t.category_id || '__sem__'
+    prevCatTotals[k] = (prevCatTotals[k] || 0) + Math.abs(t.amount)
+  })
   const slices: Slice[] = Object.entries(catTotals)
     .sort((a, b) => b[1] - a[1])
     .map(([id, val], i) => {
       const cat = catMap[id]
+      const prevVal = prevCatTotals[id]
+      const delta = comparing && prevVal !== undefined ? pctDelta(val, prevVal) : undefined
       return {
         label: cat?.name || 'Sem categoria',
         value: val,
         color: cat?.color || PALETTE[i % PALETTE.length],
         icon: cat?.icon,
+        delta,
       }
     })
+
+  // ── PDF Export ─────────────────────────────────────────
+  const handleExportPdf = async () => {
+    if (!reportRef.current) return
+    setExportingPdf(true)
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
+      const canvas = await html2canvas(reportRef.current, {
+        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0a0a0a',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const pdfW = pdf.internal.pageSize.getWidth()
+      const pdfH = (canvas.height * pdfW) / canvas.width
+
+      pdf.setFontSize(14)
+      pdf.setTextColor(157, 36, 73)
+      pdf.text('FlowTrack', 14, 12)
+      pdf.setFontSize(10)
+      pdf.setTextColor(100, 100, 100)
+      pdf.text(`Relatório — ${period.label} (${period.start} a ${period.end})`, 14, 19)
+      pdf.text(`Gerado em ${new Date().toLocaleDateString('pt-BR')}`, 14, 25)
+
+      pdf.addImage(imgData, 'PNG', 0, 30, pdfW, Math.min(pdfH, 260))
+      pdf.save(`flowtrack_relatorio_${period.start}_${period.end}.pdf`)
+    } catch (e) {
+      console.error('PDF export failed', e)
+    } finally {
+      setExportingPdf(false)
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
@@ -338,9 +399,34 @@ export function Reports() {
 
         {/* Header */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <div>
-            <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '600', color: 'var(--text-primary)' }}>Relatórios</h1>
-            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>Análise das suas finanças</p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div>
+              <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '600', color: 'var(--text-primary)' }}>Relatórios</h1>
+              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>Análise das suas finanças</p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* Compare toggle */}
+              <button
+                onClick={() => setComparing(v => !v)}
+                style={{
+                  padding: '0.3125rem 0.75rem', borderRadius: 'var(--radius-md)', cursor: 'pointer',
+                  border: comparing ? '1px solid var(--green)' : '0.5px solid var(--border)',
+                  background: comparing ? 'var(--green-soft)' : 'var(--bg-card)',
+                  color: comparing ? 'var(--green)' : 'var(--text-muted)',
+                  fontSize: 'var(--font-size-sm)', fontWeight: comparing ? '600' : '400',
+                  transition: 'all var(--transition)',
+                }}
+              >
+                ⇄ Comparar período anterior
+              </button>
+              {/* PDF Export */}
+              <Button size="sm" variant="secondary" loading={exportingPdf} onClick={handleExportPdf}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Exportar PDF
+              </Button>
+            </div>
           </div>
           <PeriodSelector
             active={periodKey}
@@ -349,22 +435,37 @@ export function Reports() {
             customEnd={customEnd}
             onCustomChange={(s, e) => { setCustomStart(s); setCustomEnd(e) }}
           />
+          {comparing && (
+            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', display: 'flex', gap: '1rem' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+                <span style={{ width: '0.75rem', height: '0.5rem', background: 'var(--accent)', opacity: 0.85, borderRadius: '2px', display: 'inline-block' }} />
+                Período atual
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+                <span style={{ width: '0.75rem', height: '0.5rem', background: 'var(--accent)', opacity: 0.3, borderRadius: '2px', display: 'inline-block' }} />
+                Período anterior
+              </span>
+            </div>
+          )}
         </div>
 
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}><Spinner /></div>
         ) : (
-          <>
+          <div ref={reportRef}>
             {/* Summary */}
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <SummaryCard label="Receitas" value={totalInc} color="var(--green)" />
-              <SummaryCard label="Gastos" value={totalExp} color="var(--accent)" />
-              <SummaryCard label="Saldo" value={balance} color={balance >= 0 ? 'var(--green)' : 'var(--accent)'} />
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              <SummaryCard label="Receitas" value={totalInc} color="var(--green)"
+                delta={comparing ? pctDelta(totalInc, prevTotalInc) : undefined} />
+              <SummaryCard label="Gastos" value={totalExp} color="var(--accent)"
+                delta={comparing ? pctDelta(totalExp, prevTotalExp) : undefined} />
+              <SummaryCard label="Saldo" value={balance}
+                color={balance >= 0 ? 'var(--green)' : 'var(--accent)'} />
             </div>
 
             {/* Bar chart */}
             {monthBars.length > 0 && (
-              <Card>
+              <Card style={{ marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                   <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>Receitas × Gastos</span>
                   <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -376,21 +477,21 @@ export function Reports() {
                     </span>
                   </div>
                 </div>
-                <BarChart months={monthBars} />
+                <BarChart months={monthBars} prevMonths={prevMonthBars} />
               </Card>
             )}
 
             {/* Donut chart */}
-            <Card>
+            <Card style={{ marginBottom: '1rem' }}>
               <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '500', display: 'block', marginBottom: '0.75rem' }}>
-                Gastos por categoria
+                Gastos por categoria{comparing ? ' (Δ% vs. período anterior)' : ''}
               </span>
               <DonutChart slices={slices} />
             </Card>
 
             {/* Top expenses */}
             {expenses.length > 0 && (
-              <Card>
+              <Card style={{ marginBottom: '1rem' }}>
                 <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '500', display: 'block', marginBottom: '0.75rem' }}>
                   Maiores gastos
                 </span>
@@ -404,7 +505,7 @@ export function Reports() {
                 Nenhuma transação no período selecionado.
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 

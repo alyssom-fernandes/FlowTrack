@@ -1,6 +1,6 @@
-import { type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { useAuthStore } from '../store'
+import { useAuthStore, useAlertsStore } from '../store'
 import { authService } from '../services'
 import { useOnlineStatus } from '../utils'
 
@@ -14,17 +14,96 @@ const NAV = [
   { path: '/profile',      label: 'Perfil',       mLabel: 'Perfil',     icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
 ]
 
+// ── AlertsPanel ───────────────────────────────────────────
+function AlertsPanel({ onClose }: { onClose: () => void }) {
+  const { alerts, loading } = useAlertsStore()
+
+  const colorMap: Record<string, { color: string; bg: string }> = {
+    danger:  { color: 'var(--red)',    bg: 'var(--red-soft)' },
+    warning: { color: 'var(--accent)', bg: 'var(--accent-soft)' },
+    info:    { color: 'var(--text-muted)', bg: 'var(--bg-elevated)' },
+  }
+
+  return (
+    <>
+      <div
+        style={{ position: 'fixed', inset: 0, zIndex: 199 }}
+        onClick={onClose}
+      />
+      <div style={{
+        position: 'absolute', left: 'calc(100% + 0.5rem)', top: 0, zIndex: 200,
+        width: '22rem', maxHeight: '28rem', overflowY: 'auto',
+        background: 'var(--bg-card)', border: '0.5px solid var(--border)',
+        borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        <div style={{ padding: '0.75rem 1rem', borderBottom: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '600', color: 'var(--text-primary)' }}>Alertas</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', fontSize: '1rem' }}>✕</button>
+        </div>
+        <div style={{ padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+          {loading && (
+            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-hint)', fontSize: 'var(--font-size-sm)' }}>Carregando...</div>
+          )}
+          {!loading && alerts.length === 0 && (
+            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-hint)', fontSize: 'var(--font-size-sm)' }}>Nenhum alerta no momento.</div>
+          )}
+          {alerts.map((a, i) => {
+            const c = colorMap[a.type] ?? colorMap.info
+            return (
+              <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', padding: '0.5rem 0.625rem', borderRadius: 'var(--radius-md)', background: c.bg }}>
+                <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: c.color, flexShrink: 0, marginTop: '0.3rem' }} />
+                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{a.message}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── Sidebar ───────────────────────────────────────────────
 export function Sidebar() {
   const location = useLocation()
   const { user, isDemo } = useAuthStore()
+  const { count, load } = useAlertsStore()
+  const [showAlerts, setShowAlerts] = useState(false)
   const displayName = isDemo ? 'Demo' : (user?.email?.split('@')[0] || '')
+
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <aside style={{ width: 'var(--sidebar-width)', flexShrink: 0, background: 'var(--bg-sidebar)', borderRight: '0.5px solid var(--border)', display: 'flex', flexDirection: 'column', height: '100dvh', position: 'sticky', top: 0 }}>
       {/* Logo */}
-      <div style={{ padding: '1rem 0.875rem', borderBottom: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ padding: '1rem 0.875rem', borderBottom: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <img src="/logo.png" alt="FlowTrack" className="ft-logo" style={{ height: '1.875rem', width: 'auto' }} />
+        {/* Bell icon with alert badge */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowAlerts(v => !v)}
+            title="Alertas"
+            aria-label="Ver alertas"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: count > 0 ? 'var(--accent)' : 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', transition: 'color var(--transition)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+            onMouseLeave={e => (e.currentTarget.style.color = count > 0 ? 'var(--accent)' : 'var(--text-hint)')}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </button>
+          {count > 0 && (
+            <span style={{
+              position: 'absolute', top: '-2px', right: '-2px',
+              minWidth: '1rem', height: '1rem', borderRadius: '9999px',
+              background: 'var(--accent)', color: '#fff',
+              fontSize: '0.5625rem', fontWeight: '700',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '0 0.2rem', lineHeight: 1,
+            }}>{count > 9 ? '9+' : count}</span>
+          )}
+          {showAlerts && <AlertsPanel onClose={() => setShowAlerts(false)} />}
+        </div>
       </div>
 
       {/* Nav */}

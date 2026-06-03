@@ -2,10 +2,11 @@ import csv
 import io
 import hashlib
 import re
+import calendar as cal
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from typing import Optional
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 from app.core.security import get_current_user_id, verify_internal_token
 from app.core.database import get_supabase
@@ -17,7 +18,11 @@ from app.models import (
     InvestmentCreate, InvestmentUpdate, InvestmentResponse, InvestmentListResponse,
     CategoryCreate, CategoryUpdate, CategoryResponse, CategoryListResponse,
     CategorizedByEnum, BulkTransactionCreate, TransferCreate,
+    BudgetCreate, BudgetUpdate, AlertListResponse, InsightPeriod, InsightResponse,
 )
+
+# In-memory cache for AI insights (24h TTL)
+_insights_cache: dict[str, dict] = {}
 
 router = APIRouter()
 internal_router = APIRouter()
@@ -173,6 +178,7 @@ async def list_transactions(
     account_id: Optional[str] = Query(None), category_id: Optional[str] = Query(None),
     start_date: Optional[date] = Query(None), end_date: Optional[date] = Query(None),
     type: Optional[str] = Query(None), search: Optional[str] = Query(None),
+    tag: Optional[str] = Query(None),
     page: int = Query(default=1, ge=1), page_size: int = Query(default=50, ge=1, le=500),
     user_id: str = Depends(get_current_user_id),
 ):
@@ -184,6 +190,7 @@ async def list_transactions(
         if end_date: q = q.lte("transaction_date", str(end_date))
         if type: q = q.eq("type", type)
         if search: q = q.ilike("description", f"%{search}%")
+        if tag: q = q.contains("tags", [tag])
         offset = (page - 1) * page_size
         result = q.order("transaction_date", desc=True).range(offset, offset + page_size - 1).execute()
         total = result.count or 0
@@ -637,6 +644,316 @@ async def monthly_summary(months: int = Query(default=6, ge=1, le=24), user_id: 
     except Exception as e:
         logger.error("monthly_summary failed", error=str(e))
         raise HTTPException(500, "Failed to compute monthly summary")
+
+
+# ── Alerts ───────────────────────────────────────────────
+@router.get("/alerts", response_model=AlertListResponse, tags=["Alerts"])
+async def list_alerts(user_id: str = Depends(get_current_user_id)):
+    """Deterministic in-app alerts based on current financial state."""
+    try:
+        sb = get_supabase()
+        today = date.today()
+        month_start = date(today.year, today.month, 1).isoformat()
+        month_end = date(today.year, today.month, cal.monthrange(today.year, today.month)[1]).isoformat()
+        alerts = []
+
+        # Current month transactions
+        txns = sb.table("transactions").select("id,amount,category_id,is_recurring,description").eq("user_id", user_id).gte("transaction_date", month_start).lte("transaction_date", month_end).execute().data or []
+
+        # 1. Goal spending limits approaching or exceeded
+        goals = sb.table("goals").select("*").eq("user_id", user_id).eq("is_active", True).eq("type", "spending_limit").execute().data or []
+        for g in goals:
+            current = _calc_goal_current(sb, user_id, g)
+            pct = (current / g["target_amount"] * 100) if g["target_amount"] > 0 else 0
+            remaining = round(g["target_amount"] - current, 2)
+            if pct >= 100:
+                alerts.append({"type": "danger", "message": f'Meta "{g["name"]}" excedida em R${abs(remaining):.2f}', "category": "budget", "amount": abs(remaining)})
+            elif pct >= 75:
+                alerts.append({"type": "warning", "message": f'Meta "{g["name"]}" em {pct:.0f}% — faltam R${remaining:.2f}', "category": "budget", "amount": remaining})
+
+        # 2. Negative balance accounts
+        neg_accs = sb.table("accounts").select("name,balance").eq("user_id", user_id).eq("is_active", True).lt("balance", 0).execute().data or []
+        for a in neg_accs:
+            alerts.append({"type": "danger", "message": f'Saldo negativo: {a["name"]}', "category": "account", "amount": a["balance"]})
+
+        # 3. Uncategorized expense transactions this month
+        uncategorized = [t for t in txns if not t.get("category_id") and (t.get("amount") or 0) < 0]
+        if len(uncategorized) >= 3:
+            alerts.append({"type": "info", "message": f'{len(uncategorized)} transações sem categoria este mês', "category": "uncategorized"})
+
+        # 4. Missing recurring transactions (present last month, absent this month)
+        if today.month == 1:
+            prev_first = date(today.year - 1, 12, 1)
+            prev_last = date(today.year - 1, 12, 31)
+        else:
+            prev_first = date(today.year, today.month - 1, 1)
+            prev_last = date(today.year, today.month, 1) - timedelta(days=1)
+
+        prev_rec = sb.table("transactions").select("description").eq("user_id", user_id).eq("is_recurring", True).gte("transaction_date", str(prev_first)).lte("transaction_date", str(prev_last)).limit(5).execute().data or []
+        curr_norms = {normalize_desc(t["description"]) for t in txns}
+        for r in prev_rec:
+            if normalize_desc(r["description"]) not in curr_norms:
+                alerts.append({"type": "info", "message": f'Recorrente "{r["description"]}" não detectado este mês', "category": "recurring"})
+
+        # 5. Budgets approaching limit (if budgets table exists)
+        try:
+            current_month = f"{today.year}-{today.month:02d}"
+            budgets = sb.table("budgets").select("*").eq("user_id", user_id).eq("month", current_month).execute().data or []
+            cat_spending: dict = {}
+            for t in txns:
+                k = t.get("category_id")
+                if k and (t.get("amount") or 0) < 0:
+                    cat_spending[k] = cat_spending.get(k, 0) + abs(t["amount"])
+            for b in budgets:
+                spent = cat_spending.get(b["category_id"], 0)
+                pct = (spent / b["limit_amount"] * 100) if b["limit_amount"] > 0 else 0
+                if pct >= 80 and pct < 100:
+                    cat_res = sb.table("categories").select("name").eq("id", b["category_id"]).single().execute()
+                    cat_name = cat_res.data["name"] if cat_res.data else "Categoria"
+                    remaining = round(b["limit_amount"] - spent, 2)
+                    alerts.append({"type": "warning", "message": f'Orçamento "{cat_name}" em {pct:.0f}% — faltam R${remaining:.2f}', "category": "budget", "amount": remaining})
+                elif pct >= 100:
+                    cat_res = sb.table("categories").select("name").eq("id", b["category_id"]).single().execute()
+                    cat_name = cat_res.data["name"] if cat_res.data else "Categoria"
+                    alerts.append({"type": "danger", "message": f'Orçamento "{cat_name}" excedido', "category": "budget"})
+        except Exception:
+            pass
+
+        return AlertListResponse(alerts=alerts, total=len(alerts))
+    except Exception as e:
+        logger.error("list_alerts failed", error=str(e))
+        raise HTTPException(500, "Failed to compute alerts")
+
+
+# ── Cashflow Projection ───────────────────────────────────
+@router.get("/cashflow/projection", tags=["Cashflow"])
+async def cashflow_projection(user_id: str = Depends(get_current_user_id)):
+    """Projects account balance day by day for the next 30 days based on recurring and installment transactions."""
+    try:
+        sb = get_supabase()
+        today = date.today()
+        end_date = today + timedelta(days=30)
+
+        # Total starting balance across all accounts
+        accs = sb.table("accounts").select("balance").eq("user_id", user_id).eq("is_active", True).execute().data or []
+        starting_balance = round(sum(a["balance"] for a in accs), 2)
+
+        # Recurring transactions from last 2 months to detect patterns
+        if today.month <= 2:
+            lookback_start = date(today.year - 1, 10, 1)
+        else:
+            lookback_start = date(today.year, today.month - 2, 1)
+        recurring = sb.table("transactions").select("description,amount,transaction_date").eq("user_id", user_id).eq("is_recurring", True).gte("transaction_date", str(lookback_start)).execute().data or []
+
+        # Pending installments (installment_current < installment_total)
+        inst_res = sb.table("transactions").select("description,amount,transaction_date,installment_current,installment_total").eq("user_id", user_id).not_.is_("installment_total", "null").execute().data or []
+        pending_inst = [t for t in inst_res if t.get("installment_current") and t.get("installment_total") and t["installment_current"] < t["installment_total"]]
+
+        # Build events per day
+        days: dict[str, list[dict]] = {}
+
+        def add_event(d: date, desc: str, amount: float, source: str) -> None:
+            if today < d <= end_date:
+                key = d.isoformat()
+                if key not in days:
+                    days[key] = []
+                days[key].append({"description": desc, "amount": round(amount, 2), "source": source})
+
+        # Project recurring (deduplicate by normalized description)
+        seen_rec: set[str] = set()
+        for r in sorted(recurring, key=lambda x: x["transaction_date"], reverse=True):
+            norm = normalize_desc(r["description"])
+            if norm in seen_rec:
+                continue
+            seen_rec.add(norm)
+            base = date.fromisoformat(r["transaction_date"])
+            for delta_m in range(0, 3):
+                year = today.year + (today.month - 1 + delta_m) // 12
+                month = (today.month - 1 + delta_m) % 12 + 1
+                day = min(base.day, cal.monthrange(year, month)[1])
+                add_event(date(year, month, day), r["description"], r["amount"], "recurring")
+
+        # Project pending installments
+        for inst in pending_inst:
+            curr = inst["installment_current"]
+            total = inst["installment_total"]
+            base = date.fromisoformat(inst["transaction_date"])
+            for i in range(1, total - curr + 1):
+                raw_month = base.month + curr + i - 1
+                year = base.year + (raw_month - 1) // 12
+                month = (raw_month - 1) % 12 + 1
+                day = min(base.day, cal.monthrange(year, month)[1])
+                add_event(date(year, month, day), inst["description"], inst["amount"], "installment")
+
+        # Build sorted result
+        result_days = []
+        cumulative = 0.0
+        has_negative = False
+        for d_str in sorted(days):
+            events = days[d_str]
+            day_sum = sum(e["amount"] for e in events)
+            cumulative = round(cumulative + day_sum, 2)
+            proj_bal = round(starting_balance + cumulative, 2)
+            if proj_bal < 0:
+                has_negative = True
+            result_days.append({"date": d_str, "events": events, "cumulative_change": cumulative, "projected_balance": proj_bal})
+
+        return {
+            "days": result_days,
+            "starting_balance": starting_balance,
+            "projected_balance": round(starting_balance + cumulative, 2),
+            "has_negative_days": has_negative,
+        }
+    except Exception as e:
+        logger.error("cashflow_projection failed", error=str(e))
+        raise HTTPException(500, "Failed to compute cashflow projection")
+
+
+# ── Insights (AI) ─────────────────────────────────────────
+@router.post("/insights", response_model=InsightResponse, tags=["Insights"])
+async def generate_insight(period: InsightPeriod, user_id: str = Depends(get_current_user_id)):
+    """Generate an AI-powered financial insight for a given period, cached for 24h."""
+    cache_key = f"{user_id}:{period.start_date}:{period.end_date}"
+    cached = _insights_cache.get(cache_key)
+    if cached and (datetime.now() - cached["ts"]).total_seconds() < 86400:
+        return InsightResponse(text=cached["text"], generated_at=cached["ts"].isoformat(), cached=True)
+
+    try:
+        sb = get_supabase()
+        txns = sb.table("transactions").select("amount,category_id,description,is_recurring").eq("user_id", user_id).gte("transaction_date", period.start_date).lte("transaction_date", period.end_date).execute().data or []
+        goals = sb.table("goals").select("name,type,target_amount,is_active").eq("user_id", user_id).eq("is_active", True).execute().data or []
+        cats = sb.table("categories").select("id,name").execute().data or []
+        cat_map = {c["id"]: c["name"] for c in cats}
+
+        expenses = [t for t in txns if (t.get("amount") or 0) < 0]
+        income_t = [t for t in txns if (t.get("amount") or 0) > 0]
+        total_exp = sum(abs(t["amount"]) for t in expenses)
+        total_inc = sum(t["amount"] for t in income_t)
+        savings_rate = round((total_inc - total_exp) / total_inc * 100, 1) if total_inc > 0 else 0
+
+        cat_totals: dict = {}
+        for t in expenses:
+            k = t.get("category_id") or "__none__"
+            cat_totals[k] = cat_totals.get(k, 0) + abs(t["amount"])
+        top_cats = sorted(cat_totals.items(), key=lambda x: -x[1])[:5]
+        top_cats_str = "\n".join(f"- {cat_map.get(k, 'Sem categoria')}: R${v:.2f}" for k, v in top_cats)
+
+        recurring_total = sum(abs(t["amount"]) for t in expenses if t.get("is_recurring"))
+        goals_str = "\n".join(f'- {g["name"]} ({g["type"]}): alvo R${g["target_amount"]:.2f}' for g in goals[:3])
+
+        from app.core.config import get_settings
+        settings = get_settings()
+
+        if not settings.anthropic_api_key or settings.anthropic_api_key in ("pendente", ""):
+            text = f"Receitas: R${total_inc:.2f}. Gastos: R${total_exp:.2f}. Taxa de economia: {savings_rate}%. {len(txns)} transações no período."
+        else:
+            import anthropic
+            client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+            prompt = (
+                f"Você é um assistente financeiro pessoal. Analise os dados abaixo e gere um insight conciso (máximo 3 frases) "
+                f"em português, tom amigável, com números específicos.\n\n"
+                f"Período: {period.start_date} a {period.end_date}\n"
+                f"Receitas: R${total_inc:.2f} | Gastos: R${total_exp:.2f} | Economia: {savings_rate}%\n"
+                f"Top categorias:\n{top_cats_str or '- Sem dados'}\n"
+                f"Recorrentes: R${recurring_total:.2f}\n"
+                f"Metas ativas:\n{goals_str or '- Nenhuma'}\n\nInsight:"
+            )
+            resp = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=200,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = resp.content[0].text.strip()
+
+        ts = datetime.now()
+        _insights_cache[cache_key] = {"text": text, "ts": ts}
+        return InsightResponse(text=text, generated_at=ts.isoformat(), cached=False)
+    except Exception as e:
+        logger.error("generate_insight failed", error=str(e))
+        raise HTTPException(500, "Failed to generate insight")
+
+
+# ── Budgets ───────────────────────────────────────────────
+@router.get("/budgets", tags=["Budgets"])
+async def list_budgets(month: str = Query(..., pattern=r"^\d{4}-\d{2}$"), user_id: str = Depends(get_current_user_id)):
+    """List budgets for a given month with spending totals."""
+    try:
+        sb = get_supabase()
+        budgets = sb.table("budgets").select("*").eq("user_id", user_id).eq("month", month).execute().data or []
+        cats = sb.table("categories").select("id,name,color").execute().data or []
+        cat_map = {c["id"]: c for c in cats}
+
+        year, mon = int(month.split("-")[0]), int(month.split("-")[1])
+        month_start = f"{month}-01"
+        month_end = f"{month}-{cal.monthrange(year, mon)[1]:02d}"
+        txns = sb.table("transactions").select("amount,category_id").eq("user_id", user_id).gte("transaction_date", month_start).lte("transaction_date", month_end).lt("amount", 0).execute().data or []
+
+        cat_spending: dict = {}
+        for t in txns:
+            k = t.get("category_id")
+            if k:
+                cat_spending[k] = cat_spending.get(k, 0) + abs(t["amount"])
+
+        result = []
+        for b in budgets:
+            cat = cat_map.get(b["category_id"], {})
+            spent = round(cat_spending.get(b["category_id"], 0), 2)
+            pct = round((spent / b["limit_amount"] * 100) if b["limit_amount"] > 0 else 0, 2)
+            result.append({**b, "spent": spent, "percent": pct, "category_name": cat.get("name"), "category_color": cat.get("color")})
+        return {"budgets": result, "total": len(result)}
+    except Exception as e:
+        logger.error("list_budgets failed", error=str(e))
+        raise HTTPException(500, "Failed to list budgets")
+
+@router.post("/budgets", status_code=201, tags=["Budgets"])
+async def create_budget(body: BudgetCreate, user_id: str = Depends(get_current_user_id)):
+    try:
+        data = body.model_dump(); data["user_id"] = user_id
+        result = get_supabase().table("budgets").insert(data).execute()
+        return result.data[0]
+    except Exception as e:
+        if "unique" in str(e).lower():
+            raise HTTPException(409, "Já existe um orçamento para esta categoria neste mês.")
+        logger.error("create_budget failed", error=str(e))
+        raise HTTPException(500, "Failed to create budget")
+
+@router.patch("/budgets/{budget_id}", tags=["Budgets"])
+async def update_budget(budget_id: str, body: BudgetUpdate, user_id: str = Depends(get_current_user_id)):
+    try:
+        data = {k: v for k, v in body.model_dump().items() if v is not None}
+        if not data: raise HTTPException(400, "No fields to update")
+        result = get_supabase().table("budgets").update(data).eq("id", budget_id).eq("user_id", user_id).execute()
+        if not result.data: raise HTTPException(404, "Budget not found")
+        return result.data[0]
+    except HTTPException: raise
+    except Exception as e:
+        logger.error("update_budget failed", error=str(e)); raise HTTPException(500, "Failed to update budget")
+
+@router.delete("/budgets/{budget_id}", status_code=204, tags=["Budgets"])
+async def delete_budget(budget_id: str, user_id: str = Depends(get_current_user_id)):
+    try:
+        result = get_supabase().table("budgets").delete().eq("id", budget_id).eq("user_id", user_id).execute()
+        if not result.data: raise HTTPException(404, "Budget not found")
+    except HTTPException: raise
+    except Exception as e:
+        logger.error("delete_budget failed", error=str(e)); raise HTTPException(500, "Failed to delete budget")
+
+
+# ── Tags ──────────────────────────────────────────────────
+@router.get("/tags", tags=["Tags"])
+async def list_tags(user_id: str = Depends(get_current_user_id)):
+    """Return all distinct tags used by the user across transactions."""
+    try:
+        result = get_supabase().table("transactions").select("tags").eq("user_id", user_id).not_.is_("tags", "null").execute()
+        tags_set: set[str] = set()
+        for t in (result.data or []):
+            for tag in (t.get("tags") or []):
+                if tag and tag.strip():
+                    tags_set.add(tag.strip())
+        return {"tags": sorted(tags_set)}
+    except Exception as e:
+        logger.error("list_tags failed", error=str(e))
+        return {"tags": []}
 
 
 # ── Internal ──────────────────────────────────────────────

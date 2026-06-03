@@ -52,6 +52,7 @@ class TransactionCreate(BaseModel):
     currency: str = "BRL"; transaction_date: date; type: str = "debit"
     is_recurring: bool = False; installment_current: Optional[int] = None
     installment_total: Optional[int] = None; notes: Optional[str] = None
+    tags: Optional[list[str]] = None
 
 class TransactionUpdate(BaseModel):
     account_id: Optional[str] = None; category_id: Optional[str] = None
@@ -59,6 +60,7 @@ class TransactionUpdate(BaseModel):
     transaction_date: Optional[date] = None; type: Optional[str] = None
     is_recurring: Optional[bool] = None; notes: Optional[str] = None
     categorized_by: Optional[CategorizedByEnum] = None
+    tags: Optional[list[str]] = None
 
 class TransactionResponse(BaseModel):
     id: str; user_id: str; account_id: str; category_id: Optional[str] = None
@@ -70,6 +72,7 @@ class TransactionResponse(BaseModel):
     confidence_score: Optional[float] = None
     import_batch_id: Optional[str] = None; parser_version: Optional[str] = None
     sync_status: SyncStatusEnum; notes: Optional[str] = None
+    tags: Optional[list[str]] = None
     created_at: datetime; updated_at: datetime
 
 class TransactionListResponse(BaseModel):
@@ -171,3 +174,66 @@ class ParsedTransactionItem(BaseModel):
 class BulkTransactionCreate(BaseModel):
     account_id: str
     transactions: list[ParsedTransactionItem]
+
+
+# ── Budget ────────────────────────────────────────────────
+class BudgetCreate(BaseModel):
+    category_id: str
+    month: str = Field(..., pattern=r"^\d{4}-\d{2}$", description="YYYY-MM")
+    limit_amount: float = Field(..., gt=0)
+
+class BudgetUpdate(BaseModel):
+    limit_amount: Optional[float] = Field(None, gt=0)
+
+class BudgetResponse(BaseModel):
+    id: str; user_id: str; category_id: str; month: str
+    limit_amount: float; created_at: datetime
+
+class BudgetWithSpending(BudgetResponse):
+    spent: float; percent: float
+    category_name: Optional[str] = None
+    category_color: Optional[str] = None
+
+class BudgetListResponse(BaseModel):
+    budgets: list[BudgetWithSpending]; total: int
+
+
+# ── Alerts ────────────────────────────────────────────────
+class AlertItem(BaseModel):
+    type: str  # 'danger' | 'warning' | 'info'
+    message: str
+    category: str  # 'budget' | 'account' | 'uncategorized' | 'recurring'
+    amount: Optional[float] = None
+
+class AlertListResponse(BaseModel):
+    alerts: list[AlertItem]; total: int
+
+
+# ── Insights ──────────────────────────────────────────────
+class InsightPeriod(BaseModel):
+    start_date: str
+    end_date: str
+
+class InsightResponse(BaseModel):
+    text: str
+    generated_at: str
+    cached: bool
+
+
+# ── Cashflow ──────────────────────────────────────────────
+class CashflowEvent(BaseModel):
+    description: str
+    amount: float
+    source: str  # 'recurring' | 'installment'
+
+class CashflowDay(BaseModel):
+    date: str
+    events: list[CashflowEvent]
+    cumulative_change: float
+    projected_balance: float
+
+class CashflowProjection(BaseModel):
+    days: list[CashflowDay]
+    starting_balance: float
+    projected_balance: float
+    has_negative_days: bool
