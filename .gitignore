@@ -48,3 +48,5 @@ frontend/.env.local
 
 # Extratos de amostra — nunca commitar
 _samples/
+
+ROADMAP.md
