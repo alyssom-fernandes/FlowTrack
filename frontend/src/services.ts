@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { createClient } from '@supabase/supabase-js'
-import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate, Investment, InvestmentCreate, ParsedTransaction, Category, CategoryCreate, CategoryUpdate, Alert, Budget, BudgetCreate, InsightResponse, CashflowProjection } from './types'
+import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate, Investment, InvestmentCreate, ParsedTransaction, Category, CategoryCreate, CategoryUpdate, Alert, Budget, BudgetCreate, InsightResponse, CashflowProjection, NetWorth, ProjectionData, AuditLogEntry } from './types'
 
 // ── Supabase ──────────────────────────────────────────────
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -258,6 +258,34 @@ export const tagsService = {
   async list(): Promise<string[]> {
     const { data } = await api.get('/api/v1/tags')
     return data.tags || []
+  },
+}
+
+// ── Net Worth ─────────────────────────────────────────────
+export const netWorthService = {
+  async get(): Promise<NetWorth> {
+    const { data } = await api.get('/api/v1/net-worth')
+    return data
+  },
+}
+
+// ── Projections ───────────────────────────────────────────
+export const projectionsService = {
+  async get(): Promise<ProjectionData> {
+    const { data } = await api.get('/api/v1/projections')
+    return data
+  },
+}
+
+// ── Audit Log ─────────────────────────────────────────────
+export const auditLogService = {
+  async list(limit = 50): Promise<{ entries: AuditLogEntry[]; total: number }> {
+    const { data } = await api.get(`/api/v1/audit-log?limit=${limit}`)
+    return data
+  },
+  async undo(logId: string): Promise<{ undone: boolean }> {
+    const { data } = await api.post(`/api/v1/audit-log/${logId}/undo`)
+    return data
   },
 }
 

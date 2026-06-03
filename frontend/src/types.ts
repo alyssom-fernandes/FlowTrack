@@ -259,6 +259,50 @@ export interface CashflowProjection {
   has_negative_days: boolean
 }
 
+// ── Net Worth ─────────────────────────────────────────────
+export interface NetWorthSnapshot {
+  date: string
+  total_accounts: number
+  total_investments: number
+  net_worth: number
+}
+
+export interface NetWorth {
+  total_accounts: number
+  total_investments: number
+  net_worth: number
+  snapshots: NetWorthSnapshot[]
+}
+
+// ── Projections ───────────────────────────────────────────
+export interface MonthData {
+  month: string
+  income: number
+  expense: number
+  is_projection: boolean
+}
+
+export interface ProjectionData {
+  history: MonthData[]
+  projections: MonthData[]
+  months_available: number
+  avg_income: number
+  avg_expense: number
+}
+
+// ── Audit Log ─────────────────────────────────────────────
+export interface AuditLogEntry {
+  id: string
+  user_id: string
+  entity_type: string
+  entity_id: string
+  action: 'create' | 'update' | 'delete'
+  old_values?: Record<string, unknown>
+  new_values?: Record<string, unknown>
+  undone: boolean
+  created_at: string
+}
+
 // ── Sync Queue ────────────────────────────────────────────
 export type SyncAction = 'create' | 'update' | 'delete'
 export type SyncItemStatus = 'pending' | 'retrying' | 'failed'

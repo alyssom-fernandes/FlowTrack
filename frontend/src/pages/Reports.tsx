@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { PageFooter } from '../components/layout'
 import { Button, Card, Spinner } from '../components/ui'
-import { transactionsService, categoriesService } from '../services'
+import { transactionsService, categoriesService, projectionsService } from '../services'
 import { formatCurrency, formatCurrencyCompact, toISODate } from '../utils'
-import type { Transaction, Category } from '../types'
+import type { Transaction, Category, ProjectionData } from '../types'
 
 // ── Period helpers ─────────────────────────────────────────
 type PeriodKey = 'mes' | '3meses' | '6meses' | 'ano' | 'custom'
@@ -260,6 +260,78 @@ const PALETTE = [
   '#EC4899','#14B8A6','#F97316','#6366F1','#84CC16',
 ]
 
+// ── ProjectionChart ────────────────────────────────────────
+function ProjectionChart({ data }: { data: ProjectionData }) {
+  const all = [...data.history, ...data.projections]
+  if (all.length === 0) return null
+  const W = 320; const H = 100; const barW = 8; const gap = 3
+  const maxVal = Math.max(...all.flatMap(m => [m.income, m.expense]), 1)
+  const groupW = barW * 2 + gap + 10
+  const totalW = all.length * groupW
+  const offsetX = Math.max(0, (W - totalW) / 2)
+
+  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+  const confidence = data.months_available >= 6 ? 'Alta' : data.months_available >= 3 ? 'Média' : 'Baixa'
+  const confColor = data.months_available >= 6 ? 'var(--green)' : data.months_available >= 3 ? 'var(--accent)' : 'var(--red)'
+
+  return (
+    <Card>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div>
+          <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)', display: 'block' }}>Projeções financeiras (3 meses)</span>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>
+            Baseado em {data.months_available} mes{data.months_available !== 1 ? 'es' : ''} de histórico.
+            Confiança: <strong style={{ color: confColor }}>{confidence}</strong>
+            {data.months_available < 6 && ' — recomendamos 6+ meses para maior precisão.'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ width: '10px', height: '6px', background: 'var(--green)', opacity: 0.85, borderRadius: '2px', display: 'inline-block' }} />Receitas
+          </span>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ width: '10px', height: '6px', background: 'var(--accent)', opacity: 0.85, borderRadius: '2px', display: 'inline-block' }} />Gastos
+          </span>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ width: '10px', height: '6px', background: 'var(--border)', opacity: 0.5, borderRadius: '2px', display: 'inline-block', border: '1px dashed var(--text-hint)' }} />Projeção
+          </span>
+        </div>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <svg viewBox={`0 0 ${Math.max(W, totalW + 20)} ${H + 20}`} style={{ width: '100%', minWidth: `${Math.max(W, totalW + 20)}px`, height: `${H + 20}px` }}>
+          {/* Separator between history and projection */}
+          {data.history.length > 0 && data.projections.length > 0 && (
+            <line
+              x1={offsetX + data.history.length * groupW - 4} y1="0"
+              x2={offsetX + data.history.length * groupW - 4} y2={H}
+              stroke="var(--border)" strokeWidth="1" strokeDasharray="4,4"
+            />
+          )}
+          {all.map((m, i) => {
+            const x = offsetX + i * groupW
+            const incH = (m.income / maxVal) * H
+            const expH = (m.expense / maxVal) * H
+            const isProj = m.is_projection
+            const mo = m.month.split('-')
+            const label = months[parseInt(mo[1]) - 1] + (isProj ? '*' : '')
+            return (
+              <g key={m.month}>
+                <rect x={x} y={H - incH} width={barW} height={incH} rx="2" fill="var(--green)" opacity={isProj ? 0.35 : 0.85} />
+                <rect x={x + barW + gap} y={H - expH} width={barW} height={expH} rx="2" fill="var(--accent)" opacity={isProj ? 0.35 : 0.85} />
+                <text x={x + barW + gap / 2} y={H + 14} textAnchor="middle" fontSize="8" fill={isProj ? 'var(--text-hint)' : 'var(--text-muted)'}>{label}</text>
+              </g>
+            )
+          })}
+        </svg>
+      </div>
+      <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.625rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>
+        Média histórica — Receitas: <strong>{formatCurrencyCompact(data.avg_income)}</strong>/mês · Gastos: <strong>{formatCurrencyCompact(data.avg_expense)}</strong>/mês
+      </div>
+    </Card>
+  )
+}
+
 // ── Reports ───────────────────────────────────────────────
 export function Reports() {
   const [periodKey, setPeriodKey] = useState<PeriodKey>('mes')
@@ -271,7 +343,12 @@ export function Reports() {
   const [loading, setLoading] = useState(true)
   const [comparing, setComparing] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [projections, setProjections] = useState<ProjectionData | null>(null)
   const reportRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    projectionsService.get().then(setProjections).catch(() => null)
+  }, [])
 
   const period = buildPeriod(periodKey, customStart, customEnd)
   const load = useCallback(async () => {
@@ -497,6 +574,11 @@ export function Reports() {
                 </span>
                 <TopExpenses transactions={transactions} categories={categories} />
               </Card>
+            )}
+
+            {/* Projections */}
+            {projections && projections.months_available > 0 && (
+              <ProjectionChart data={projections} />
             )}
 
             {/* Empty state */}

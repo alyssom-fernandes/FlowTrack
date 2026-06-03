@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { PageFooter } from '../components/layout'
 import { Card, Spinner } from '../components/ui'
-import { transactionsService, accountsService, goalsService, categoriesService, summaryService, insightsService, cashflowService } from '../services'
-import { formatCurrency, formatCurrencyCompact, formatDateShort, getCurrentMonthRange } from '../utils'
-import type { Transaction, Account, Goal, Category, CashflowProjection } from '../types'
+import { transactionsService, accountsService, goalsService, categoriesService, summaryService, insightsService, cashflowService, budgetsService, netWorthService } from '../services'
+import { formatCurrency, formatCurrencyCompact, formatDateShort, getCurrentMonthRange, toISODate } from '../utils'
+import type { Transaction, Account, Goal, Category, CashflowProjection, Budget, NetWorth } from '../types'
 
 // ── Metric Card ───────────────────────────────────────────
 function MetricCard({ label, value, sub, subColor }: { label: string; value: string; sub?: string; subColor?: string }) {
@@ -155,6 +155,92 @@ function CashflowCard({ cashflow }: { cashflow: CashflowProjection }) {
   )
 }
 
+// ── Budget Card ───────────────────────────────────────────
+function BudgetCard({ budgets }: { budgets: Budget[] }) {
+  if (budgets.length === 0) return null
+  return (
+    <Card>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
+        <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>Orçamentos do mês</span>
+        <a href="/profile" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', textDecoration: 'none' }}>gerenciar →</a>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+        {budgets.map(b => {
+          const over = b.percent >= 100
+          const warn = b.percent >= 80 && b.percent < 100
+          const color = over ? 'var(--red)' : warn ? 'var(--accent)' : 'var(--green)'
+          return (
+            <div key={b.id}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: '500' }}>
+                  {b.category_name || 'Categoria'}
+                </span>
+                <span style={{ fontSize: 'var(--font-size-xs)', color, fontWeight: '600' }}>
+                  {formatCurrencyCompact(b.spent)} / {formatCurrencyCompact(b.limit_amount)} ({b.percent.toFixed(0)}%)
+                </span>
+              </div>
+              <div style={{ height: '4px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.min(b.percent, 100)}%`, background: color, borderRadius: '2px', transition: 'width 0.5s ease' }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
+// ── Net Worth Card ────────────────────────────────────────
+function NetWorthCard({ nw }: { nw: NetWorth }) {
+  const W = 200; const H = 40
+  const snaps = nw.snapshots
+  const positive = nw.net_worth >= 0
+  const color = positive ? 'var(--green)' : 'var(--red)'
+
+  const sparkline = snaps.length >= 2 ? (() => {
+    const vals = snaps.map(s => s.net_worth)
+    const max = Math.max(...vals); const min = Math.min(...vals)
+    const range = max - min || 1
+    const pts = vals.map((v, i) => {
+      const x = (i / (vals.length - 1)) * W
+      const y = H - ((v - min) / range) * (H - 4) - 2
+      return `${x},${y}`
+    }).join(' ')
+    return <polyline fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" points={pts} />
+  })() : null
+
+  return (
+    <Card>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+        <div>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.25rem' }}>
+            Patrimônio líquido
+          </span>
+          <span style={{ fontSize: 'var(--font-size-3xl)', fontWeight: '700', color, lineHeight: 1 }}>
+            {formatCurrencyCompact(nw.net_worth)}
+          </span>
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.375rem' }}>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>
+              Contas: <strong style={{ color: 'var(--text-muted)' }}>{formatCurrencyCompact(nw.total_accounts)}</strong>
+            </span>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>
+              Investimentos: <strong style={{ color: 'var(--text-muted)' }}>{formatCurrencyCompact(nw.total_investments)}</strong>
+            </span>
+          </div>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', display: 'block', marginTop: '0.375rem', fontStyle: 'italic' }}>
+            Valores cadastrados manualmente — mantenha investimentos atualizados.
+          </span>
+        </div>
+        {sparkline && (
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '7rem', height: '2.5rem', flexShrink: 0 }} preserveAspectRatio="none">
+            {sparkline}
+          </svg>
+        )}
+      </div>
+    </Card>
+  )
+}
+
 // ── Transaction Row ───────────────────────────────────────
 function TxnRow({ txn }: { txn: Transaction }) {
   const isPositive = txn.amount > 0
@@ -235,9 +321,12 @@ export function Dashboard() {
   const [goals, setGoals] = useState<Goal[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [cashflow, setCashflow] = useState<CashflowProjection | null>(null)
+  const [budgets, setBudgets] = useState<Budget[]>([])
+  const [netWorth, setNetWorth] = useState<NetWorth | null>(null)
   const [loading, setLoading] = useState(true)
 
   const { start_date, end_date } = getCurrentMonthRange()
+  const currentMonth = toISODate().slice(0, 7)
 
   useEffect(() => {
     const load = async () => {
@@ -261,15 +350,17 @@ export function Dashboard() {
       }
     }
     load()
-    // Load cashflow projection separately (non-blocking)
+    // Non-blocking secondary loads
     cashflowService.projection().then(setCashflow).catch(() => null)
+    budgetsService.list(currentMonth).then(r => setBudgets(r.budgets || [])).catch(() => null)
+    netWorthService.get().then(setNetWorth).catch(() => null)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
   const income = transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
   const expenses = Math.abs(transactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0))
   const recentTxns = [...transactions].sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()).slice(0, 5)
-  const currentMonth = transactions
+  const currentMonthTxns = transactions
 
   if (loading) {
     return (
@@ -302,6 +393,12 @@ export function Dashboard() {
 
         {/* Cashflow projection */}
         {cashflow && <CashflowCard cashflow={cashflow} />}
+
+        {/* Net worth */}
+        {netWorth && <NetWorthCard nw={netWorth} />}
+
+        {/* Budgets */}
+        {budgets.length > 0 && <BudgetCard budgets={budgets} />}
 
         {/* Bottom grid — responsive via CSS class */}
         <div className="ft-dash-bottom">
@@ -336,7 +433,7 @@ export function Dashboard() {
                 })
                 goals.filter(g => g.type === 'spending_limit' && g.progress_percent >= 100).forEach(g =>
                   alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: `Meta "${g.name}" excedida` }))
-                const uncategorized = currentMonth.filter(t => !t.category_id).length
+                const uncategorized = currentMonthTxns.filter(t => !t.category_id).length
                 if (uncategorized > 3)
                   alerts.push({ color: 'var(--text-muted)', bg: 'var(--bg-input)', text: `${uncategorized} transações sem categoria este mês` })
                 if (cashflow?.has_negative_days)

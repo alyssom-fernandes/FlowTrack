@@ -237,3 +237,49 @@ class CashflowProjection(BaseModel):
     starting_balance: float
     projected_balance: float
     has_negative_days: bool
+
+
+# ── Net Worth ─────────────────────────────────────────────
+class NetWorthSnapshot(BaseModel):
+    date: str
+    total_accounts: float
+    total_investments: float
+    net_worth: float
+
+class NetWorthResponse(BaseModel):
+    total_accounts: float
+    total_investments: float
+    net_worth: float
+    snapshots: list[NetWorthSnapshot]
+
+
+# ── Projections ───────────────────────────────────────────
+class MonthData(BaseModel):
+    month: str
+    income: float
+    expense: float
+    is_projection: bool
+
+class ProjectionResponse(BaseModel):
+    history: list[MonthData]
+    projections: list[MonthData]
+    months_available: int
+    avg_income: float
+    avg_expense: float
+
+
+# ── Audit Log ─────────────────────────────────────────────
+class AuditLogEntry(BaseModel):
+    id: str
+    user_id: str
+    entity_type: str
+    entity_id: str
+    action: str
+    old_values: Optional[dict] = None
+    new_values: Optional[dict] = None
+    undone: bool = False
+    created_at: datetime
+
+class AuditLogListResponse(BaseModel):
+    entries: list[AuditLogEntry]
+    total: int

@@ -19,6 +19,7 @@ from app.models import (
     CategoryCreate, CategoryUpdate, CategoryResponse, CategoryListResponse,
     CategorizedByEnum, BulkTransactionCreate, TransferCreate,
     BudgetCreate, BudgetUpdate, AlertListResponse, InsightPeriod, InsightResponse,
+    NetWorthResponse, ProjectionResponse, AuditLogListResponse,
 )
 
 # In-memory cache for AI insights (24h TTL)
@@ -88,6 +89,21 @@ def _calc_goal_current(sb, user_id: str, goal: dict) -> float:
     if goal["type"] == "spending_limit":
         return round(abs(sum(t["amount"] for t in txns if t["amount"] < 0)), 2)
     return round(sum(t["amount"] for t in txns if t["amount"] > 0), 2)
+
+def _write_audit(sb, user_id: str, entity_type: str, entity_id: str, action: str, old_values=None, new_values=None) -> None:
+    """Write an audit log entry. Silently fails if table does not exist yet."""
+    try:
+        sb.table("audit_log").insert({
+            "user_id": user_id,
+            "entity_type": entity_type,
+            "entity_id": str(entity_id),
+            "action": action,
+            "old_values": old_values,
+            "new_values": new_values,
+        }).execute()
+    except Exception as e:
+        logger.warning("audit_log_write_failed", error=str(e))
+
 
 def _parse_ofx(content: bytes) -> list[dict]:
     try:
@@ -211,6 +227,7 @@ async def create_transaction(body: TransactionCreate, user_id: str = Depends(get
         result = sb.table("transactions").insert(data).execute()
         txn = result.data[0]
         _adjust_account_balance(sb, body.account_id, body.amount)
+        _write_audit(sb, user_id, "transaction", txn["id"], "create", None, {k: str(v) if not isinstance(v, (int, float, bool, type(None))) else v for k, v in txn.items()})
         if not body.category_id:
             is_demo = sb.table("demo_users").select("user_id").eq("user_id", user_id).limit(1).execute()
             if not is_demo.data:
@@ -229,7 +246,7 @@ async def update_transaction(transaction_id: str, body: TransactionUpdate, user_
         if "category_id" in data and "categorized_by" not in data:
             data["categorized_by"] = "manual"; data["confidence_score"] = 1.0
         sb = get_supabase()
-        old_res = sb.table("transactions").select("amount,account_id").eq("id", transaction_id).eq("user_id", user_id).single().execute()
+        old_res = sb.table("transactions").select("*").eq("id", transaction_id).eq("user_id", user_id).single().execute()
         result = sb.table("transactions").update(data).eq("id", transaction_id).eq("user_id", user_id).execute()
         if not result.data: raise HTTPException(404, "Transaction not found")
         if old_res.data:
@@ -242,6 +259,9 @@ async def update_transaction(transaction_id: str, body: TransactionUpdate, user_
             else:
                 _adjust_account_balance(sb, old_acc, -old_amount)
                 _adjust_account_balance(sb, new_acc, new_amount)
+            _write_audit(sb, user_id, "transaction", transaction_id, "update",
+                {k: str(v) if not isinstance(v, (int, float, bool, type(None))) else v for k, v in old_res.data.items()},
+                {k: str(v) if not isinstance(v, (int, float, bool, type(None))) else v for k, v in data.items()})
         return result.data[0]
     except HTTPException: raise
     except Exception as e:
@@ -252,11 +272,13 @@ async def update_transaction(transaction_id: str, body: TransactionUpdate, user_
 async def delete_transaction(transaction_id: str, user_id: str = Depends(get_current_user_id)):
     try:
         sb = get_supabase()
-        old_res = sb.table("transactions").select("amount,account_id").eq("id", transaction_id).eq("user_id", user_id).single().execute()
+        old_res = sb.table("transactions").select("*").eq("id", transaction_id).eq("user_id", user_id).single().execute()
         result = sb.table("transactions").delete().eq("id", transaction_id).eq("user_id", user_id).execute()
         if not result.data: raise HTTPException(404, "Transaction not found")
         if old_res.data:
             _adjust_account_balance(sb, old_res.data["account_id"], -old_res.data["amount"])
+            _write_audit(sb, user_id, "transaction", transaction_id, "delete",
+                {k: str(v) if not isinstance(v, (int, float, bool, type(None))) else v for k, v in old_res.data.items()}, None)
     except HTTPException: raise
     except Exception as e:
         logger.error("delete_transaction failed", error=str(e))
@@ -956,12 +978,189 @@ async def list_tags(user_id: str = Depends(get_current_user_id)):
         return {"tags": []}
 
 
+# ── Net Worth ─────────────────────────────────────────────
+@router.get("/net-worth", response_model=NetWorthResponse, tags=["NetWorth"])
+async def get_net_worth(user_id: str = Depends(get_current_user_id)):
+    """Returns current net worth (accounts + investments) and historical snapshots."""
+    try:
+        sb = get_supabase()
+        accs = sb.table("accounts").select("balance").eq("user_id", user_id).eq("is_active", True).execute().data or []
+        invs = sb.table("investments").select("current_value").eq("user_id", user_id).eq("is_active", True).execute().data or []
+        total_accounts = round(sum(a["balance"] for a in accs), 2)
+        total_investments = round(sum(i["current_value"] for i in invs), 2)
+        net_worth_val = round(total_accounts + total_investments, 2)
+        try:
+            snaps = sb.table("net_worth_snapshots").select("date,total_accounts,total_investments,net_worth").eq("user_id", user_id).order("date").limit(13).execute().data or []
+        except Exception:
+            snaps = []
+        return NetWorthResponse(total_accounts=total_accounts, total_investments=total_investments, net_worth=net_worth_val, snapshots=snaps)
+    except Exception as e:
+        logger.error("get_net_worth failed", error=str(e))
+        raise HTTPException(500, "Failed to compute net worth")
+
+
+# ── Financial Projections ────────────────────────────────
+@router.get("/projections", response_model=ProjectionResponse, tags=["Projections"])
+async def financial_projections(user_id: str = Depends(get_current_user_id)):
+    """Project income and expenses for the next 3 months based on historical averages."""
+    try:
+        sb = get_supabase()
+        today = date.today()
+        # Go back 6 months
+        start = date(today.year, today.month, 1)
+        for _ in range(5):
+            start = date(start.year - (1 if start.month == 1 else 0), 12 if start.month == 1 else start.month - 1, 1)
+
+        txns = sb.table("transactions").select("transaction_date,amount").eq("user_id", user_id).gte("transaction_date", str(start)).execute().data or []
+
+        monthly: dict[str, dict] = {}
+        for t in txns:
+            key = t["transaction_date"][:7]
+            if key not in monthly:
+                monthly[key] = {"income": 0.0, "expense": 0.0}
+            if t["amount"] > 0:
+                monthly[key]["income"] += t["amount"]
+            else:
+                monthly[key]["expense"] += abs(t["amount"])
+
+        history_items = sorted(monthly.items())
+        n = len(history_items)
+
+        if n == 0:
+            return ProjectionResponse(history=[], projections=[], months_available=0, avg_income=0, avg_expense=0)
+
+        avg_income = sum(v["income"] for _, v in history_items) / n
+        avg_expense = sum(v["expense"] for _, v in history_items) / n
+
+        # Simple linear trend (slope from first to last month)
+        if n >= 2:
+            income_vals = [v["income"] for _, v in history_items]
+            expense_vals = [v["expense"] for _, v in history_items]
+            income_slope = (income_vals[-1] - income_vals[0]) / (n - 1)
+            expense_slope = (expense_vals[-1] - expense_vals[0]) / (n - 1)
+        else:
+            income_slope = expense_slope = 0.0
+
+        last_income = history_items[-1][1]["income"]
+        last_expense = history_items[-1][1]["expense"]
+
+        projections = []
+        for i in range(1, 4):
+            raw_month = today.month + i
+            proj_year = today.year + (raw_month - 1) // 12
+            proj_month = (raw_month - 1) % 12 + 1
+            key = f"{proj_year}-{proj_month:02d}"
+            # Damped trend: blend trend with reversion to mean
+            proj_income = max(0, last_income + income_slope * i * 0.4 + (avg_income - last_income) * 0.3)
+            proj_expense = max(0, last_expense + expense_slope * i * 0.4 + (avg_expense - last_expense) * 0.3)
+            projections.append(MonthData(month=key, income=round(proj_income, 2), expense=round(proj_expense, 2), is_projection=True))
+
+        history_out = [MonthData(month=k, income=round(v["income"], 2), expense=round(v["expense"], 2), is_projection=False) for k, v in history_items]
+        return ProjectionResponse(history=history_out, projections=projections, months_available=n, avg_income=round(avg_income, 2), avg_expense=round(avg_expense, 2))
+    except Exception as e:
+        logger.error("financial_projections failed", error=str(e))
+        raise HTTPException(500, "Failed to compute projections")
+
+
+# ── Audit Log ─────────────────────────────────────────────
+@router.get("/audit-log", response_model=AuditLogListResponse, tags=["Audit"])
+async def list_audit_log(user_id: str = Depends(get_current_user_id), limit: int = Query(default=50, le=100)):
+    """Return the last N audit log entries for the user."""
+    try:
+        result = get_supabase().table("audit_log").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
+        entries = result.data or []
+        return AuditLogListResponse(entries=entries, total=len(entries))
+    except Exception as e:
+        logger.error("list_audit_log failed", error=str(e))
+        return AuditLogListResponse(entries=[], total=0)
+
+@router.post("/audit-log/{log_id}/undo", tags=["Audit"])
+async def undo_audit_action(log_id: str, user_id: str = Depends(get_current_user_id)):
+    """Undo the action recorded in an audit log entry (transactions only)."""
+    try:
+        sb = get_supabase()
+        log_res = sb.table("audit_log").select("*").eq("id", log_id).eq("user_id", user_id).single().execute()
+        if not log_res.data:
+            raise HTTPException(404, "Entrada de auditoria não encontrada.")
+        log = log_res.data
+        if log.get("undone"):
+            raise HTTPException(409, "Esta ação já foi desfeita.")
+        if log["entity_type"] != "transaction":
+            raise HTTPException(400, "Desfazer suportado apenas para transações.")
+
+        entity_id = log["entity_id"]
+        action = log["action"]
+        old_values = log.get("old_values") or {}
+
+        if action == "create":
+            txn_res = sb.table("transactions").select("amount,account_id").eq("id", entity_id).eq("user_id", user_id).single().execute()
+            if txn_res.data:
+                _adjust_account_balance(sb, txn_res.data["account_id"], -txn_res.data["amount"])
+                sb.table("transactions").delete().eq("id", entity_id).eq("user_id", user_id).execute()
+
+        elif action == "delete":
+            if old_values:
+                restore = {k: v for k, v in old_values.items() if k not in ("created_at", "updated_at")}
+                restore["sync_status"] = "synced"
+                try:
+                    sb.table("transactions").insert(restore).execute()
+                    amt = old_values.get("amount", 0)
+                    acc = old_values.get("account_id")
+                    if amt and acc:
+                        _adjust_account_balance(sb, acc, float(amt))
+                except Exception:
+                    raise HTTPException(500, "Não foi possível restaurar a transação.")
+
+        elif action == "update":
+            if old_values:
+                to_restore = {k: v for k, v in old_values.items() if k not in ("id", "user_id", "created_at", "updated_at", "description_normalized", "dedup_hash", "sync_status")}
+                curr_res = sb.table("transactions").select("amount,account_id").eq("id", entity_id).single().execute()
+                if curr_res.data and "amount" in old_values and "account_id" in old_values:
+                    old_amt = float(old_values["amount"])
+                    curr_amt = curr_res.data["amount"]
+                    _adjust_account_balance(sb, curr_res.data["account_id"], old_amt - curr_amt)
+                sb.table("transactions").update(to_restore).eq("id", entity_id).eq("user_id", user_id).execute()
+
+        sb.table("audit_log").update({"undone": True}).eq("id", log_id).execute()
+        return {"undone": True, "action": action, "entity_id": entity_id}
+    except HTTPException: raise
+    except Exception as e:
+        logger.error("undo_audit_action failed", error=str(e))
+        raise HTTPException(500, "Falha ao desfazer ação.")
+
+
 # ── Internal ──────────────────────────────────────────────
 @internal_router.post("/process-queue", tags=["Internal"], dependencies=[Depends(verify_internal_token)])
 def process_queue():
     from app.integrations.claude_api import process_categorization_queue
     logger.info("Processing categorization queue")
     return process_categorization_queue(batch_size=20)
+
+
+@internal_router.post("/snapshot-net-worth", tags=["Internal"], dependencies=[Depends(verify_internal_token)])
+def snapshot_net_worth():
+    """Save a net worth snapshot for all users. Run on the 1st of each month."""
+    sb = get_supabase()
+    today = date.today()
+    users_res = sb.table("accounts").select("user_id").execute()
+    user_ids = list({r["user_id"] for r in (users_res.data or [])})
+    saved = 0
+    for uid in user_ids:
+        try:
+            accs = sb.table("accounts").select("balance").eq("user_id", uid).eq("is_active", True).execute().data or []
+            invs = sb.table("investments").select("current_value").eq("user_id", uid).eq("is_active", True).execute().data or []
+            total_accs = round(sum(a["balance"] for a in accs), 2)
+            total_invs = round(sum(i["current_value"] for i in invs), 2)
+            sb.table("net_worth_snapshots").upsert({
+                "user_id": uid, "date": str(today),
+                "total_accounts": total_accs, "total_investments": total_invs,
+                "net_worth": round(total_accs + total_invs, 2),
+            }, on_conflict="user_id,date").execute()
+            saved += 1
+        except Exception as e:
+            logger.warning("snapshot_net_worth_user_failed", user_id=uid, error=str(e))
+    logger.info("snapshot_net_worth done", users=saved)
+    return {"saved": saved}
 
 
 @internal_router.post("/generate-recurring", tags=["Internal"], dependencies=[Depends(verify_internal_token)])

@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { PageFooter } from '../components/layout'
 import { Card, Button, Input, Modal, Spinner } from '../components/ui'
 import { useAuthStore, useToastStore } from '../store'
-import { authService, accountsService, categoriesService } from '../services'
+import { authService, accountsService, categoriesService, auditLogService } from '../services'
 import { formatCurrency, formatDate } from '../utils'
-import type { Account, AccountCreate, BankOption, Category, CategoryCreate } from '../types'
+import type { Account, AccountCreate, BankOption, Category, CategoryCreate, AuditLogEntry } from '../types'
 import { BANK_LIST } from '../types'
 
 const THEME_KEY = 'ft-theme'
@@ -353,6 +353,114 @@ function CategoryModal({ open, onClose, onSaved, initial }: {
 }
 
 // ── Profile ───────────────────────────────────────────────
+// ── AuditLogSection ───────────────────────────────────────
+function AuditLogSection() {
+  const [entries, setEntries] = useState<AuditLogEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [undoing, setUndoing] = useState<string | null>(null)
+  const { toast } = useToastStore()
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const res = await auditLogService.list(50)
+      setEntries(res.entries || [])
+    } catch {
+      setEntries([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const handleUndo = async (entry: AuditLogEntry) => {
+    setUndoing(entry.id)
+    try {
+      await auditLogService.undo(entry.id)
+      toast({ message: 'Ação desfeita com sucesso!' })
+      load()
+    } catch {
+      toast({ message: 'Não foi possível desfazer esta ação.', variant: 'error' })
+    } finally {
+      setUndoing(null)
+    }
+  }
+
+  const actionLabel: Record<string, string> = { create: 'criou', update: 'editou', delete: 'excluiu' }
+  const entityLabel: Record<string, string> = { transaction: 'transação', goal: 'meta', account: 'conta', investment: 'investimento' }
+  const actionColor: Record<string, string> = { create: 'var(--green)', update: 'var(--accent)', delete: 'var(--red)' }
+  const actionBg: Record<string, string> = { create: 'var(--green-soft)', update: 'var(--accent-soft)', delete: 'var(--red-soft)' }
+
+  // Last 3 undoable (not yet undone, transaction only)
+  const undoable = entries.filter(e => !e.undone && e.entity_type === 'transaction').slice(0, 3)
+
+  return (
+    <Card>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '500' }}>
+          Histórico de alterações
+        </span>
+        <button onClick={load} title="Atualizar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
+            <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+          </svg>
+        </button>
+      </div>
+
+      {undoable.length > 0 && (
+        <div style={{ marginBottom: '0.75rem', padding: '0.5rem 0.625rem', background: 'var(--accent-soft)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', fontWeight: '600' }}>Desfazer (últimas 3 ações)</span>
+          {undoable.map(e => (
+            <div key={e.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {actionLabel[e.action] || e.action} {entityLabel[e.entity_type] || e.entity_type}
+                {e.new_values?.description != null && ` — ${String(e.new_values.description).slice(0, 30)}`}
+                {e.old_values?.description != null && e.new_values?.description == null && ` — ${String(e.old_values.description).slice(0, 30)}`}
+              </span>
+              <Button size="sm" variant="secondary" loading={undoing === e.id} onClick={() => handleUndo(e)}>
+                Desfazer
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem 0' }}><Spinner size={18} /></div>
+      ) : entries.length === 0 ? (
+        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', padding: '0.5rem 0' }}>Nenhuma alteração registrada ainda.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '16rem', overflowY: 'auto' }}>
+          {entries.map(e => (
+            <div key={e.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', padding: '0.375rem 0', borderBottom: '0.5px solid var(--border-subtle)' }}>
+              <span style={{
+                fontSize: 'var(--font-size-xs)', fontWeight: '600', padding: '0.0625rem 0.3rem',
+                borderRadius: 'var(--radius-sm)', flexShrink: 0,
+                color: actionColor[e.action] || 'var(--text-muted)',
+                background: actionBg[e.action] || 'var(--bg-elevated)',
+                opacity: e.undone ? 0.4 : 1,
+              }}>
+                {actionLabel[e.action] || e.action}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 'var(--font-size-xs)', color: e.undone ? 'var(--text-hint)' : 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {entityLabel[e.entity_type] || e.entity_type}
+                  {(e.new_values?.description != null || e.old_values?.description != null) && ` — ${String(e.new_values?.description ?? e.old_values?.description ?? '').slice(0, 40)}`}
+                  {e.undone && <span style={{ color: 'var(--text-hint)', fontStyle: 'italic' }}> (desfeito)</span>}
+                </div>
+                <div style={{ fontSize: '0.625rem', color: 'var(--text-hint)', marginTop: '0.0625rem' }}>
+                  {new Date(e.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
+
 export function Profile() {
   const { user, isDemo } = useAuthStore()
   const { toast } = useToastStore()
@@ -508,6 +616,9 @@ export function Profile() {
           </span>
           <ThemeToggle />
         </Card>
+
+        {/* Histórico de alterações */}
+        <AuditLogSection />
 
         {/* Sair */}
         <Card>
