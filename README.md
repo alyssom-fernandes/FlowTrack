@@ -1,23 +1,46 @@
 # FlowTrack
 
-Personal finance app with AI-powered transaction categorization, built as a portfolio project.
+Personal finance app with AI-powered transaction categorization — built as a production-grade portfolio project targeting the European job market.
 
 **Live demo → [flowtrack-afn.vercel.app](https://flowtrack-afn.vercel.app)**
 _(Login: use the "Access demo mode" button — no sign-up required)_
 
 ---
 
-## Features
+## What it does
 
-- **Dashboard** — monthly metrics (balance, income, expenses) + 6-month sparkline chart
-- **Transactions** — paginated list with filters, inline category editing, CSV export
-- **AI Categorization** — Claude Haiku automatically categorizes transactions (registered users only)
-- **Goals** — spending limits and savings targets with progress bars
-- **Investments** — manual portfolio tracking with profitability metrics
-- **Reports** — donut chart by category, bar chart by month, top expenses
-- **Dark / light mode** — persisted in localStorage
-- **Offline queue** — transactions created offline sync automatically on reconnect (IndexedDB)
-- **Demo mode** — pre-filled data, weekly auto-reset via GitHub Actions
+FlowTrack is a full-featured personal finance tracker with a FastAPI backend, React frontend, and Claude Haiku for intelligent transaction categorization.
+
+### Core features
+
+| Area | Features |
+|---|---|
+| **Dashboard** | Monthly metrics (balance, income, expenses), 6-month net-balance sparkline, budget alerts, AI insight card |
+| **Transactions** | CRUD with filters (debounced search, collapsible on mobile), pagination, inline category edit, installment badge ("3/6"), recurring tag |
+| **Import** | PDF statements from 4 banks (Nubank, Sicredi, Mercado Pago, Will Bank), OFX, CSV — preview before confirming bulk import |
+| **Transfers** | Atomic double-entry transfers between accounts with shared `import_batch_id` |
+| **Budgets** | Monthly budget per category; automatic alerts at 80% and 100% consumption |
+| **Tags** | Free-form labels on transactions, filterable in the list |
+| **Goals** | Spending limits and savings targets with progress bars; auto-tracked from transactions |
+| **Reports** | Donut chart by category, monthly bar chart, top 5 expenses, period comparison, PDF export |
+| **Cashflow** | 12-month projected cashflow based on recurring transactions |
+| **Net worth** | Historical snapshots with sparkline; liabilities subtracted from investment totals |
+| **Investments** | Manual portfolio grouped by asset type with profitability metrics |
+| **Audit log** | Every destructive action is logged and reversible (undo) |
+| **AI insights** | On-demand financial insights via Claude Haiku |
+| **Offline** | Transactions created offline sync on reconnect via IndexedDB queue + health-check ping |
+| **PWA** | Installable on iOS, Android, and desktop |
+| **Demo mode** | Pre-seeded account, weekly auto-reset via GitHub Actions |
+
+### AI categorization — 3-layer pipeline
+
+1. **Deterministic rules** — pattern matching for known payees (zero API cost)
+2. **Merchant cache** — reuses prior Haiku decisions for the same merchant
+3. **Claude Haiku** — fallback for unknown merchants (~90% call reduction vs. naive approach)
+
+The worker is non-blocking with exponential backoff retry (1 min → 3 min → 9 min). Prompt caching on the system prompt reduces token cost per call.
+
+---
 
 ## Tech Stack
 
@@ -26,7 +49,7 @@ _(Login: use the "Access demo mode" button — no sign-up required)_
 |---|---|
 | React 19 + TypeScript | UI framework |
 | Vite 8 | Build tool |
-| Zustand | Global state (auth) |
+| Zustand | Global state (auth + toasts) |
 | Axios | HTTP client with JWT interceptor |
 | Dexie.js | IndexedDB offline queue |
 | @supabase/supabase-js | Auth + direct DB queries |
@@ -36,7 +59,7 @@ _(Login: use the "Access demo mode" button — no sign-up required)_
 |---|---|
 | FastAPI + Python 3.11 | REST API |
 | Supabase PostgreSQL | Database with Row Level Security |
-| Supabase Auth | JWT authentication (ES256 / HS256) |
+| Supabase Auth | JWT authentication (ES256 / HS256 fallback, JWKS with 1h cache) |
 | Claude Haiku | AI categorization with prompt caching |
 | Structlog | Structured JSON logging |
 | Sentry | Error monitoring |
@@ -46,9 +69,20 @@ _(Login: use the "Access demo mode" button — no sign-up required)_
 |---|---|
 | Vercel | Frontend hosting + auto-deploy |
 | Railway | Backend hosting + auto-deploy |
-| Supabase | Database + auth (São Paulo region) |
+| Supabase | PostgreSQL + auth (São Paulo region) |
 | GitHub Actions | CI (typecheck + build) + weekly demo reset |
 | cron-job.org | Triggers AI worker every 5 minutes |
+
+---
+
+## Architecture highlights
+
+- **Security**: JWKS key lookup by `kid` header, ES256 + HS256 fallback, RLS as a second defense layer, service role isolated to backend. BOM-stripping on env vars prevents silent auth failures on Windows hosts.
+- **Offline sync**: uses `window.addEventListener('online')` + health-check ping before processing the queue — no Background Sync API (Safari iOS doesn't support it).
+- **No Tailwind / Shadcn**: custom design system in `tokens.css` with full dark/light support, typographic scale, responsive grid, and custom scrollbars. Deliberate choice documented in `docs/architecture.md`.
+- **57 integration tests**: cover accounts CRUD, transactions CRUD, transfers (same-account guard), OFX parse, summary, cashflow, net worth, budget alerts.
+
+---
 
 ## Getting Started
 
@@ -108,6 +142,8 @@ Frontend → `http://localhost:5173`
 Backend → `http://localhost:8000`  
 API docs → `http://localhost:8000/docs`
 
+---
+
 ## Environment Variables
 
 ### Frontend (`frontend/.env.local`)
@@ -133,6 +169,8 @@ API docs → `http://localhost:8000/docs`
 | `CORS_ORIGINS` | Comma-separated allowed origins |
 | `APP_ENV` | `development` or `production` |
 
+---
+
 ## Deploy
 
 Both platforms auto-deploy on push to `main`.
@@ -152,6 +190,8 @@ Both platforms auto-deploy on push to `main`.
   - URL: `<RAILWAY_URL>/internal/process-queue`
   - Header: `X-Internal-Secret: <INTERNAL_API_TOKEN>`
 
+---
+
 ## Project Structure
 
 ```
@@ -159,24 +199,30 @@ FlowTrack/
 ├── frontend/               React + TypeScript + Vite
 │   ├── src/
 │   │   ├── pages/          Dashboard, Transactions, Goals, Investments, Reports, Profile
-│   │   ├── components/     AppShell, Sidebar, UI primitives
-│   │   ├── services.ts     Supabase client + Axios API
-│   │   ├── store.ts        Zustand auth store + Dexie offline queue
-│   │   └── tokens.css      Design system tokens
+│   │   ├── components/     AppShell, Sidebar, UI primitives (ui.tsx, layout.tsx)
+│   │   ├── services.ts     Supabase client + Axios API services
+│   │   ├── store.ts        Zustand stores + Dexie offline queue
+│   │   ├── utils.ts        Formatters, normalizers, useOnlineStatus
+│   │   └── tokens.css      Design system tokens (dark/light, typography, grid)
 │   └── vercel.json
 ├── backend/                FastAPI + Python 3.11
 │   ├── app/
-│   │   ├── api/v1/         All REST endpoints
+│   │   ├── api/v1/         All REST endpoints (routers.py)
 │   │   ├── core/           Config, DB client, JWT security, logging
 │   │   └── integrations/   Claude Haiku categorization worker
+│   ├── tests/              57 integration tests (pytest)
 │   ├── demo_seed.py        Demo data seeder with smart reset
 │   └── railway.toml
 ├── docs/
-│   └── schema.sql          Full Supabase PostgreSQL schema
+│   ├── schema.sql          Full Supabase PostgreSQL schema
+│   ├── architecture.md     Design decisions and trade-offs
+│   └── parsers.md          PDF bank parser documentation
 └── .github/workflows/
     ├── ci.yml              Typecheck + build on every push
     └── demo-reset.yml      Weekly demo data reset (Monday 06:00 UTC)
 ```
+
+---
 
 ## Author
 

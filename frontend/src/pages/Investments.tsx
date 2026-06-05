@@ -265,7 +265,7 @@ export function Investments() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
           <div>
             <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '600', color: 'var(--text-primary)' }}>Investimentos</h1>
-            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>Carteira manual — Fase 1</p>
+            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>Carteira manual de ativos</p>
           </div>
           <Button size="sm" onClick={() => { setEditing(null); setShowModal(true) }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
