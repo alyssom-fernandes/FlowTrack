@@ -11,9 +11,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Button({ variant = 'primary', size = 'md', loading = false, disabled, children, style, ...props }: ButtonProps) {
   const sizes = {
-    sm: { fontSize: 'var(--font-size-base)', padding: '0.375rem 0.75rem', height: '1.875rem' },
-    md: { fontSize: 'var(--font-size-md)',   padding: '0.5rem 1rem',      height: '2.25rem' },
-    lg: { fontSize: 'var(--font-size-lg)',   padding: '0.625rem 1.25rem', height: '2.625rem' },
+    sm: { fontSize: 'var(--font-size-sm)',   padding: '0.375rem 0.75rem', height: '2rem'    },
+    md: { fontSize: 'var(--font-size-base)', padding: '0.5rem 1rem',      height: '2.375rem' },
+    lg: { fontSize: 'var(--font-size-md)',   padding: '0.625rem 1.25rem', height: '2.75rem' },
   }
   const variants = {
     primary:   { background: 'var(--accent)',      borderColor: 'var(--accent)',  color: '#fff' },
