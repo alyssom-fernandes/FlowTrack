@@ -344,6 +344,93 @@ create policy "demo_users: update own" on demo_users
   for update using (auth.uid() = user_id);
 
 -- ============================================================
+-- TRANSACTIONS — coluna tags (adicionada na v1.3)
+-- ============================================================
+alter table transactions add column if not exists tags text[];
+
+-- ============================================================
+-- BUDGETS (orçamentos mensais por categoria)
+-- ============================================================
+create table if not exists budgets (
+  id            uuid primary key default uuid_generate_v4(),
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  category_id   uuid not null references categories(id) on delete cascade,
+  month         text not null,                   -- formato YYYY-MM
+  limit_amount  numeric(15, 2) not null,
+  created_at    timestamptz not null default now(),
+  unique(user_id, category_id, month)
+);
+
+create index idx_budgets_user_month on budgets(user_id, month);
+
+alter table budgets enable row level security;
+create policy "budgets: select own" on budgets
+  for select using (auth.uid() = user_id);
+create policy "budgets: insert own" on budgets
+  for insert with check (auth.uid() = user_id);
+create policy "budgets: update own" on budgets
+  for update using (auth.uid() = user_id);
+create policy "budgets: delete own" on budgets
+  for delete using (auth.uid() = user_id);
+
+-- ============================================================
+-- AUDIT LOG (log de auditoria com suporte a desfazer)
+-- ============================================================
+create table if not exists audit_log (
+  id           uuid primary key default uuid_generate_v4(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  entity_type  text not null,  -- 'transaction' | 'account' | 'goal'
+  entity_id    text not null,
+  action       text not null,  -- 'create' | 'update' | 'delete'
+  old_values   jsonb,
+  new_values   jsonb,
+  undone       boolean not null default false,
+  created_at   timestamptz not null default now()
+);
+
+create index idx_audit_log_user on audit_log(user_id, created_at desc);
+
+alter table audit_log enable row level security;
+create policy "audit_log: select own" on audit_log
+  for select using (auth.uid() = user_id);
+create policy "audit_log: insert own" on audit_log
+  for insert with check (auth.uid() = user_id);
+create policy "audit_log: update own" on audit_log
+  for update using (auth.uid() = user_id);
+
+-- ============================================================
+-- NET WORTH SNAPSHOTS (histórico de patrimônio líquido)
+-- ============================================================
+create table if not exists net_worth_snapshots (
+  id                uuid primary key default uuid_generate_v4(),
+  user_id           uuid not null references auth.users(id) on delete cascade,
+  date              date not null,
+  total_accounts    numeric(15, 2) not null default 0,
+  total_investments numeric(15, 2) not null default 0,
+  net_worth         numeric(15, 2) not null default 0,
+  created_at        timestamptz not null default now(),
+  unique(user_id, date)
+);
+
+create index idx_nws_user_date on net_worth_snapshots(user_id, date);
+
+alter table net_worth_snapshots enable row level security;
+create policy "nws: select own" on net_worth_snapshots
+  for select using (auth.uid() = user_id);
+create policy "nws: insert own" on net_worth_snapshots
+  for insert with check (auth.uid() = user_id);
+create policy "nws: update own" on net_worth_snapshots
+  for update using (auth.uid() = user_id);
+
+-- ============================================================
+-- IMPORT BATCHES — nota de uso
+-- A tabela import_batches está definida para auditoria futura
+-- de importações. O fluxo atual (PDF/OFX/CSV) usa dedup_hash
+-- na tabela transactions para evitar duplicatas. A tabela
+-- import_batches será populada em versão futura.
+-- ============================================================
+
+-- ============================================================
 -- GRANTS (permissões de acesso por role)
 -- service_role: usado pelo backend FastAPI (bypass RLS via privileges)
 -- authenticated: usuários autenticados via Supabase Auth (RLS aplica)

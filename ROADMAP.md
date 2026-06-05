@@ -10,7 +10,7 @@
 
 **Stack:**
 - Frontend: React + TypeScript + Vite, Zustand, Dexie.js, react-router-dom, Axios
-- Backend: FastAPI + Python 3.14, Pydantic V2, Supabase (banco + auth)
+- Backend: FastAPI + Python 3.11, Pydantic V2, Supabase (banco + auth)
 - IA: Claude Haiku — categorização não-bloqueante com merchant cache
 - Infra: Railway (backend), Vercel (frontend), Supabase (São Paulo), cron-job.org
 

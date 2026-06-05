@@ -392,8 +392,8 @@ function AuditLogSection() {
   const actionColor: Record<string, string> = { create: 'var(--green)', update: 'var(--accent)', delete: 'var(--red)' }
   const actionBg: Record<string, string> = { create: 'var(--green-soft)', update: 'var(--accent-soft)', delete: 'var(--red-soft)' }
 
-  // Last 3 undoable (not yet undone, transaction only)
-  const undoable = entries.filter(e => !e.undone && e.entity_type === 'transaction').slice(0, 3)
+  // Last 10 undoable (not yet undone, transaction only)
+  const undoable = entries.filter(e => !e.undone && e.entity_type === 'transaction').slice(0, 10)
 
   return (
     <Card>
@@ -410,7 +410,7 @@ function AuditLogSection() {
 
       {undoable.length > 0 && (
         <div style={{ marginBottom: '0.75rem', padding: '0.5rem 0.625rem', background: 'var(--accent-soft)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', fontWeight: '600' }}>Desfazer (últimas 3 ações)</span>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', fontWeight: '600' }}>Desfazer (últimas 10 ações)</span>
           {undoable.map(e => (
             <div key={e.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
               <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
