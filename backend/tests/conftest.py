@@ -55,8 +55,24 @@ def client(sb):
 
     app.dependency_overrides[get_current_user_id] = lambda: TEST_USER_ID
 
-    with patch("app.core.database.get_supabase", return_value=sb_mock), \
-         patch("app.api.v1.routers.get_supabase", return_value=sb_mock):
+    _modules = [
+        "app.api.v1.accounts",
+        "app.api.v1.transactions",
+        "app.api.v1.imports",
+        "app.api.v1.goals",
+        "app.api.v1.investments",
+        "app.api.v1.categories",
+        "app.api.v1.budgets",
+        "app.api.v1.analytics",
+        "app.api.v1.insights",
+        "app.api.v1.audit",
+        "app.api.v1.internal",
+    ]
+    from contextlib import ExitStack
+    with ExitStack() as stack:
+        stack.enter_context(patch("app.core.database.get_supabase", return_value=sb_mock))
+        for mod in _modules:
+            stack.enter_context(patch(f"{mod}.get_supabase", return_value=sb_mock))
         with TestClient(app, raise_server_exceptions=False) as c:
             yield c, sb_mock
 

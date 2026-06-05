@@ -6,7 +6,7 @@ import pytest
 from datetime import date
 from unittest.mock import MagicMock
 
-from app.api.v1.routers import (
+from app.api.v1._helpers import (
     normalize_desc,
     dedup_hash,
     calc_progress,
