@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { authService } from '../services'
 import { useAuthStore } from '../store'
 import { Button, Input, AfnBrand } from '../components/ui'
@@ -7,6 +8,7 @@ import { Button, Input, AfnBrand } from '../components/ui'
 type View = 'login' | 'forgot' | 'forgot_sent'
 
 export function Login() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const [view, setView] = useState<View>('login')
@@ -24,14 +26,14 @@ export function Login() {
     if (!email || !password) return
     setError(''); setLoading(true)
     try { await authService.signIn(email, password); navigate('/dashboard', { replace: true }) }
-    catch { setError('E-mail ou senha incorretos.') }
+    catch { setError(t('login.wrongCredentials')) }
     finally { setLoading(false) }
   }
 
   const handleDemo = async () => {
     setError(''); setDemoLoading(true)
     try { await authService.signInDemo(); navigate('/dashboard', { replace: true }) }
-    catch { setError('Modo demo temporariamente indisponível.') }
+    catch { setError(t('login.demoUnavailable')) }
     finally { setDemoLoading(false) }
   }
 
@@ -43,7 +45,7 @@ export function Login() {
       await authService.sendPasswordReset(resetEmail)
       setView('forgot_sent')
     } catch {
-      setError('Não foi possível enviar o e-mail. Verifique o endereço e tente novamente.')
+      setError(t('login.resetSendError'))
     } finally {
       setLoading(false)
     }
@@ -59,7 +61,7 @@ export function Login() {
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
           <img src="/logo.png" alt="FlowTrack" className="ft-logo" style={{ height: '1.75rem', width: 'auto' }} />
           <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)' }}>
-            {view === 'login' ? 'Controle financeiro inteligente' : 'Redefinição de senha'}
+            {view === 'login' ? t('login.tagline') : t('login.passwordReset')}
           </p>
         </div>
 
@@ -69,19 +71,19 @@ export function Login() {
           {view === 'login' && (
             <>
               <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-                <Input label="E-mail" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+                <Input label={t('login.email')} type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                  <Input label="Senha" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+                  <Input label={t('login.password')} type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
                   <button
                     type="button"
                     onClick={() => { setView('forgot'); setResetEmail(email); setError('') }}
                     style={{ alignSelf: 'flex-end', background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', padding: 0, textDecoration: 'underline dotted' }}
                   >
-                    Esqueci a senha
+                    {t('login.forgotPassword')}
                   </button>
                 </div>
                 {error && <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)', textAlign: 'center' }}>{error}</p>}
-                <Button type="submit" loading={loading} style={{ width: '100%', marginTop: '0.25rem' }}>Entrar</Button>
+                <Button type="submit" loading={loading} style={{ width: '100%', marginTop: '0.25rem' }}>{t('login.signIn')}</Button>
               </form>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -92,10 +94,10 @@ export function Login() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                 <Button variant="ghost" loading={demoLoading} onClick={handleDemo} style={{ width: '100%' }}>
-                  Acessar modo demo
+                  {t('login.demoMode')}
                 </Button>
                 <p style={{ textAlign: 'center', fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', letterSpacing: '0.02em' }}>
-                  Sem cadastro &nbsp;·&nbsp; Dados resetam semanalmente
+                  {t('login.demoHint')}
                 </p>
               </div>
             </>
@@ -104,10 +106,10 @@ export function Login() {
           {view === 'forgot' && (
             <form onSubmit={handleForgot} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
               <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                Informe seu e-mail e enviaremos um link para redefinir sua senha.
+                {t('login.resetEmailLabel')}
               </p>
               <Input
-                label="E-mail"
+                label={t('login.email')}
                 type="email"
                 placeholder="seu@email.com"
                 value={resetEmail}
@@ -117,8 +119,8 @@ export function Login() {
               />
               {error && <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)' }}>{error}</p>}
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <Button type="button" variant="secondary" onClick={goToLogin} style={{ flex: 1 }}>Voltar</Button>
-                <Button type="submit" loading={loading} style={{ flex: 1 }}>Enviar link</Button>
+                <Button type="button" variant="secondary" onClick={goToLogin} style={{ flex: 1 }}>{t('common.back')}</Button>
+                <Button type="submit" loading={loading} style={{ flex: 1 }}>{t('login.sendLink')}</Button>
               </div>
             </form>
           )}
@@ -130,10 +132,10 @@ export function Login() {
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
               <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                Link enviado para <strong style={{ color: 'var(--text-primary)' }}>{resetEmail}</strong>.<br />
-                Verifique sua caixa de entrada e siga as instruções.
+                {t('login.resetSentTitle')} <strong style={{ color: 'var(--text-primary)' }}>{resetEmail}</strong>.<br />
+                {t('login.resetSentBody')}
               </p>
-              <Button variant="secondary" onClick={goToLogin} style={{ width: '100%' }}>Voltar ao login</Button>
+              <Button variant="secondary" onClick={goToLogin} style={{ width: '100%' }}>{t('login.backToLogin')}</Button>
             </div>
           )}
 

@@ -100,7 +100,7 @@ The worker is non-blocking with exponential backoff retry (1 min → 3 min → 9
 - **Security**: JWKS key lookup by `kid` header, ES256 + HS256 fallback, RLS as a second defense layer, service role isolated to backend. BOM-stripping on env vars prevents silent auth failures on Windows hosts.
 - **Offline sync**: uses `window.addEventListener('online')` + health-check ping before processing the queue — no Background Sync API (Safari iOS doesn't support it).
 - **No Tailwind / Shadcn**: custom design system in `tokens.css` with full dark/light support, typographic scale, responsive grid, and custom scrollbars. Deliberate choice documented in `docs/architecture.md`.
-- **57 integration tests**: cover accounts CRUD, transactions CRUD, transfers (same-account guard), OFX parse, summary, cashflow, net worth, budget alerts.
+- **83 integration tests**: cover accounts CRUD, transactions CRUD, transfers (same-account guard), OFX parse, summary, cashflow, net worth, budget alerts, analytics, insights, audit log, budgets, and tags.
 
 ---
 
@@ -230,15 +230,19 @@ FlowTrack/
 │   │   ├── api/v1/         All REST endpoints (routers.py)
 │   │   ├── core/           Config, DB client, JWT security, logging
 │   │   └── integrations/   Claude Haiku categorization worker
-│   ├── tests/              57 integration tests (pytest)
+│   ├── tests/              83 integration tests (pytest)
 │   ├── demo_seed.py        Demo data seeder with smart reset
 │   └── railway.toml
 ├── docs/
+│   ├── adr/                Architecture Decision Records
 │   ├── schema.sql          Full Supabase PostgreSQL schema
 │   ├── architecture.md     Design decisions and trade-offs
 │   └── parsers.md          PDF bank parser documentation
+├── e2e/                    Playwright end-to-end tests
 └── .github/workflows/
     ├── ci.yml              Typecheck + build on every push
+    ├── test.yml            Integration tests (pytest)
+    ├── lighthouse.yml      Lighthouse CI on every PR
     └── demo-reset.yml      Weekly demo data reset (Monday 06:00 UTC)
 ```
 

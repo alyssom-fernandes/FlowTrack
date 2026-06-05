@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageFooter } from '../components/layout'
 import { Card, Spinner } from '../components/ui'
 import { transactionsService, accountsService, goalsService, categoriesService, summaryService, insightsService, cashflowService, budgetsService, netWorthService } from '../services'
@@ -39,7 +40,8 @@ function SparklineChart({ data, color }: { data: number[]; color: string }) {
 type MonthlySummary = { month: string; income: number; expense: number }
 
 function ChartCard({ summary }: { summary: MonthlySummary[] }) {
-  const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  const { t } = useTranslation()
+  const monthNames: string[] = t('common.months', { returnObjects: true }) as string[]
   const labels = summary.map(s => monthNames[parseInt(s.month.split('-')[1], 10) - 1])
   const incomeData = summary.map(s => s.income)
   const expenseData = summary.map(s => s.expense)
@@ -47,13 +49,13 @@ function ChartCard({ summary }: { summary: MonthlySummary[] }) {
   return (
     <Card style={{ marginBottom: '0.75rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>Evolução mensal</span>
+        <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>{t('dashboard.monthlyChart')}</span>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-            <span style={{ width: '1.5rem', height: '1.5px', background: 'var(--green)', display: 'inline-block' }} />Receitas
+            <span style={{ width: '1.5rem', height: '1.5px', background: 'var(--green)', display: 'inline-block' }} />{t('dashboard.incomeLabel')}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-            <span style={{ width: '1.5rem', height: '1.5px', background: 'var(--accent)', display: 'inline-block' }} />Gastos
+            <span style={{ width: '1.5rem', height: '1.5px', background: 'var(--accent)', display: 'inline-block' }} />{t('dashboard.expensesLabel')}
           </span>
         </div>
       </div>
@@ -76,6 +78,7 @@ function ChartCard({ summary }: { summary: MonthlySummary[] }) {
 
 // ── Cashflow Chart ────────────────────────────────────────
 function CashflowCard({ cashflow }: { cashflow: CashflowProjection }) {
+  const { t } = useTranslation()
   if (cashflow.days.length === 0) return null
 
   const W = 320; const H = 80
@@ -102,15 +105,15 @@ function CashflowCard({ cashflow }: { cashflow: CashflowProjection }) {
   return (
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
-        <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>Projeção — próximos 30 dias</span>
+        <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>{t('dashboard.cashflowTitle')}</span>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           {cashflow.has_negative_days && (
             <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--red)', background: 'var(--red-soft)', padding: '0.125rem 0.4rem', borderRadius: 'var(--radius-sm)' }}>
-              Saldo negativo previsto
+              {t('dashboard.negativeForecast')}
             </span>
           )}
           <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-            Projetado: <strong style={{ color: cashflow.projected_balance >= 0 ? 'var(--green)' : 'var(--red)' }}>{formatCurrencyCompact(cashflow.projected_balance)}</strong>
+            {t('dashboard.projected')} <strong style={{ color: cashflow.projected_balance >= 0 ? 'var(--green)' : 'var(--red)' }}>{formatCurrencyCompact(cashflow.projected_balance)}</strong>
           </span>
         </div>
       </div>
@@ -147,7 +150,7 @@ function CashflowCard({ cashflow }: { cashflow: CashflowProjection }) {
             </span>
           ))}
           {cashflow.days.flatMap(d => d.events).length > 4 && (
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>+{cashflow.days.flatMap(d => d.events).length - 4} mais</span>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>{t('dashboard.cashflowMore', { count: cashflow.days.flatMap(d => d.events).length - 4 })}</span>
           )}
         </div>
       )}
@@ -157,12 +160,13 @@ function CashflowCard({ cashflow }: { cashflow: CashflowProjection }) {
 
 // ── Budget Card ───────────────────────────────────────────
 function BudgetCard({ budgets }: { budgets: Budget[] }) {
+  const { t } = useTranslation()
   if (budgets.length === 0) return null
   return (
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
-        <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>Orçamentos do mês</span>
-        <a href="/profile" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', textDecoration: 'none' }}>gerenciar →</a>
+        <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>{t('dashboard.budgets')}</span>
+        <a href="/profile" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', textDecoration: 'none' }}>{t('common.manage')}</a>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
         {budgets.map(b => {
@@ -192,6 +196,7 @@ function BudgetCard({ budgets }: { budgets: Budget[] }) {
 
 // ── Net Worth Card ────────────────────────────────────────
 function NetWorthCard({ nw }: { nw: NetWorth }) {
+  const { t } = useTranslation()
   const W = 200; const H = 40
   const snaps = nw.snapshots
   const positive = nw.net_worth >= 0
@@ -214,21 +219,21 @@ function NetWorthCard({ nw }: { nw: NetWorth }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
         <div>
           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.25rem' }}>
-            Patrimônio líquido
+            {t('dashboard.netWorth')}
           </span>
           <span style={{ fontSize: 'var(--font-size-3xl)', fontWeight: '700', color, lineHeight: 1 }}>
             {formatCurrencyCompact(nw.net_worth)}
           </span>
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.375rem' }}>
             <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>
-              Contas: <strong style={{ color: 'var(--text-muted)' }}>{formatCurrencyCompact(nw.total_accounts)}</strong>
+              {t('dashboard.netWorthAccounts')} <strong style={{ color: 'var(--text-muted)' }}>{formatCurrencyCompact(nw.total_accounts)}</strong>
             </span>
             <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>
-              Investimentos: <strong style={{ color: 'var(--text-muted)' }}>{formatCurrencyCompact(nw.total_investments)}</strong>
+              {t('dashboard.netWorthInvestments')} <strong style={{ color: 'var(--text-muted)' }}>{formatCurrencyCompact(nw.total_investments)}</strong>
             </span>
           </div>
           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', display: 'block', marginTop: '0.375rem', fontStyle: 'italic' }}>
-            Valores cadastrados manualmente — mantenha investimentos atualizados.
+            {t('dashboard.netWorthHint')}
           </span>
         </div>
         {sparkline && (
@@ -264,6 +269,7 @@ function TxnRow({ txn }: { txn: Transaction }) {
 
 // ── AI Insight Card ───────────────────────────────────────
 function InsightCard({ startDate, endDate }: { startDate: string; endDate: string }) {
+  const { t } = useTranslation()
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(true)
   const [cached, setCached] = useState(false)
@@ -275,7 +281,7 @@ function InsightCard({ startDate, endDate }: { startDate: string; endDate: strin
       setText(res.text)
       setCached(res.cached && !force)
     } catch {
-      setText('Não foi possível gerar o insight agora. Tente novamente mais tarde.')
+      setText(t('dashboard.aiError'))
     } finally {
       setLoading(false)
     }
@@ -287,13 +293,13 @@ function InsightCard({ startDate, endDate }: { startDate: string; endDate: strin
     <Card accent>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.375rem' }}>
         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-          Insight IA {cached && <span style={{ opacity: 0.6 }}>· cache</span>}
+          {t('dashboard.aiInsight')} {cached && <span style={{ opacity: 0.6 }}>{t('dashboard.aiCache')}</span>}
         </span>
         <button
           onClick={() => load(true)}
           disabled={loading}
-          title="Atualizar insight"
-          aria-label="Atualizar insight"
+          title={t('dashboard.aiRefresh')}
+          aria-label={t('dashboard.aiRefresh')}
           style={{ background: 'none', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', color: 'var(--accent)', opacity: loading ? 0.5 : 1, padding: '0.125rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center' }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }}>
@@ -304,7 +310,7 @@ function InsightCard({ startDate, endDate }: { startDate: string; endDate: strin
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0' }}>
           <Spinner size={14} />
-          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>Analisando seus dados...</span>
+          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>{t('dashboard.aiAnalyzing')}</span>
         </div>
       ) : (
         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{text}</p>
@@ -315,6 +321,7 @@ function InsightCard({ startDate, endDate }: { startDate: string; endDate: strin
 
 // ── Dashboard ─────────────────────────────────────────────
 export function Dashboard() {
+  const { t } = useTranslation()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -377,15 +384,15 @@ export function Dashboard() {
 
         {/* Page header */}
         <div style={{ marginBottom: '0.25rem' }}>
-          <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '600', color: 'var(--text-primary)' }}>Dashboard</h1>
-          <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>Visão geral do mês atual</p>
+          <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '600', color: 'var(--text-primary)' }}>{t('dashboard.title')}</h1>
+          <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>{t('dashboard.subtitle')}</p>
         </div>
 
         {/* Metrics */}
         <div className="ft-metrics-grid">
-          <MetricCard label="Saldo total" value={formatCurrencyCompact(totalBalance)} sub={accounts.length > 0 ? `${accounts.length} conta${accounts.length > 1 ? 's' : ''}` : 'Sem contas'} />
-          <MetricCard label="Receitas" value={formatCurrencyCompact(income)} sub="↑ este mês" subColor="var(--green)" />
-          <MetricCard label="Gastos" value={formatCurrencyCompact(expenses)} sub="↓ este mês" subColor="var(--red)" />
+          <MetricCard label={t('dashboard.totalBalance')} value={formatCurrencyCompact(totalBalance)} sub={accounts.length > 0 ? t('dashboard.accounts', { count: accounts.length }) : t('dashboard.noAccounts')} />
+          <MetricCard label={t('dashboard.income')} value={formatCurrencyCompact(income)} sub={t('dashboard.incomeThisMonth')} subColor="var(--green)" />
+          <MetricCard label={t('dashboard.expenses')} value={formatCurrencyCompact(expenses)} sub={t('dashboard.expensesThisMonth')} subColor="var(--red)" />
         </div>
 
         {/* Chart */}
@@ -406,11 +413,11 @@ export function Dashboard() {
           {/* Recent transactions */}
           <Card>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>Últimas transações</span>
-              <a href="/transactions" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--accent)', textDecoration: 'none' }}>ver todas →</a>
+              <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>{t('dashboard.recentTransactions')}</span>
+              <a href="/transactions" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--accent)', textDecoration: 'none' }}>{t('common.viewAll')}</a>
             </div>
             {recentTxns.length === 0
-              ? <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', padding: '1rem 0' }}>Nenhuma transação este mês.</p>
+              ? <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', padding: '1rem 0' }}>{t('dashboard.noTransactions')}</p>
               : recentTxns.map(t => <TxnRow key={t.id} txn={t} />)
             }
           </Card>
@@ -419,28 +426,28 @@ export function Dashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {/* Alerts (computed locally from loaded data) */}
             <Card>
-              <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>Alertas</span>
+              <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>{t('dashboard.alertsTitle')}</span>
               {(() => {
                 const alerts: { color: string; bg: string; text: string }[] = []
                 if (expenses > income && income > 0)
-                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: 'Gastos superam receitas este mês' })
+                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: t('dashboard.expensesExceedIncome') })
                 accounts.filter(a => a.balance < 0).forEach(a =>
-                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: `Saldo negativo: ${a.name}` }))
+                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: t('dashboard.negativeBalance', { name: a.name }) }))
                 goals.filter(g => g.type === 'spending_limit' && g.progress_percent >= 80 && g.progress_percent < 100).forEach(g => {
                   const cat = g.category_id ? categories.find(c => c.id === g.category_id) : null
                   const label = cat ? `"${g.name}" (${cat.name})` : `"${g.name}"`
-                  alerts.push({ color: 'var(--accent)', bg: 'var(--accent-soft)', text: `Meta ${label} em ${g.progress_percent.toFixed(0)}% do limite` })
+                  alerts.push({ color: 'var(--accent)', bg: 'var(--accent-soft)', text: t('dashboard.goalWarning', { label, pct: g.progress_percent.toFixed(0) }) })
                 })
                 goals.filter(g => g.type === 'spending_limit' && g.progress_percent >= 100).forEach(g =>
-                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: `Meta "${g.name}" excedida` }))
-                const uncategorized = currentMonthTxns.filter(t => !t.category_id).length
+                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: t('dashboard.goalExceeded', { name: g.name }) }))
+                const uncategorized = currentMonthTxns.filter(tx => !tx.category_id).length
                 if (uncategorized > 3)
-                  alerts.push({ color: 'var(--text-muted)', bg: 'var(--bg-input)', text: `${uncategorized} transações sem categoria este mês` })
+                  alerts.push({ color: 'var(--text-muted)', bg: 'var(--bg-input)', text: t('dashboard.uncategorized', { count: uncategorized }) })
                 if (cashflow?.has_negative_days)
-                  alerts.push({ color: 'var(--accent)', bg: 'var(--accent-soft)', text: 'Saldo projetado negativo nos próximos 30 dias' })
+                  alerts.push({ color: 'var(--accent)', bg: 'var(--accent-soft)', text: t('dashboard.cashflowNegativeDays') })
                 if (alerts.length === 0)
                   return <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>
-                    {currentMonth.length > 0 ? 'Tudo em ordem este mês.' : 'Nenhuma transação este mês.'}
+                    {t('dashboard.allGood')}
                   </p>
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

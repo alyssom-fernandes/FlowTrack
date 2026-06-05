@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageFooter } from '../components/layout'
 import { Card, Button, Input, Modal, Spinner } from '../components/ui'
 import { useAuthStore, useToastStore } from '../store'
 import { authService, accountsService, categoriesService, auditLogService } from '../services'
 import { formatCurrency, formatDate } from '../utils'
+import { LANGUAGES, saveLanguage } from '../i18n'
 import type { Account, AccountCreate, BankOption, Category, CategoryCreate, AuditLogEntry } from '../types'
 import { BANK_LIST } from '../types'
 
@@ -30,8 +32,46 @@ const sel: React.CSSProperties = {
   outline: 'none', fontFamily: 'var(--font)', cursor: 'pointer', width: '100%',
 }
 
+// ── LanguageSwitcher ──────────────────────────────────────
+function LanguageSwitcher() {
+  const { t, i18n } = useTranslation()
+  const current = i18n.language
+
+  const handleChange = (lang: string) => {
+    i18n.changeLanguage(lang)
+    saveLanguage(lang)
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)', fontWeight: '500' }}>
+        {t('profile.language')}
+      </div>
+      <div style={{ display: 'flex', gap: '0.375rem' }}>
+        {LANGUAGES.map(lang => (
+          <button
+            key={lang.code}
+            onClick={() => handleChange(lang.code)}
+            style={{
+              padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-md)', cursor: 'pointer',
+              fontFamily: 'var(--font)', fontSize: 'var(--font-size-sm)', fontWeight: '500',
+              border: '0.5px solid',
+              borderColor: current === lang.code ? 'var(--accent)' : 'var(--border)',
+              background: current === lang.code ? 'var(--accent-soft)' : 'transparent',
+              color: current === lang.code ? 'var(--accent)' : 'var(--text-muted)',
+            }}
+          >
+            {lang.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── ThemeToggle ───────────────────────────────────────────
 function ThemeToggle() {
+  const { t } = useTranslation()
   const [theme, setTheme] = useState<'dark' | 'light'>(getTheme)
 
   const toggle = () => {
@@ -46,10 +86,10 @@ function ThemeToggle() {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <div>
         <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)', fontWeight: '500' }}>
-          Aparência
+          {t('profile.appearance')}
         </div>
         <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', marginTop: '0.125rem' }}>
-          {isDark ? 'Modo escuro ativo' : 'Modo claro ativo'}
+          {isDark ? t('profile.darkMode') : t('profile.lightMode')}
         </div>
       </div>
       <button
@@ -609,12 +649,15 @@ export function Profile() {
           )}
         </Card>
 
-        {/* Aparência */}
+        {/* Aparência & Idioma */}
         <Card>
           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '500', display: 'block', marginBottom: '0.75rem' }}>
             Aparência
           </span>
-          <ThemeToggle />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <ThemeToggle />
+            <LanguageSwitcher />
+          </div>
         </Card>
 
         {/* Histórico de alterações */}

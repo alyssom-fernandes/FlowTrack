@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageFooter } from '../components/layout'
 import { Button, Card, Input, Modal, Spinner } from '../components/ui'
 import { goalsService, categoriesService } from '../services'
@@ -33,6 +34,7 @@ function GoalCard({ goal, categories, onEdit, onDeleted }: {
   onEdit: (g: Goal) => void
   onDeleted: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -59,7 +61,7 @@ function GoalCard({ goal, categories, onEdit, onDeleted }: {
               background: isSavings ? 'var(--green-soft)' : 'var(--accent-soft)',
               color: isSavings ? 'var(--green)' : 'var(--accent)',
             }}>
-              {isSavings ? 'Poupança' : 'Limite'}
+              {isSavings ? t('goals.badgeSavings') : t('goals.badgeLimit')}
             </span>
             {linkedCat && (
               <span style={{
@@ -73,13 +75,13 @@ function GoalCard({ goal, categories, onEdit, onDeleted }: {
             )}
             {overBudget && (
               <span style={{ padding: '0.0625rem 0.4rem', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', fontWeight: '500', background: 'var(--red-soft)', color: 'var(--red)' }}>
-                Excedido
+                {t('goals.badgeExceeded')}
               </span>
             )}
           </div>
           {goal.end_date && (
             <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', marginTop: '0.125rem' }}>
-              Até {formatDate(goal.end_date)}
+              {t('goals.until', { date: formatDate(goal.end_date) })}
             </div>
           )}
         </div>
@@ -88,19 +90,19 @@ function GoalCard({ goal, categories, onEdit, onDeleted }: {
         <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
           {confirmDelete ? (
             <>
-              <Button size="sm" variant="danger" loading={deleting} onClick={handleDelete}>Sim</Button>
-              <Button size="sm" variant="secondary" onClick={() => setConfirmDelete(false)}>Não</Button>
+              <Button size="sm" variant="danger" loading={deleting} onClick={handleDelete}>{t('common.yes')}</Button>
+              <Button size="sm" variant="secondary" onClick={() => setConfirmDelete(false)}>{t('common.no')}</Button>
             </>
           ) : (
             <>
-              <button onClick={() => onEdit(goal)} title="Editar" aria-label="Editar meta" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+              <button onClick={() => onEdit(goal)} title={t('common.edit')} aria-label={t('goals.editAriaLabel')} style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
               </button>
-              <button onClick={() => setConfirmDelete(true)} title="Excluir" aria-label="Excluir meta" style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
+              <button onClick={() => setConfirmDelete(true)} title={t('common.delete')} aria-label={t('goals.deleteAriaLabel')} style={{ color: 'var(--text-hint)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--red)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
@@ -118,10 +120,10 @@ function GoalCard({ goal, categories, onEdit, onDeleted }: {
       {/* Amounts */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-          {isSavings ? 'Acumulado' : 'Gasto'}: <strong style={{ color: overBudget ? 'var(--red)' : isSavings ? 'var(--green)' : 'var(--text-secondary)' }}>{formatCurrency(goal.current_amount)}</strong>
+          {isSavings ? t('goals.accumulated') : t('goals.spent')}: <strong style={{ color: overBudget ? 'var(--red)' : isSavings ? 'var(--green)' : 'var(--text-secondary)' }}>{formatCurrency(goal.current_amount)}</strong>
         </span>
         <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-          Meta: <strong style={{ color: 'var(--text-secondary)' }}>{formatCurrency(goal.target_amount)}</strong>
+          {t('goals.target')}: <strong style={{ color: 'var(--text-secondary)' }}>{formatCurrency(goal.target_amount)}</strong>
         </span>
         <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', color: overBudget ? 'var(--red)' : isSavings ? 'var(--green)' : 'var(--accent)' }}>
           {pct.toFixed(0)}%
@@ -143,6 +145,7 @@ function GoalModal({ open, onClose, onSaved, initial, categories }: {
   initial?: Goal | null
   categories: Category[]
 }) {
+  const { t } = useTranslation()
   const isEdit = !!initial
 
   const [form, setForm] = useState<GoalCreate>(blankGoal)
@@ -173,9 +176,9 @@ function GoalModal({ open, onClose, onSaved, initial, categories }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim()) { setError('Informe o nome da meta.'); return }
+    if (!form.name.trim()) { setError(t('goals.errorName')); return }
     const target = parseFloat(amountStr.replace(',', '.'))
-    if (isNaN(target) || target <= 0) { setError('Informe um valor alvo válido.'); return }
+    if (isNaN(target) || target <= 0) { setError(t('goals.errorAmount')); return }
 
     setSaving(true)
     setError('')
@@ -189,7 +192,7 @@ function GoalModal({ open, onClose, onSaved, initial, categories }: {
       onSaved()
       onClose()
     } catch {
-      setError('Erro ao salvar meta. Tente novamente.')
+      setError(t('goals.errorSave'))
     } finally {
       setSaving(false)
     }
@@ -198,22 +201,22 @@ function GoalModal({ open, onClose, onSaved, initial, categories }: {
   const showCategorySelector = form.period === 'monthly' && form.type === 'spending_limit'
 
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? 'Editar meta' : 'Nova meta'} width="26rem">
+    <Modal open={open} onClose={onClose} title={isEdit ? t('goals.editGoal') : t('goals.newGoal')} width="26rem">
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-        <Input label="Nome *" value={form.name} onChange={e => set('name', e.target.value)} placeholder="Ex: Limite restaurantes" required />
+        <Input label={t('goals.nameLabel')} value={form.name} onChange={e => set('name', e.target.value)} placeholder={t('goals.namePlaceholder')} required />
 
         {/* Tipo */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-          <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Tipo *</label>
+          <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>{t('goals.typeLabel')}</label>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {([['spending_limit', 'Limite de gasto'], ['savings_target', 'Meta de poupança']] as [GoalType, string][]).map(([t, label]) => (
-              <button key={t} type="button" onClick={() => set('type', t)} style={{
+            {([['spending_limit', t('goals.typeSpending')], ['savings_target', t('goals.typeSavings')]] as [GoalType, string][]).map(([gt, label]) => (
+              <button key={gt} type="button" onClick={() => set('type', gt)} style={{
                 flex: 1, padding: '0.5rem', borderRadius: 'var(--radius-md)', cursor: 'pointer',
                 fontFamily: 'var(--font)', fontSize: 'var(--font-size-sm)', fontWeight: '500',
                 border: '0.5px solid',
-                borderColor: form.type === t ? (t === 'savings_target' ? 'var(--green)' : 'var(--accent)') : 'var(--border)',
-                background: form.type === t ? (t === 'savings_target' ? 'var(--green-soft)' : 'var(--accent-soft)') : 'transparent',
-                color: form.type === t ? (t === 'savings_target' ? 'var(--green)' : 'var(--accent)') : 'var(--text-muted)',
+                borderColor: form.type === gt ? (gt === 'savings_target' ? 'var(--green)' : 'var(--accent)') : 'var(--border)',
+                background: form.type === gt ? (gt === 'savings_target' ? 'var(--green-soft)' : 'var(--accent-soft)') : 'transparent',
+                color: form.type === gt ? (gt === 'savings_target' ? 'var(--green)' : 'var(--accent)') : 'var(--text-muted)',
               }}>
                 {label}
               </button>
@@ -223,14 +226,14 @@ function GoalModal({ open, onClose, onSaved, initial, categories }: {
 
         {/* Valor alvo + período */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
-          <Input label="Valor alvo (R$) *" value={amountStr} onChange={e => setAmountStr(e.target.value)}
+          <Input label={t('goals.targetAmountLabel')} value={amountStr} onChange={e => setAmountStr(e.target.value)}
             placeholder="0,00" inputMode="decimal" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-            <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Período</label>
+            <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>{t('goals.periodLabel')}</label>
             <select value={form.period} onChange={e => set('period', e.target.value)} style={sel}>
-              <option value="monthly">Mensal</option>
-              <option value="yearly">Anual</option>
-              <option value="custom">Personalizado</option>
+              <option value="monthly">{t('goals.periodMonthly')}</option>
+              <option value="yearly">{t('goals.periodYearly')}</option>
+              <option value="custom">{t('goals.periodCustom')}</option>
             </select>
           </div>
         </div>
@@ -238,13 +241,13 @@ function GoalModal({ open, onClose, onSaved, initial, categories }: {
         {/* Categoria vinculada (apenas para limites mensais) */}
         {showCategorySelector && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-            <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Categoria vinculada</label>
+            <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>{t('goals.linkedCategory')}</label>
             <select value={form.category_id || ''} onChange={e => set('category_id', e.target.value || undefined)} style={sel}>
-              <option value="">Todas as categorias</option>
+              <option value="">{t('goals.allCategories')}</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>
-              O progresso será calculado automaticamente com base nos gastos nesta categoria.
+              {t('goals.linkedCategoryHint')}
             </span>
           </div>
         )}
@@ -253,22 +256,22 @@ function GoalModal({ open, onClose, onSaved, initial, categories }: {
         {isEdit && initial && (
           <div style={{ padding: '0.5rem 0.75rem', background: 'var(--accent-soft)', borderRadius: 'var(--radius-md)' }}>
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--accent)' }}>
-              Progresso atual calculado automaticamente das suas transações do período.
+              {t('goals.progressAuto')}
             </span>
           </div>
         )}
 
         {/* Datas */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
-          <Input label="Data início" type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
-          <Input label="Data fim" type="date" value={form.end_date || ''} onChange={e => set('end_date', e.target.value || undefined)} />
+          <Input label={t('goals.startDate')} type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
+          <Input label={t('goals.endDate')} type="date" value={form.end_date || ''} onChange={e => set('end_date', e.target.value || undefined)} />
         </div>
 
         {error && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)' }}>{error}</span>}
 
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
-          <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" loading={saving}>{isEdit ? 'Salvar' : 'Criar meta'}</Button>
+          <Button type="button" variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button type="submit" loading={saving}>{isEdit ? t('common.save') : t('goals.createBtn')}</Button>
         </div>
       </form>
     </Modal>
@@ -277,6 +280,7 @@ function GoalModal({ open, onClose, onSaved, initial, categories }: {
 
 // ── Goals (main page) ─────────────────────────────────────
 export function Goals() {
+  const { t } = useTranslation()
   const { toast } = useToastStore()
   const [goals, setGoals] = useState<Goal[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -300,11 +304,11 @@ export function Goals() {
   const handleSaved = () => {
     load()
     setEditing(null)
-    toast({ message: editing ? 'Meta atualizada!' : 'Meta criada!' })
+    toast({ message: editing ? t('goals.toastUpdated') : t('goals.toastCreated') })
   }
   const handleDeleted = (id: string) => {
     setGoals(prev => prev.filter(g => g.id !== id))
-    toast({ message: 'Meta excluída.' })
+    toast({ message: t('goals.toastDeleted') })
   }
 
   const savings = goals.filter(g => g.type === 'savings_target')
@@ -317,16 +321,16 @@ export function Goals() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
           <div>
-            <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '600', color: 'var(--text-primary)' }}>Metas</h1>
+            <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '600', color: 'var(--text-primary)' }}>{t('goals.title')}</h1>
             <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-              {goals.length > 0 ? `${goals.length} meta${goals.length > 1 ? 's' : ''} ativa${goals.length > 1 ? 's' : ''}` : 'Nenhuma meta criada'}
+              {goals.length > 0 ? t('goals.active', { count: goals.length }) : t('goals.none')}
             </p>
           </div>
           <Button size="sm" onClick={() => { setEditing(null); setShowModal(true) }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
               <path d="M12 5v14M5 12h14" />
             </svg>
-            Nova meta
+            {t('goals.newGoal')}
           </Button>
         </div>
 
@@ -337,16 +341,16 @@ export function Goals() {
         ) : goals.length === 0 ? (
           <Card style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
             <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-              Nenhuma meta ativa. Crie sua primeira meta para acompanhar gastos ou poupança.
+              {t('goals.createFirst')}
             </p>
-            <Button onClick={() => setShowModal(true)}>Criar primeira meta</Button>
+            <Button onClick={() => setShowModal(true)}>{t('goals.createFirstBtn')}</Button>
           </Card>
         ) : (
           <>
             {limits.length > 0 && (
               <section>
                 <h2 style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-hint)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: '500', marginBottom: '0.625rem' }}>
-                  Limites de gasto
+                  {t('goals.spendingLimits')}
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {limits.map(g => (
@@ -361,7 +365,7 @@ export function Goals() {
             {savings.length > 0 && (
               <section>
                 <h2 style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-hint)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: '500', marginBottom: '0.625rem' }}>
-                  Metas de poupança
+                  {t('goals.savingsGoals')}
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {savings.map(g => (

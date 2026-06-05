@@ -1,21 +1,26 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore, useAlertsStore } from '../store'
 import { authService } from '../services'
 import { useOnlineStatus } from '../utils'
 
-// ── Nav items ─────────────────────────────────────────────
-const NAV = [
-  { path: '/dashboard',    label: 'Dashboard',    mLabel: 'Início',     icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
-  { path: '/transactions', label: 'Transações',   mLabel: 'Transações', icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> },
-  { path: '/investments',  label: 'Investimentos',mLabel: 'Investir',   icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg> },
-  { path: '/goals',        label: 'Metas',        mLabel: 'Metas',      icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg> },
-  { path: '/reports',      label: 'Relatórios',   mLabel: 'Relatórios', icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> },
-  { path: '/profile',      label: 'Perfil',       mLabel: 'Perfil',     icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+const NAV_ICONS = [
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>,
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>,
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>,
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
 ]
+
+const NAV_PATHS = ['/dashboard', '/transactions', '/investments', '/goals', '/reports', '/profile']
+const NAV_KEYS  = ['dashboard', 'transactions', 'investments', 'goals', 'reports', 'profile'] as const
+const NAV_MOBILE_KEYS = ['home', 'transactions', 'invest', 'goals', 'reports', 'profile'] as const
 
 // ── AlertsPanel ───────────────────────────────────────────
 function AlertsPanel({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const { alerts, loading } = useAlertsStore()
 
   const colorMap: Record<string, { color: string; bg: string }> = {
@@ -38,15 +43,15 @@ function AlertsPanel({ onClose }: { onClose: () => void }) {
         display: 'flex', flexDirection: 'column',
       }}>
         <div style={{ padding: '0.75rem 1rem', borderBottom: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '600', color: 'var(--text-primary)' }}>Alertas</span>
+          <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '600', color: 'var(--text-primary)' }}>{t('nav.alerts')}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', fontSize: '1rem' }}>✕</button>
         </div>
         <div style={{ padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
           {loading && (
-            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-hint)', fontSize: 'var(--font-size-sm)' }}>Carregando...</div>
+            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-hint)', fontSize: 'var(--font-size-sm)' }}>{t('common.loading')}</div>
           )}
           {!loading && alerts.length === 0 && (
-            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-hint)', fontSize: 'var(--font-size-sm)' }}>Nenhum alerta no momento.</div>
+            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-hint)', fontSize: 'var(--font-size-sm)' }}>{t('nav.noAlerts')}</div>
           )}
           {alerts.map((a, i) => {
             const c = colorMap[a.type] ?? colorMap.info
@@ -65,6 +70,7 @@ function AlertsPanel({ onClose }: { onClose: () => void }) {
 
 // ── Sidebar ───────────────────────────────────────────────
 export function Sidebar() {
+  const { t } = useTranslation()
   const location = useLocation()
   const { user, isDemo } = useAuthStore()
   const { count, load } = useAlertsStore()
@@ -72,6 +78,13 @@ export function Sidebar() {
   const displayName = isDemo ? 'Demo' : (user?.email?.split('@')[0] || '')
 
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const NAV = NAV_PATHS.map((path, i) => ({
+    path,
+    label: t(`nav.${NAV_KEYS[i]}`),
+    mLabel: t(`nav.${NAV_MOBILE_KEYS[i]}`),
+    icon: NAV_ICONS[i],
+  }))
 
   return (
     <aside style={{ width: 'var(--sidebar-width)', flexShrink: 0, background: 'var(--bg-sidebar)', borderRight: '0.5px solid var(--border)', display: 'flex', flexDirection: 'column', height: '100dvh', position: 'sticky', top: 0 }}>
@@ -82,8 +95,8 @@ export function Sidebar() {
         <div style={{ position: 'relative' }}>
           <button
             onClick={() => setShowAlerts(v => !v)}
-            title="Alertas"
-            aria-label="Ver alertas"
+            title={t('nav.alerts')}
+            aria-label={t('nav.alerts')}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: count > 0 ? 'var(--accent)' : 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', transition: 'color var(--transition)' }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
             onMouseLeave={e => (e.currentTarget.style.color = count > 0 ? 'var(--accent)' : 'var(--text-hint)')}
@@ -126,17 +139,21 @@ export function Sidebar() {
         <span style={{ color: 'var(--text-hint)', fontSize: 'var(--font-size-sm)' }}>·</span>
         <button onClick={() => authService.signOut()} style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', cursor: 'pointer', background: 'none', border: 'none', padding: 0, fontFamily: 'var(--font)', transition: 'color var(--transition)' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--red)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}>Sair</button>
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}>{t('nav.signOut')}</button>
       </div>
     </aside>
   )
 }
 
-const MOBILE_NAV = NAV
-
 // ── BottomNavbar ──────────────────────────────────────────
 export function BottomNavbar() {
+  const { t } = useTranslation()
   const location = useLocation()
+  const MOBILE_NAV = NAV_PATHS.map((path, i) => ({
+    path,
+    mLabel: t(`nav.${NAV_MOBILE_KEYS[i]}`),
+    icon: NAV_ICONS[i],
+  }))
   return (
     <nav style={{ width: '100%', background: 'var(--bg-sidebar)', borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'stretch', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {MOBILE_NAV.map((item) => {
@@ -171,6 +188,7 @@ export function PageFooter() {
 
 // ── OfflineBanner ─────────────────────────────────────────
 function OfflineBanner() {
+  const { t } = useTranslation()
   const { isOnline, isSyncing } = useOnlineStatus()
   if (isOnline && !isSyncing) return null
   return (
@@ -182,7 +200,7 @@ function OfflineBanner() {
       fontSize: 'var(--font-size-sm)',
       color: isSyncing ? 'var(--accent)' : 'var(--red)',
     }}>
-      {isSyncing ? '↑ Sincronizando dados...' : '● Sem conexão — alterações serão salvas quando reconectar'}
+      {isSyncing ? t('nav.syncing') : t('nav.offline')}
     </div>
   )
 }
