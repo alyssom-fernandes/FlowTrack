@@ -7,6 +7,26 @@ _(Login: use the "Access demo mode" button — no sign-up required)_
 
 ---
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Transactions](docs/screenshots/transactions.png) |
+| Dashboard — metrics, cashflow, AI insight | Transactions — filters, category badges, installments |
+| ![Reports](docs/screenshots/reports.png) | ![Goals](docs/screenshots/goals.png) |
+| Reports — donut chart, bar chart, projections | Goals — progress bars, spending & savings targets |
+| ![Import](docs/screenshots/import.png) | ![Login](docs/screenshots/login.png) |
+| Import modal — PDF / OFX / CSV | Login — demo access, no sign-up required |
+
+<details>
+<summary>Mobile view</summary>
+
+![Mobile](docs/screenshots/mobile.png)
+
+</details>
+
+---
+
 ## What it does
 
 FlowTrack is a full-featured personal finance tracker with a FastAPI backend, React frontend, and Claude Haiku for intelligent transaction categorization.
