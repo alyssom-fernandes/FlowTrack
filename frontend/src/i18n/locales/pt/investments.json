@@ -1,40 +1,91 @@
 {
   "investments": {
     "title": "Investimentos",
-    "totalInvested": "Total investido",
-    "currentValue": "Valor atual",
-    "totalReturn": "Retorno total",
+    "subtitle_one": "{{count}} ativo · valores informados manualmente",
+    "subtitle_other": "{{count}} ativos · valores informados manualmente",
+    "subtitleEmpty": "Valores informados manualmente",
     "newInvestment": "Novo investimento",
     "editInvestment": "Editar investimento",
-    "none": "Nenhum investimento cadastrado.",
-    "createFirst": "Adicionar primeiro investimento",
-    "editAriaLabel": "Editar investimento",
-    "deleteAriaLabel": "Excluir investimento",
-    "investedAt": "Aplicado",
-    "currentVal": "Atual",
-    "profitability": "Rentabilidade",
-    "since": "desde {{date}}",
-    "nameLabel": "Nome *",
-    "namePlaceholder": "Ex: Tesouro IPCA+ 2029",
-    "typeLabel": "Tipo *",
-    "investedLabel": "Valor investido (R$) *",
-    "currentLabel": "Valor atual (R$) *",
-    "startDateLabel": "Data de início *",
-    "notesLabel": "Notas",
-    "errorSave": "Erro ao salvar investimento. Tente novamente.",
-    "toastCreated": "Investimento adicionado!",
-    "toastUpdated": "Investimento atualizado!",
-    "toastDeleted": "Investimento excluído.",
+    "kpi": {
+      "invested": "Investido",
+      "current": "Valor atual",
+      "result": "Resultado",
+      "resultRef": "sobre o investido",
+      "positions_one": "em {{count}} ativo",
+      "positions_other": "em {{count}} ativos",
+      "types_one": "{{count}} tipo de investimento",
+      "types_other": "{{count}} tipos de investimento"
+    },
+    "allocation": {
+      "title": "Distribuição por tipo",
+      "subtitle": "Pelo valor atual",
+      "aria": "Distribuição da carteira por tipo, pelo valor atual: {{list}}",
+      "share": "{{pct}} da carteira",
+      "assets_one": "{{count}} ativo",
+      "assets_other": "{{count}} ativos",
+      "legend": "Tipos de investimento"
+    },
+    "assets": {
+      "title": "Ativos",
+      "subtitle": "Ordenados pelo valor atual",
+      "asset": "Ativo",
+      "type": "Tipo",
+      "invested": "Investido",
+      "current": "Atual",
+      "result": "Resultado",
+      "actions": "Ações"
+    },
+    "actions": {
+      "edit": "Editar {{name}}",
+      "delete": "Excluir {{name}}"
+    },
+    "empty": {
+      "title": "Nenhum investimento cadastrado",
+      "text": "Registre aplicações como Tesouro, CDB ou ações para ver o total da carteira, a distribuição por tipo e o resultado de cada ativo.",
+      "action": "Adicionar investimento"
+    },
+    "loadError": "Não foi possível carregar os investimentos.",
+    "retry": "Tentar de novo",
+    "form": {
+      "name": "Nome",
+      "namePlaceholder": "Ex.: Tesouro IPCA+ 2029",
+      "type": "Tipo",
+      "institution": "Instituição",
+      "institutionPlaceholder": "Ex.: Nubank",
+      "invested": "Valor investido",
+      "current": "Valor atual",
+      "currentHint": "Atualize o valor atual sempre que consultar o saldo na instituição.",
+      "preview": "Resultado",
+      "notes": "Notas",
+      "notesPlaceholder": "Ex.: vencimento, liquidez, taxa contratada",
+      "create": "Adicionar investimento",
+      "errorName": "Dê um nome para o investimento.",
+      "errorInvested": "Informe um valor maior que zero.",
+      "errorCurrent": "Informe o valor atual (zero ou mais).",
+      "errorSave": "Não foi possível salvar. Tente de novo."
+    },
+    "delete": {
+      "title": "Excluir investimento",
+      "message": "“{{name}}” sai da carteira e dos totais. Isso não pode ser desfeito.",
+      "confirm": "Excluir investimento"
+    },
+    "toast": {
+      "created": "Investimento adicionado",
+      "updated": "Investimento atualizado",
+      "deleted": "Investimento excluído",
+      "deleteError": "Não foi possível excluir o investimento."
+    },
     "types": {
-      "renda_fixa": "Renda Fixa",
-      "renda_variavel": "Renda Variável",
-      "fundo_imobiliario": "Fundo Imobiliário",
+      "renda_fixa": "Renda fixa",
+      "renda_variavel": "Renda variável",
+      "fundo_imobiliario": "Fundo imobiliário",
       "tesouro_direto": "Tesouro Direto",
       "cdb": "CDB",
       "lci_lca": "LCI / LCA",
       "acoes": "Ações",
       "criptomoeda": "Criptomoeda",
       "outro": "Outro"
-    }
+    },
+    "otherFolded": "Outros"
   }
 }

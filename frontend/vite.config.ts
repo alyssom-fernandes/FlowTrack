@@ -32,6 +32,8 @@ export default defineConfig({
       output: {
         manualChunks(id: string) {
           if (!id.includes('node_modules')) return
+          // Geração de PDF: sem pacote nomeado, fica no trecho carregado só quando alguém exporta
+          if (/[\\/](jspdf|html2canvas|canvg|dompurify|fflate|core-js|rgbcolor|stackblur-canvas|svg-pathdata|raf|performance-now)[\\/]/.test(id)) return undefined
           if (id.includes('@supabase')) return 'vendor-supabase'
           if (id.includes('axios') || id.includes('dexie')) return 'vendor-http'
           if (id.includes('react') || id.includes('zustand')) return 'vendor-react'

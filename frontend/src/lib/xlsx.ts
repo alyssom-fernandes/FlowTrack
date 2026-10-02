@@ -50,7 +50,7 @@ function cell(ref: string, value: XlsxValue, type: XlsxCellType | undefined, sty
   }
   if (typeof value === 'number' && t !== 'text') {
     const st = style ?? (t === 'currency' ? S.currency : t === 'percent' ? S.percent : t === 'integer' ? S.integer : S.number)
-    const v = t === 'percent' ? value / 100 : value
+    const v = t === 'percent' ? Math.round(value * 10_000) / 1_000_000 : value
     return `<c r="${ref}" s="${st}"><v>${Number.isFinite(v) ? v : 0}</v></c>`
   }
   return `<c r="${ref}" t="inlineStr" s="${style ?? S.text}"><is><t xml:space="preserve">${esc(String(value))}</t></is></c>`
@@ -144,7 +144,9 @@ function safeSheetName(name: string, used: Set<string>): string {
   return base
 }
 
-export function buildXlsx(sheets: XlsxSheet[], meta: { title?: string; author?: string } = {}): Blob {
+export function buildXlsx(sheets: XlsxSheet[], meta: { title?: string; author?: string; locale?: string } = {}): Blob {
+  // Datas: dd/mm/aaaa em português; aaaa-mm-dd (sem ambiguidade) em inglês
+  const dateFormat = meta.locale?.startsWith('en') ? 'yyyy-mm-dd' : 'dd/mm/yyyy'
   const used = new Set<string>()
   const names = sheets.map(s => safeSheetName(s.name, used))
   const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z')
@@ -177,7 +179,7 @@ ${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" Co
 ${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('\n')}
 <Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>`],
-    ['xl/styles.xml', STYLES],
+    ['xl/styles.xml', STYLES.replace('formatCode="dd/mm/yyyy"', `formatCode="${dateFormat}"`)],
     ...sheets.map((s, i) => [`xl/worksheets/sheet${i + 1}.xml`, sheetXml(s)] as [string, string]),
   ]
   return new Blob([zipStore(files)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })

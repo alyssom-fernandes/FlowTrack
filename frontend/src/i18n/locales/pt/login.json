@@ -1,20 +1,97 @@
 {
   "login": {
-    "tagline": "Controle financeiro inteligente",
-    "passwordReset": "Redefinição de senha",
-    "email": "E-mail",
-    "password": "Senha",
-    "forgotPassword": "Esqueci a senha",
-    "signIn": "Entrar",
-    "wrongCredentials": "E-mail ou senha incorretos.",
-    "demoMode": "Acessar modo demo",
-    "demoHint": "Sem cadastro · Dados resetam semanalmente",
-    "resetEmailLabel": "Informe seu e-mail e enviaremos um link para redefinir sua senha.",
-    "sendLink": "Enviar link",
-    "resetSentTitle": "Link enviado para",
-    "resetSentBody": "Verifique sua caixa de entrada e siga as instruções.",
+    "hero": {
+      "title": "Do extrato do banco",
+      "titleMuted": "ao relatório do mês.",
+      "text": "O FlowTrack importa extratos do Nubank, Sicredi, Mercado Pago e Will Bank em PDF, OFX ou CSV, categoriza os gastos com IA e reúne orçamentos, metas e investimentos, com relatórios em PDF e Excel."
+    },
+    "preview": {
+      "title": "Extrato importado",
+      "source": "Nubank · {{n}} transações",
+      "categorizing": "Categorizando…",
+      "ai": "IA · {{pct}}",
+      "budget": "Orçamento · {{category}}",
+      "spent": "{{spent}} de {{limit}}",
+      "aria": "Prévia do FlowTrack: extrato do Nubank importado. {{first}} categorizado como {{firstCat}} pela IA, com {{firstPct}} de confiança; {{second}} como {{secondCat}}, com {{secondPct}}. Orçamento de {{category}} em {{pct}}."
+    },
+    "demo": {
+      "title": "Explore uma conta de exemplo",
+      "text": "Doze meses de movimentações, três contas, metas e investimentos, prontos para você mexer à vontade.",
+      "cta": "Ver a demonstração",
+      "hint": "Sem cadastro. Dados fictícios que ficam no seu navegador.",
+      "error": "Não foi possível abrir a demonstração. Recarregue a página e tente de novo."
+    },
+    "divider": "ou entre com a sua conta",
+    "form": {
+      "email": "E-mail",
+      "emailPlaceholder": "voce@exemplo.com",
+      "password": "Senha",
+      "showPassword": "Mostrar senha",
+      "hidePassword": "Ocultar senha",
+      "forgot": "Esqueci a senha",
+      "submit": "Entrar",
+      "emailRequired": "Informe o e-mail.",
+      "emailInvalid": "Digite um e-mail válido.",
+      "passwordRequired": "Informe a senha."
+    },
+    "errors": {
+      "credentials": "E-mail ou senha incorretos.",
+      "network": "Não foi possível falar com o servidor agora. A demonstração funciona sem ele.",
+      "unconfirmed": "Confirme o seu e-mail pelo link que enviamos antes de entrar.",
+      "rate": "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.",
+      "unknown": "Não foi possível entrar agora. Tente de novo."
+    },
+    "unavailable": {
+      "title": "Login com conta desligado.",
+      "text": "Esta versão pública roda sem servidor; a demonstração tem todas as funções."
+    },
     "backToLogin": "Voltar ao login",
-    "resetSendError": "Não foi possível enviar o e-mail. Verifique o endereço e tente novamente.",
-    "demoUnavailable": "Modo demo temporariamente indisponível."
+    "forgot": {
+      "title": "Redefinir senha",
+      "text": "Informe o e-mail da sua conta. Vamos enviar um link para você criar uma nova senha.",
+      "submit": "Enviar link",
+      "errors": {
+        "network": "Não foi possível falar com o servidor agora. Tente de novo mais tarde.",
+        "rate": "Você pediu um link há pouco. Espere alguns minutos antes de pedir outro.",
+        "unknown": "Não foi possível enviar o link. Confira o e-mail e tente de novo."
+      }
+    },
+    "sent": {
+      "title": "Confira o seu e-mail",
+      "text": "Se houver uma conta com <b>{{email}}</b>, você vai receber um link para criar uma nova senha.",
+      "spam": "Não chegou em alguns minutos? Veja a caixa de spam ou peça outro link.",
+      "again": "Pedir outro link"
+    },
+    "prefs": {
+      "language": "Idioma",
+      "light": "Usar tema claro",
+      "dark": "Usar tema escuro"
+    },
+    "reset": {
+      "checking": "Verificando o link…",
+      "title": "Criar nova senha",
+      "text": "Escolha uma nova senha para a sua conta.",
+      "newPassword": "Nova senha",
+      "confirm": "Repita a nova senha",
+      "hint": "Pelo menos {{min}} caracteres.",
+      "passwordRequired": "Digite a nova senha.",
+      "tooShort": "Use pelo menos {{min}} caracteres.",
+      "mismatch": "As senhas não são iguais.",
+      "submit": "Salvar nova senha",
+      "errors": {
+        "network": "Não foi possível falar com o servidor agora. Tente de novo mais tarde.",
+        "samePassword": "A nova senha precisa ser diferente da atual.",
+        "weakPassword": "Senha muito fraca. Misture letras, números e símbolos.",
+        "unknown": "Não foi possível salvar a nova senha. Tente de novo."
+      },
+      "invalidTitle": "Link inválido ou expirado",
+      "invalidText": "Os links de redefinição valem por pouco tempo e só funcionam uma vez. Peça um novo para continuar.",
+      "requestNew": "Pedir um novo link",
+      "unavailableTitle": "Redefinição indisponível",
+      "unavailableText": "Esta versão pública roda sem servidor, então não há contas para redefinir. A demonstração tem todas as funções.",
+      "doneTitle": "Senha atualizada",
+      "doneText": "A nova senha já está valendo. Use-a na próxima vez que entrar.",
+      "continue": "Continuar"
+    }
   }
 }

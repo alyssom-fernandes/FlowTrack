@@ -1,46 +1,156 @@
 {
   "goals": {
     "title": "Metas",
-    "active_one": "{{count}} meta ativa",
-    "active_other": "{{count}} metas ativas",
-    "none": "Nenhuma meta criada",
+    "subtitle": {
+      "metas": "Limites de gasto e metas de economia",
+      "orcamentos": "Limite mensal de gasto por categoria"
+    },
+    "tabsLabel": "Metas e orçamentos",
+    "tabs": {
+      "metas": "Metas",
+      "orcamentos": "Orçamentos"
+    },
     "newGoal": "Nova meta",
     "editGoal": "Editar meta",
-    "createFirst": "Nenhuma meta ativa. Crie sua primeira meta para acompanhar gastos ou poupança.",
-    "createFirstBtn": "Criar primeira meta",
-    "spendingLimits": "Limites de gasto",
-    "savingsGoals": "Metas de poupança",
-    "badgeSavings": "Poupança",
-    "badgeLimit": "Limite",
-    "badgeExceeded": "Excedido",
-    "until": "Até {{date}}",
-    "editAriaLabel": "Editar meta",
-    "deleteAriaLabel": "Excluir meta",
-    "accumulated": "Acumulado",
-    "spent": "Gasto",
-    "target": "Meta",
-    "nameLabel": "Nome *",
-    "namePlaceholder": "Ex: Limite restaurantes",
-    "typeLabel": "Tipo *",
-    "typeSpending": "Limite de gasto",
-    "typeSavings": "Meta de poupança",
-    "targetAmountLabel": "Valor alvo (R$) *",
-    "periodLabel": "Período",
-    "periodMonthly": "Mensal",
-    "periodYearly": "Anual",
-    "periodCustom": "Personalizado",
-    "linkedCategory": "Categoria vinculada",
-    "linkedCategoryHint": "O progresso será calculado automaticamente com base nos gastos nesta categoria.",
-    "allCategories": "Todas as categorias",
-    "progressAuto": "Progresso atual calculado automaticamente das suas transações do período.",
-    "startDate": "Data início",
-    "endDate": "Data fim",
-    "createBtn": "Criar meta",
-    "errorName": "Informe o nome da meta.",
-    "errorAmount": "Informe um valor alvo válido.",
-    "errorSave": "Erro ao salvar meta. Tente novamente.",
-    "toastCreated": "Meta criada!",
-    "toastUpdated": "Meta atualizada!",
-    "toastDeleted": "Meta excluída."
+    "sections": {
+      "limits": "Limites de gasto",
+      "savings": "Metas de economia"
+    },
+    "type": {
+      "spending_limit": "Limite de gasto",
+      "savings_target": "Meta de economia"
+    },
+    "allSpending": "Todos os gastos",
+    "allIncome": "Todas as entradas",
+    "of": "de {{value}}",
+    "status": {
+      "ok": "Dentro do limite",
+      "okSavings": "No ritmo",
+      "warn": "Atenção",
+      "over": "Estourou",
+      "behind": "Abaixo do ritmo",
+      "done": "Concluída",
+      "upcoming": "Não começou",
+      "ended": "Encerrada"
+    },
+    "left": "Restam {{value}}",
+    "overBy": "{{value}} acima do limite",
+    "missing": "Faltam {{value}}",
+    "reached": "Meta atingida",
+    "beyond": "{{value}} além da meta",
+    "daysLeft_one": "{{count}} dia restante",
+    "daysLeft_other": "{{count}} dias restantes",
+    "startsOn": "Começa em {{date}}",
+    "endedOn": "Encerrou em {{date}}",
+    "period": {
+      "monthly": "Mensal",
+      "yearly": "Anual",
+      "custom": "Personalizado",
+      "monthlyOf": "Mensal · {{month}}",
+      "yearlyOf": "Anual · {{year}}",
+      "from": "Desde {{date}}"
+    },
+    "actions": {
+      "edit": "Editar {{name}}",
+      "delete": "Excluir {{name}}"
+    },
+    "empty": {
+      "title": "Nenhuma meta ainda",
+      "text": "Crie um limite de gasto para uma categoria ou uma meta de economia. O progresso é calculado a partir das suas transações.",
+      "limit": "Criar limite de gasto",
+      "savings": "Criar meta de economia"
+    },
+    "loadError": "Não foi possível carregar as metas.",
+    "retry": "Tentar de novo",
+    "form": {
+      "typeLabel": "Tipo",
+      "nameLabel": "Nome",
+      "namePlaceholderLimit": "Ex.: Mercado e restaurantes",
+      "namePlaceholderSavings": "Ex.: Reserva de emergência",
+      "amountLimit": "Limite",
+      "amountSavings": "Valor a juntar",
+      "periodLabel": "Período",
+      "categoryLabel": "Categoria",
+      "hintLimit": "O progresso soma os gastos desta categoria no período.",
+      "hintSavings": "O progresso soma as entradas desta categoria no período.",
+      "startDate": "Início",
+      "endDate": "Fim",
+      "create": "Criar meta",
+      "errorName": "Dê um nome para a meta.",
+      "errorAmount": "Informe um valor maior que zero.",
+      "errorStart": "Informe a data de início.",
+      "errorEnd": "Informe uma data de fim igual ou posterior ao início.",
+      "errorSave": "Não foi possível salvar. Tente de novo."
+    },
+    "delete": {
+      "title": "Excluir meta",
+      "message": "“{{name}}” deixa de ser acompanhada. Suas transações não são alteradas.",
+      "confirm": "Excluir meta"
+    },
+    "toast": {
+      "created": "Meta criada",
+      "updated": "Meta atualizada",
+      "deleted": "Meta excluída",
+      "deleteError": "Não foi possível excluir a meta."
+    },
+    "budgets": {
+      "new": "Novo orçamento",
+      "edit": "Editar orçamento",
+      "prevMonth": "Mês anterior",
+      "nextMonth": "Próximo mês",
+      "thisMonth": "Mês atual",
+      "monthNav": "Mês do orçamento",
+      "budgeted": "Orçado",
+      "spent": "Gasto",
+      "remaining": "Restante",
+      "overTotal": "Acima do orçado",
+      "usedPct": "{{pct}} do orçado",
+      "overCount_one": "{{count}} categoria acima do limite",
+      "overCount_other": "{{count}} categorias acima do limite",
+      "allWithin": "Todas as categorias dentro do limite",
+      "notStarted": "O mês ainda não começou",
+      "daysLeft_one": "{{count}} dia até o fim do mês",
+      "daysLeft_other": "{{count}} dias até o fim do mês",
+      "listLabel": "Orçamentos por categoria",
+      "spentOf": "{{spent}} de {{limit}}",
+      "left": "Restam {{value}}",
+      "overBy": "{{value}} acima",
+      "empty": {
+        "title": "Nenhum orçamento em {{month}}",
+        "text": "Defina um limite mensal por categoria para acompanhar quanto ainda pode gastar.",
+        "textPast": "Este mês terminou sem orçamentos. Você ainda pode criar um para comparar com os gastos.",
+        "copy": "Copiar de {{month}}",
+        "create": "Criar orçamento"
+      },
+      "loadError": "Não foi possível carregar os orçamentos.",
+      "form": {
+        "categoryLabel": "Categoria",
+        "choose": "Escolha uma categoria",
+        "limitLabel": "Limite mensal",
+        "average": "Média dos últimos 3 meses: {{value}}",
+        "noHistory": "Sem gastos nesta categoria nos últimos 3 meses.",
+        "useAverage": "Usar média",
+        "allTaken": "Todas as categorias já têm orçamento neste mês.",
+        "create": "Criar orçamento",
+        "errorCategory": "Escolha uma categoria.",
+        "errorAmount": "Informe um limite maior que zero.",
+        "errorDuplicate": "Esta categoria já tem orçamento neste mês.",
+        "errorSave": "Não foi possível salvar. Tente de novo."
+      },
+      "delete": {
+        "title": "Excluir orçamento",
+        "message": "O orçamento de {{name}} em {{month}} será removido. Os gastos continuam registrados.",
+        "confirm": "Excluir orçamento"
+      },
+      "toast": {
+        "created": "Orçamento criado",
+        "updated": "Orçamento atualizado",
+        "deleted": "Orçamento excluído",
+        "copied_one": "{{count}} orçamento copiado de {{month}}",
+        "copied_other": "{{count}} orçamentos copiados de {{month}}",
+        "copyError": "Não foi possível copiar os orçamentos.",
+        "deleteError": "Não foi possível excluir o orçamento."
+      }
+    }
   }
 }

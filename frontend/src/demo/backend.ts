@@ -165,6 +165,29 @@ route('GET', '/transactions', ({ params }) => {
   return { transactions: clone(txs.slice((page - 1) * size, page * size)), total, page, page_size: size, total_pages: Math.ceil(total / size) }
 })
 
+// Categorização automática: o backend real manda os lançamentos sem categoria para
+// a fila do Claude; a demonstração simula com regras por palavra-chave.
+const AUTO_RULES: [RegExp, string, number][] = [
+  [/mercad|supermerc|zaffari|carrefour|hortifruti|p[aã]o de a[cç]|atacad|assa[ií]/i, 'Alimentação', 0.94],
+  [/ifood|burger|restaur|padaria|lanch|pizza|caf[eé]/i, 'Alimentação', 0.91],
+  [/uber|99|t[aá]xi|shell|posto|ipiranga|combust|estacion/i, 'Transporte', 0.95],
+  [/drogasil|raia|farm[aá]c|droga|cl[ií]nic|consulta/i, 'Saúde', 0.92],
+  [/livrar|curso|alura|udemy|escola/i, 'Educação', 0.9],
+  [/netflix|spotify|prime|globoplay|disney|assinatura/i, 'Assinaturas', 0.97],
+  [/cinema|cinemark|steam|show|ingresso/i, 'Lazer', 0.88],
+  [/renner|riachuelo|zara|c&a|roupa/i, 'Vestuário', 0.9],
+]
+
+function autoCategorize(desc: string): { category_id: string; confidence: number } | null {
+  const d = loadDb()
+  for (const [re, catName, confidence] of AUTO_RULES) {
+    if (!re.test(desc)) continue
+    const cat = d.categories.find(c => c.is_default && c.name === catName)
+    if (cat) return { category_id: cat.id, confidence }
+  }
+  return null
+}
+
 function insertTransaction(b: Record<string, unknown>, opts: { audit: boolean }): Transaction {
   const d = loadDb()
   const desc = String(b.description || '').trim()
@@ -186,6 +209,10 @@ function insertTransaction(b: Record<string, unknown>, opts: { audit: boolean })
     sync_status: 'synced', notes: (b.notes as string) || undefined,
     tags: Array.isArray(b.tags) && b.tags.length ? (b.tags as string[]) : undefined,
     created_at: nowIso(), updated_at: nowIso(),
+  }
+  if (!tx.category_id && tx.type !== 'transfer') {
+    const guess = autoCategorize(desc)
+    if (guess) Object.assign(tx, { category_id: guess.category_id, categorized_by: 'ai', confidence_score: guess.confidence })
   }
   d.transactions.unshift(tx)
   adjustBalance(tx.account_id, tx.amount)
@@ -240,10 +267,10 @@ route('POST', '/transfers', ({ body }) => {
   if (!from || !to) throw new DemoHttpError(404, 'Conta não encontrada.')
   const batch = newId('batch')
   const amount = Math.abs(Number(b.amount))
-  const debitDesc = b.description && b.description !== 'Transferência' ? b.description : `Transferência para ${to.name}`
+  const debitDesc = b.description && !['Transferência', 'Transfer'].includes(b.description) ? b.description : (isEn() ? `Transfer to ${to.name}` : `Transferência para ${to.name}`)
   const rows = [
     insertTransaction({ account_id: from.id, description: debitDesc, amount: -amount, transaction_date: b.transaction_date, type: 'transfer', notes: b.notes }, { audit: false }),
-    insertTransaction({ account_id: to.id, description: `Transferência de ${from.name}`, amount, transaction_date: b.transaction_date, type: 'transfer', notes: b.notes }, { audit: false }),
+    insertTransaction({ account_id: to.id, description: isEn() ? `Transfer from ${from.name}` : `Transferência de ${from.name}`, amount, transaction_date: b.transaction_date, type: 'transfer', notes: b.notes }, { audit: false }),
   ]
   rows.forEach(r => { r.import_batch_id = batch })
   return { transactions: clone(rows), batch_id: batch }
@@ -401,12 +428,17 @@ route('GET', '/cashflow/projection', () => {
   const add = (date: Date, description: string, amount: number, source: 'recurring' | 'installment') => {
     if (date > today && date <= endDate) (days[iso(date)] ??= []).push({ description, amount: r2(amount), source })
   }
-  const seen = new Set<string>()
+  // Uma ocorrência por recorrente; o dia vem da última ocorrência de um mês já fechado
+  // (no mês corrente a demonstração comprime as datas até hoje)
+  const thisMonth = iso(new Date(today.getFullYear(), today.getMonth(), 1))
+  const byKey = new Map<string, Transaction>()
   const recurring = d.transactions.filter(t => t.is_recurring && t.transaction_date >= lookback).sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
   for (const r of recurring) {
     const key = `${r.account_id}|${normalizeDesc(r.description)}`
-    if (seen.has(key)) continue
-    seen.add(key)
+    const cur = byKey.get(key)
+    if (!cur || (cur.transaction_date >= thisMonth && r.transaction_date < thisMonth)) byKey.set(key, cur && r.transaction_date < thisMonth ? { ...r, amount: cur.amount } : r)
+  }
+  for (const r of byKey.values()) {
     const baseDay = Number(r.transaction_date.slice(8, 10))
     for (let dm = 0; dm < 3; dm++) {
       const first = new Date(today.getFullYear(), today.getMonth() + dm, 1)
@@ -452,13 +484,17 @@ route('GET', '/net-worth', () => {
 
 route('GET', '/projections', () => {
   const history = monthlyTotals(monthsAgoStart(5))
-  const n = history.length
-  if (!n) return { history: [], projections: [], months_available: 0, avg_income: 0, avg_expense: 0 }
-  const avgIncome = history.reduce((s, h) => s + h.income, 0) / n
-  const avgExpense = history.reduce((s, h) => s + h.expense, 0) / n
-  const incSlope = n >= 2 ? (history[n - 1].income - history[0].income) / (n - 1) : 0
-  const expSlope = n >= 2 ? (history[n - 1].expense - history[0].expense) / (n - 1) : 0
-  const last = history[n - 1]
+  if (!history.length) return { history: [], projections: [], months_available: 0, avg_income: 0, avg_expense: 0 }
+  // O mês corrente ainda está pela metade: entra no gráfico, mas não na conta
+  const currentKey = monthsAgoStart(0).slice(0, 7)
+  const closed = history.filter(h => h.month < currentKey)
+  const base = closed.length ? closed : history
+  const n = base.length
+  const avgIncome = base.reduce((s, h) => s + h.income, 0) / n
+  const avgExpense = base.reduce((s, h) => s + h.expense, 0) / n
+  const incSlope = n >= 2 ? (base[n - 1].income - base[0].income) / (n - 1) : 0
+  const expSlope = n >= 2 ? (base[n - 1].expense - base[0].expense) / (n - 1) : 0
+  const last = base[n - 1]
   const now = new Date()
   const projections = [1, 2, 3].map(i => {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1)

@@ -42,6 +42,8 @@
 .ft-alert-item { display: flex; gap: 0.625rem; align-items: flex-start; padding: 0.625rem 0.75rem; border-radius: var(--radius-md); }
 .ft-alert-item + .ft-alert-item { border-top: 1px solid var(--border-subtle); border-radius: 0; }
 .ft-alert-item__text { font-size: var(--font-size-sm); color: var(--text-secondary); line-height: 1.45; }
+.ft-alert-item--link { transition: background var(--transition); }
+.ft-alert-item--link:hover { background: var(--bg-subtle); }
 
 /* Barra superior (celular) */
 .ft-mobile-top {

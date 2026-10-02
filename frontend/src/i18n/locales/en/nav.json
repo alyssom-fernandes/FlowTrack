@@ -20,6 +20,9 @@
     "demoBannerShort": "Demo · fictional data",
     "demoRestore": "Reset data",
     "demoExit": "Exit",
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "alertsError": "Couldn't load alerts.",
+    "retry": "Try again",
+    "transactionsShort": "Activity"
   }
 }

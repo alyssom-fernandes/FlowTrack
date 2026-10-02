@@ -19,6 +19,25 @@ def dedup_hash(account_id: str, transaction_date, amount: float, desc_norm: str)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
+def is_transfer(txn: dict) -> bool:
+    """Transferência entre contas próprias: não é receita nem gasto."""
+    return txn.get("type") == "transfer"
+
+
+def latest_installments(rows: list[dict]) -> list[dict]:
+    """Uma compra parcelada gera uma linha por parcela; só a mais recente
+    de cada compra (pela descrição) projeta as parcelas que faltam."""
+    latest: dict[str, dict] = {}
+    for t in rows:
+        cur, total = t.get("installment_current"), t.get("installment_total")
+        if not cur or not total or cur >= total:
+            continue
+        key = normalize_desc(t["description"])
+        if key not in latest or (latest[key].get("installment_current") or 0) < cur:
+            latest[key] = t
+    return list(latest.values())
+
+
 def calc_profitability(invested: float, current: float):
     profit = current - invested
     pct = round((profit / invested) * 100, 2) if invested > 0 else 0.0

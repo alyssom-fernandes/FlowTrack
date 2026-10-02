@@ -1,124 +1,131 @@
-import { useState, useEffect } from 'react'
-import { authService, supabase } from '../services'
-import { Button, Input, Spinner } from '../components/ui'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { authService, realAuthAvailable, supabase } from '../services'
+import { Button, Spinner } from '../components/ui'
+import { AuthLayout, Notice, PasswordInput, StatusIcon } from './login/AuthLayout'
+import { authFailure, focusField, reachServer, withTimeout, type AuthFailure } from './login/helpers'
 
-type Status = 'loading' | 'ready' | 'done' | 'invalid'
+type Status = 'loading' | 'ready' | 'done' | 'invalid' | 'unavailable'
+type FieldErrors = { password?: string; confirm?: string }
+
+const MIN_LENGTH = 8
+
+// O Supabase devolve o erro na própria URL quando o link venceu ou já foi usado
+const linkHasError = () => /(^|[?&#])error(_code)?=/.test(window.location.search + window.location.hash)
 
 export function ResetPassword() {
-  const [status, setStatus] = useState<Status>('loading')
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const [status, setStatus] = useState<Status>(() => (!realAuthAvailable || !supabase ? 'unavailable' : linkHasError() ? 'invalid' : 'loading'))
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [failure, setFailure] = useState<AuthFailure | null>(null)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [demoLoading, setDemoLoading] = useState(false)
+  const headingRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
-    if (!supabase) { setStatus('invalid'); return }
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    if (!supabase || status !== 'loading') return
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(event => {
       if (event === 'PASSWORD_RECOVERY') setStatus('ready')
     })
-
-    // Supabase can exchange the PKCE code before the event fires; check session too
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setStatus('ready')
-      else setStatus(prev => prev === 'loading' ? 'invalid' : prev)
-    })
-
-    const timeout = setTimeout(() => {
-      setStatus(prev => prev === 'loading' ? 'invalid' : prev)
-    }, 8000)
-
+    // O Supabase pode trocar o código antes do evento chegar: confere a sessão também
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => setStatus(prev => (prev === 'loading' ? (session ? 'ready' : 'invalid') : prev)))
+      .catch(() => setStatus(prev => (prev === 'loading' ? 'invalid' : prev)))
+    const timeout = setTimeout(() => setStatus(prev => (prev === 'loading' ? 'invalid' : prev)), 8000)
     return () => { subscription.unsubscribe(); clearTimeout(timeout) }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => { if (status === 'done') headingRef.current?.focus() }, [status])
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (password.length < 8) { setError('A senha deve ter pelo menos 8 caracteres.'); return }
-    if (password !== confirm) { setError('As senhas não coincidem.'); return }
-    setSaving(true); setError('')
+    const errors: FieldErrors = {}
+    if (!password) errors.password = t('login.reset.passwordRequired')
+    else if (password.length < MIN_LENGTH) errors.password = t('login.reset.tooShort', { min: MIN_LENGTH })
+    if (!errors.password && confirm !== password) errors.confirm = t('login.reset.mismatch')
+    setFieldErrors(errors); setFailure(null)
+    if (errors.password || errors.confirm) { focusField(errors.password ? 'ent-new-password' : 'ent-confirm-password'); return }
+    setSaving(true)
     try {
-      await authService.updatePassword(password)
+      await withTimeout(reachServer().then(() => authService.updatePassword(password)))
       setStatus('done')
-    } catch {
-      setError('Erro ao atualizar a senha. Tente novamente.')
+    } catch (err) {
+      setFailure(authFailure(err))
     } finally {
       setSaving(false)
     }
   }
 
+  const openDemo = async () => {
+    setDemoLoading(true)
+    try { await authService.signInDemo(); navigate('/dashboard', { replace: true }) }
+    catch { setDemoLoading(false) }
+  }
+
+  const failureMessage = (f: AuthFailure) =>
+    f === 'network' || f === 'samePassword' || f === 'weakPassword' ? t(`login.reset.errors.${f}`) : t('login.reset.errors.unknown')
+
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div style={{ width: '100%', maxWidth: '22rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-
-        <div style={{ textAlign: 'center' }}>
-          <img src="/logo.png" alt="FlowTrack" className="ft-logo" style={{ height: '1.75rem', margin: '0 auto 0.5rem' }} />
-          <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)' }}>
-            {status === 'done' ? 'Senha atualizada' : 'Redefinir senha'}
-          </p>
+    <AuthLayout compact>
+      {status === 'loading' && (
+        <div className="ent-checking" role="status">
+          <Spinner size={18} />
+          <span>{t('login.reset.checking')}</span>
         </div>
+      )}
 
-        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '1.5rem' }}>
-
-          {status === 'loading' && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '1rem 0' }}>
-              <Spinner size={24} />
-              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>Verificando link...</p>
-            </div>
-          )}
-
-          {status === 'invalid' && (
-            <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth="1.5" strokeLinecap="square" style={{ margin: '0 auto' }}>
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                Link inválido ou expirado. Solicite um novo link de redefinição.
-              </p>
-              <Button onClick={() => window.location.href = '/login'} style={{ width: '100%' }}>
-                Voltar ao login
-              </Button>
-            </div>
-          )}
-
-          {status === 'ready' && (
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-              <Input
-                label="Nova senha"
-                type="password"
-                placeholder="Mínimo 8 caracteres"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                autoFocus
-              />
-              <Input
-                label="Confirmar senha"
-                type="password"
-                placeholder="Repita a nova senha"
-                value={confirm}
-                onChange={e => setConfirm(e.target.value)}
-              />
-              {error && <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)' }}>{error}</p>}
-              <Button type="submit" loading={saving} style={{ width: '100%', marginTop: '0.25rem' }}>
-                Salvar nova senha
-              </Button>
-            </form>
-          )}
-
-          {status === 'done' && (
-            <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.5" strokeLinecap="square" style={{ margin: '0 auto' }}>
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)' }}>
-                Sua senha foi atualizada. Você já pode fazer login.
-              </p>
-              <Button onClick={() => window.location.href = '/login'} style={{ width: '100%' }}>
-                Ir para o login
-              </Button>
-            </div>
-          )}
-
+      {status === 'unavailable' && (
+        <div className="ent-stack">
+          <StatusIcon icon="lock" />
+          <h2 className="ent-heading">{t('login.reset.unavailableTitle')}</h2>
+          <p className="ent-sub">{t('login.reset.unavailableText')}</p>
+          <div className="ent-actions">
+            <Button size="lg" block iconRight="arrowRight" loading={demoLoading} onClick={openDemo}>{t('login.demo.cta')}</Button>
+            <Button block variant="ghost" onClick={() => navigate('/login')}>{t('login.backToLogin')}</Button>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+
+      {status === 'invalid' && (
+        <div className="ent-stack">
+          <StatusIcon icon="alertCircle" tone="red" />
+          <h2 className="ent-heading">{t('login.reset.invalidTitle')}</h2>
+          <p className="ent-sub">{t('login.reset.invalidText')}</p>
+          <div className="ent-actions">
+            <Button size="lg" block onClick={() => navigate('/login', { state: { view: 'forgot' } })}>{t('login.reset.requestNew')}</Button>
+            <Button block variant="ghost" onClick={() => navigate('/login')}>{t('login.backToLogin')}</Button>
+          </div>
+        </div>
+      )}
+
+      {status === 'ready' && (
+        <form className="ent-stack" onSubmit={handleSubmit} noValidate>
+          <h2 className="ent-heading">{t('login.reset.title')}</h2>
+          <p className="ent-sub">{t('login.reset.text', { min: MIN_LENGTH })}</p>
+          <PasswordInput id="ent-new-password" label={t('login.reset.newPassword')} autoComplete="new-password" value={password} error={fieldErrors.password}
+            hint={t('login.reset.hint', { min: MIN_LENGTH })}
+            onChange={e => { setPassword(e.target.value); setFieldErrors(f => ({ ...f, password: undefined })) }} />
+          <PasswordInput id="ent-confirm-password" label={t('login.reset.confirm')} autoComplete="new-password" value={confirm} error={fieldErrors.confirm}
+            onChange={e => { setConfirm(e.target.value); setFieldErrors(f => ({ ...f, confirm: undefined })) }} />
+          {failure && <Notice tone={failure === 'network' ? 'amber' : 'red'} icon="alertCircle">{failureMessage(failure)}</Notice>}
+          <Button type="submit" size="lg" block loading={saving} style={{ marginTop: '0.25rem' }}>{t('login.reset.submit')}</Button>
+        </form>
+      )}
+
+      {status === 'done' && (
+        <div className="ent-stack">
+          <StatusIcon icon="checkCircle" tone="green" />
+          <h2 className="ent-heading" ref={headingRef} tabIndex={-1}>{t('login.reset.doneTitle')}</h2>
+          <p className="ent-sub">{t('login.reset.doneText')}</p>
+          <div className="ent-actions">
+            <Button size="lg" block iconRight="arrowRight" onClick={() => navigate('/dashboard', { replace: true })}>{t('login.reset.continue')}</Button>
+          </div>
+        </div>
+      )}
+    </AuthLayout>
   )
 }

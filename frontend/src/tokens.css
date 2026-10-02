@@ -47,24 +47,27 @@
   --green-soft:  rgba(63, 191, 134, 0.12);
   --red:         #f0677a;
   --red-soft:    rgba(240, 103, 122, 0.12);
+  --red-solid:   #c4364b;   /* preenchimento com texto branco (contraste 5,3:1) */
   --amber:       #e5a54b;
   --amber-soft:  rgba(229, 165, 75, 0.13);
   --blue:        #6aa6f0;
   --blue-soft:   rgba(106, 166, 240, 0.12);
 
-  /* Gráficos (mesma ordem em todas as telas) */
-  --chart-income:   var(--green);
-  --chart-expense:  var(--red);
+  /* Gráficos — validados com o validador da skill dataviz (faixa de luminosidade,
+     croma, separação para daltonismo e contraste). Ordem fixa, nunca reciclada.
+     --chart-8 é o cinza de "Outros", não uma cor de série. Texto usa os tokens de texto. */
+  --chart-income:   #39ad79;
+  --chart-expense:  #bd2d3e;
   --chart-neutral:  #8b8b96;
   --chart-grid:     rgba(255, 255, 255, 0.06);
   --chart-axis:     var(--text-hint);
-  --chart-1: #e0698d;
-  --chart-2: #6aa6f0;
-  --chart-3: #3fbf86;
-  --chart-4: #e5a54b;
-  --chart-5: #a98ff0;
-  --chart-6: #4fc1c6;
-  --chart-7: #d98a5f;
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #008300;
+  --chart-7: #9085e9;
   --chart-8: #8b8b96;
 
   /* Tipografia */
@@ -155,20 +158,23 @@
   --green-soft: rgba(19, 132, 79, 0.09);
   --red:        #c62f45;
   --red-soft:   rgba(198, 47, 69, 0.08);
+  --red-solid:  #c62f45;
   --amber:      #a8650f;
   --amber-soft: rgba(168, 101, 15, 0.1);
   --blue:       #2c6bc4;
   --blue-soft:  rgba(44, 107, 196, 0.09);
 
+  --chart-income:  #2ca470;
+  --chart-expense: #9a2929;
   --chart-neutral: #8e8e99;
   --chart-grid:    rgba(17, 17, 19, 0.07);
-  --chart-1: #9D2449;
-  --chart-2: #2c6bc4;
-  --chart-3: #13844f;
-  --chart-4: #c27a14;
-  --chart-5: #6c4fd1;
-  --chart-6: #138a93;
-  --chart-7: #b45a2c;
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+  --chart-7: #4a3aa7;
   --chart-8: #8e8e99;
 
   --shadow-sm: 0 1px 2px rgba(17, 17, 19, 0.06);
@@ -337,6 +343,13 @@ img, svg {
 /* ── IMPRESSÃO ── */
 @media print {
   :root, [data-theme='light'], [data-theme='dark'] {
+    color-scheme: light;
+    --chart-neutral: #8e8e99; --chart-axis: #6f6f78;
+    --chart-income: #2ca470; --chart-expense: #9a2929;
+    --chart-1: #2a78d6; --chart-2: #eb6834; --chart-3: #1baf7a; --chart-4: #eda100;
+    --chart-5: #e87ba4; --chart-6: #008300; --chart-7: #4a3aa7; --chart-8: #8e8e99;
+    --accent-soft: rgba(157, 36, 73, 0.08); --bg-input: #ffffff;
+    --green-soft: rgba(19, 132, 79, 0.09); --red-soft: rgba(198, 47, 69, 0.08); --amber-soft: rgba(168, 101, 15, 0.1);
     --bg: #ffffff; --bg-card: #ffffff; --bg-card-hover: #ffffff; --bg-elevated: #ffffff; --bg-subtle: #f6f6f7;
     --border: #dcdce0; --border-subtle: #e9e9ec; --border-strong: #c9c9cf;
     --text-primary: #111113; --text-secondary: #2c2c31; --text-muted: #55555f; --text-hint: #6f6f78;
@@ -345,7 +358,7 @@ img, svg {
     --chart-grid: rgba(0, 0, 0, 0.08);
   }
   body { background: #fff; }
-  .ft-no-print, .ft-sidebar, .ft-bottom, .ft-mobile-top, .ft-demo-banner { display: none !important; }
+  .ft-no-print, .ft-sidebar, .ft-bottom, .ft-mobile-top, .ft-demo-banner, .ft-toasts, .ft-skip { display: none !important; }
   .ft-main { padding: 0 !important; overflow: visible !important; }
   .ft-page { padding: 0 !important; max-width: none !important; }
 }

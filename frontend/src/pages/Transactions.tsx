@@ -1,1250 +1,239 @@
-import { useState, useEffect, useCallback } from 'react'
-import { PageFooter } from '../components/layout'
-import { Button, Card, Input, Modal, Badge, Spinner } from '../components/ui'
-import { transactionsService, accountsService, categoriesService, transfersService, tagsService } from '../services'
+import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Button, Card, ConfirmDialog, EmptyState, Page, PageHeader, Skeleton } from '../components/ui'
+import { accountsService, categoriesService, tagsService, transactionsService } from '../services'
 import { useToastStore } from '../store'
-import { formatCurrency, formatDate, toISODate } from '../utils'
-import type { Transaction, TransactionCreate, TransactionUpdate, Account, Category, ParsedTransaction } from '../types'
+import { formatCurrency, formatDate } from '../utils'
+import type { Account, Category, Transaction } from '../types'
+import { FilterBar } from './transactions/FilterBar'
+import { SummaryStrip } from './transactions/SummaryStrip'
+import { ListSkeleton, TransactionList } from './transactions/TransactionList'
+import { TransactionModal, type SavedKind } from './transactions/TransactionModal'
+import { ImportModal } from './transactions/ImportModal'
+import { ExportMenu } from './transactions/ExportMenu'
+import { describeFilters, exportTransactions, type ExportFormat } from './transactions/exportFile'
+import { EMPTY_FILTERS, fetchAll, filtersFromParams, filtersToParams, hasAnyFilter, NO_CATEGORY, PAGE_SIZE, toQuery, type Filters } from './transactions/shared'
+import './transactions/transactions.css'
 
-// ── Shared select style ───────────────────────────────────
-const sel: React.CSSProperties = {
-  background: 'var(--bg-input)', border: '0.5px solid var(--border)',
-  borderRadius: 'var(--radius-md)', padding: '0.4375rem 0.625rem',
-  fontSize: 'var(--font-size-md)', color: 'var(--text-primary)',
-  outline: 'none', fontFamily: 'var(--font)', cursor: 'pointer', width: '100%',
-}
+interface ListState { items: Transaction[]; total: number; pages: number }
 
-// ── CategoryInline — inline select to edit category ───────
-function CategoryInline({ txn, categories, onSaved }: {
-  txn: Transaction
-  categories: Category[]
-  onSaved: (updated: Transaction) => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
+export function Transactions() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { toast } = useToastStore()
+  const [params, setParams] = useSearchParams()
+  // Filtros e página vivem no estado; a URL só espelha (dá para recarregar e compartilhar o link)
+  const [filters, setFiltersState] = useState<Filters>(() => filtersFromParams(params))
+  const [page, setPage] = useState(() => Math.max(1, Number(params.get('page')) || 1))
+  const filterKey = new URLSearchParams(filtersToParams(filters, 1)).toString()
 
-  const cat = categories.find(c => c.id === txn.category_id)
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [tags, setTags] = useState<string[]>([])
+  const [refsReady, setRefsReady] = useState(false)
 
-  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value
-    setSaving(true)
-    try {
-      const updated = await transactionsService.update(txn.id, {
-        category_id: val || undefined,
-        categorized_by: 'manual',
-      } as TransactionUpdate)
-      onSaved(updated)
-    } finally {
-      setSaving(false)
-      setEditing(false)
-    }
-  }
+  const [list, setList] = useState<ListState | null>(null)
+  const [busy, setBusy] = useState(true)
+  const [failed, setFailed] = useState(false)
+  const [all, setAll] = useState<Transaction[] | null>(null)
+  const [reload, setReload] = useState(0)
+  const allKey = useRef('')
 
-  if (saving) return <Spinner size={14} />
+  const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<Transaction | null>(null)
+  const [deleting, setDeleting] = useState<Transaction | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState<ExportFormat | null>(null)
+  const listTop = useRef<HTMLDivElement>(null)
 
-  if (editing) {
-    return (
-      <select
-        autoFocus
-        defaultValue={txn.category_id || ''}
-        onChange={handleChange}
-        onBlur={() => setEditing(false)}
-        style={{ ...sel, width: '9rem', padding: '0.125rem 0.375rem', fontSize: 'var(--font-size-xs)' }}
-      >
-        <option value="">Sem categoria</option>
-        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>
-    )
-  }
+  // Atalhos por URL: /transactions?acao=nova ou ?acao=importar (fica na URL enquanto o modal está aberto)
+  const [pendingAction, setPendingAction] = useState(() => params.get('acao'))
+  useEffect(() => {
+    if (pendingAction === 'nova') setCreating(true)
+    if (pendingAction === 'importar') setImporting(true)
+  }, [pendingAction])
+  const closeCreate = () => { setCreating(false); setPendingAction(null) }
+  const closeImport = () => { setImporting(false); setPendingAction(null) }
 
-  return (
-    <button
-      onClick={() => setEditing(true)}
-      title="Clique para editar categoria"
-      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-    >
-      {cat
-        ? <Badge variant="default">{cat.name}</Badge>
-        : <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', textDecoration: 'underline dotted' }}>+ categoria</span>
-      }
-    </button>
-  )
-}
-
-// ── TxnRow ────────────────────────────────────────────────
-function TxnRow({ txn, accounts, categories, onUpdated, onDeleted, onEdit }: {
-  txn: Transaction
-  accounts: Account[]
-  categories: Category[]
-  onUpdated: (t: Transaction) => void
-  onDeleted: (id: string) => void
-  onEdit: (t: Transaction) => void
-}) {
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const isPositive = txn.amount > 0
-  const account = accounts.find(a => a.id === txn.account_id)
-
-  const handleDelete = async () => {
-    setDeleting(true)
-    try {
-      await transactionsService.remove(txn.id)
-      onDeleted(txn.id)
-    } finally {
-      setDeleting(false)
-      setConfirmDelete(false)
-    }
-  }
-
-  return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: '1.875rem 1fr auto auto auto auto',
-      gap: '0.625rem', alignItems: 'center',
-      padding: '0.625rem 0', borderBottom: '0.5px solid var(--border-subtle)',
-    }}>
-      {/* Icon */}
-      <div style={{
-        width: '1.875rem', height: '1.875rem', borderRadius: '0.4375rem', flexShrink: 0,
-        background: isPositive ? 'var(--green-soft)' : 'var(--accent-soft)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-          stroke={isPositive ? 'var(--green)' : 'var(--accent)'} strokeWidth="1.5" strokeLinecap="square">
-          {isPositive
-            ? <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            : <path d="M3 11l19-9-9 19-2-8-8-2z" />}
-        </svg>
-      </div>
-
-      {/* Description + meta */}
-      <div style={{ minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-          <span style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {txn.description}
-          </span>
-          {txn.is_recurring && (() => {
-            const d = new Date(txn.transaction_date + 'T00:00:00')
-            const next = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-            const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
-            const nextLabel = `01/${monthNames[next.getMonth()]}`
-            return (
-              <span title={`Recorrente · Próxima: ${nextLabel}`} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-hint)" strokeWidth="1.5" strokeLinecap="square">
-                  <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-                </svg>
-              </span>
-            )
-          })()}
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.125rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>{formatDate(txn.transaction_date)}</span>
-          {account && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>· {account.name}</span>}
-          {txn.installment_current && txn.installment_total && txn.installment_total > 0 && (
-            <span style={{ fontSize: 'var(--font-size-xs)', background: 'var(--bg-card-hover)', color: 'var(--text-hint)', padding: '0 0.3rem', borderRadius: 'var(--radius-sm)', fontWeight: '500' }}>
-              {txn.installment_current}/{txn.installment_total}
-            </span>
-          )}
-          {txn.type === 'transfer' && (
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', fontStyle: 'italic' }}>transferência</span>
-          )}
-          {(txn.tags || []).map(tag => (
-            <span key={tag} style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', background: 'var(--bg-elevated)', padding: '0 0.3rem', borderRadius: 'var(--radius-sm)', border: '0.5px solid var(--border)' }}>
-              #{tag}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Category inline */}
-      <div style={{ flexShrink: 0 }}>
-        <CategoryInline txn={txn} categories={categories} onSaved={onUpdated} />
-      </div>
-
-      {/* Amount */}
-      <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '600', color: isPositive ? 'var(--green)' : 'var(--red)', flexShrink: 0, textAlign: 'right' }}>
-        {isPositive ? '+' : ''}{formatCurrency(txn.amount)}
-      </span>
-
-      {/* Edit */}
-      <button
-        onClick={() => onEdit(txn)}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1, flexShrink: 0 }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
-        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}
-        title="Editar"
-        aria-label="Editar transação"
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-      </button>
-
-      {/* Delete */}
-      <div style={{ flexShrink: 0 }}>
-        {confirmDelete
-          ? (
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <Button size="sm" variant="danger" loading={deleting} onClick={handleDelete}>Sim</Button>
-              <Button size="sm" variant="secondary" onClick={() => setConfirmDelete(false)}>Não</Button>
-            </div>
-          )
-          : (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', lineHeight: 1 }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--red)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}
-              title="Excluir"
-              aria-label="Excluir transação"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
-                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
-              </svg>
-            </button>
-          )
-        }
-      </div>
-    </div>
-  )
-}
-
-function blankTransaction(): TransactionCreate {
-  return { account_id: '', description: '', amount: 0, transaction_date: toISODate(), type: 'debit', is_recurring: false, tags: [] }
-}
-
-// ── TransactionModal (criar + editar) ─────────────────────
-function TransactionModal({ open, onClose, onSaved, accounts, categories, initial }: {
-  open: boolean
-  onClose: () => void
-  onSaved: (t?: Transaction) => void
-  accounts: Account[]
-  categories: Category[]
-  initial?: Transaction | null
-}) {
-  const isEdit = !!initial
-  const [form, setForm] = useState<TransactionCreate>(blankTransaction)
-  const [amountStr, setAmountStr] = useState('')
-  const [toAccountId, setToAccountId] = useState('')
-  const [installments, setInstallments] = useState(false)
-  const [installTotalStr, setInstallTotalStr] = useState('2')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const updateFilters = (patch: Partial<Filters>) => { setFiltersState(f => ({ ...f, ...patch })); setPage(1) }
+  const clearFilters = () => { setFiltersState({ ...EMPTY_FILTERS }); setPage(1) }
 
   useEffect(() => {
-    if (!open) return
-    if (initial) {
-      setForm({
-        account_id: initial.account_id,
-        description: initial.description,
-        amount: initial.amount,
-        transaction_date: initial.transaction_date,
-        type: initial.type,
-        category_id: initial.category_id,
-        notes: initial.notes,
-        is_recurring: initial.is_recurring,
-        installment_current: initial.installment_current,
-        installment_total: initial.installment_total,
-        tags: initial.tags || [],
+    const wanted = filtersToParams(filters, page)
+    if (pendingAction) wanted.acao = pendingAction
+    const next = new URLSearchParams(wanted).toString()
+    if (next !== params.toString()) setParams(next, { replace: true })
+  }, [filters, page, pendingAction, params, setParams])
+
+  // Contas, categorias e tags (as tags mudam quando uma transação nova traz tag nova)
+  useEffect(() => {
+    let alive = true
+    Promise.all([accountsService.list(), categoriesService.list(), tagsService.list()])
+      .then(([a, c, tg]) => { if (!alive) return; setAccounts(a.accounts || []); setCategories(c.categories || []); setTags(tg) })
+      .catch(() => { /* a lista mostra o erro */ })
+      .finally(() => { if (alive) setRefsReady(true) })
+    return () => { alive = false }
+  }, [reload])
+
+  // Página atual
+  useEffect(() => {
+    let alive = true
+    const f = filtersFromParams(new URLSearchParams(filterKey))
+    setBusy(true); setFailed(false)
+    const run: Promise<ListState> = f.category_id === NO_CATEGORY
+      ? fetchAll(f).then(rows => ({ items: rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), total: rows.length, pages: Math.max(1, Math.ceil(rows.length / PAGE_SIZE)) }))
+      : transactionsService.list({ ...toQuery(f), page, page_size: PAGE_SIZE }).then(r => ({ items: r.transactions || [], total: r.total, pages: Math.max(1, r.total_pages) }))
+    run
+      .then(r => {
+        if (!alive) return
+        // Página que deixou de existir (ex.: excluiu o último item dela)
+        if (!r.items.length && page > r.pages) { setPage(r.pages); return }
+        setList(r)
       })
-      setAmountStr(String(Math.abs(initial.amount)))
-    } else {
-      setForm({ ...blankTransaction(), account_id: accounts[0]?.id || '' })
-      setAmountStr('')
-      setToAccountId(accounts[1]?.id || '')
-      setInstallments(false)
-      setInstallTotalStr('2')
-    }
-    setError('')
-  }, [open, initial, accounts])
+      .catch(() => { if (alive) setFailed(true) })
+      .finally(() => { if (alive) setBusy(false) })
+    return () => { alive = false }
+  }, [filterKey, page, reload])
 
-  const set = (field: keyof TransactionCreate, value: unknown) =>
-    setForm(f => ({ ...f, [field]: value }))
+  // Todas as transações do filtro: resumo e resultado de cada dia
+  useEffect(() => {
+    let alive = true
+    if (allKey.current !== filterKey) { allKey.current = filterKey; setAll(null) }
+    fetchAll(filtersFromParams(new URLSearchParams(filterKey)))
+      .then(r => { if (alive) setAll(r) })
+      .catch(() => { /* o resumo fica de fora */ })
+    return () => { alive = false }
+  }, [filterKey, reload])
 
-  const isTransfer = form.type === 'transfer'
+  const goToPage = (p: number) => {
+    setPage(p)
+    const top = listTop.current?.getBoundingClientRect().top ?? 0
+    if (top < 0) listTop.current?.scrollIntoView({ block: 'start' })
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!form.account_id) { setError('Selecione uma conta.'); return }
-    const amt = parseFloat(amountStr.replace(',', '.'))
-    if (isNaN(amt) || amt === 0) { setError('Informe um valor válido.'); return }
+  const patch = (u: Transaction) => {
+    setList(l => l && { ...l, items: l.items.map(x => (x.id === u.id ? u : x)) })
+    setAll(a => a && a.map(x => (x.id === u.id ? u : x)))
+  }
 
-    if (isTransfer) {
-      if (!toAccountId) { setError('Selecione a conta de destino.'); return }
-      if (toAccountId === form.account_id) { setError('Conta origem e destino devem ser diferentes.'); return }
-      setSaving(true); setError('')
-      try {
-        await transfersService.create({ from_account_id: form.account_id, to_account_id: toAccountId, amount: Math.abs(amt), description: form.description || 'Transferência', transaction_date: form.transaction_date, notes: form.notes })
-        onSaved(); onClose()
-      } catch { setError('Erro ao criar transferência. Tente novamente.') }
-      finally { setSaving(false) }
-      return
-    }
-
-    if (!form.description.trim()) { setError('Informe a descrição.'); return }
-    const finalAmount = form.type === 'debit' ? -Math.abs(amt) : Math.abs(amt)
-    const installTotal = installments && !isEdit ? Math.max(1, parseInt(installTotalStr) || 1) : 0
-
-    setSaving(true); setError('')
+  const changeCategory = async (txn: Transaction, categoryId: string) => {
     try {
-      if (isEdit && initial) {
-        const updated = await transactionsService.update(initial.id, {
-          account_id: form.account_id, description: form.description, amount: finalAmount,
-          transaction_date: form.transaction_date, type: form.type,
-          category_id: form.category_id, notes: form.notes, is_recurring: form.is_recurring,
-          tags: form.tags,
-        })
-        onSaved(updated)
-      } else if (installTotal > 1) {
-        const baseDate = new Date(form.transaction_date + 'T00:00:00')
-        for (let i = 0; i < installTotal; i++) {
-          const d = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate())
-          const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-          await transactionsService.create({ ...form, amount: finalAmount, transaction_date: dateStr, installment_current: i + 1, installment_total: installTotal })
-        }
-        onSaved()
-      } else {
-        await transactionsService.create({ ...form, amount: finalAmount })
-        onSaved()
-      }
-      onClose()
+      patch(await transactionsService.update(txn.id, { category_id: categoryId, categorized_by: 'manual' }))
+      toast({ message: t('transactions.row.categorySaved') })
     } catch {
-      setError('Erro ao salvar transação. Tente novamente.')
-    } finally {
-      setSaving(false)
+      toast({ message: t('transactions.row.categoryError'), variant: 'error' })
     }
   }
 
-  const TYPE_OPTS = [
-    { value: 'debit',    label: 'Saída',         color: 'var(--accent)', soft: 'var(--accent-soft)' },
-    { value: 'credit',   label: 'Entrada',        color: 'var(--green)',  soft: 'var(--green-soft)' },
-    { value: 'transfer', label: 'Transferência',  color: 'var(--text-secondary)', soft: 'var(--bg-card-hover)' },
-  ] as const
-
-  return (
-    <Modal open={open} onClose={onClose} title={isEdit ? 'Editar transação' : 'Nova transação'} width="26rem">
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-        {/* Tipo */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-          <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Tipo *</label>
-          <div style={{ display: 'flex', gap: '0.375rem' }}>
-            {TYPE_OPTS.filter(t => !isEdit || t.value !== 'transfer').map(t => (
-              <button key={t.value} type="button" onClick={() => set('type', t.value)} style={{
-                flex: 1, padding: '0.4375rem 0.25rem', borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                fontFamily: 'var(--font)', fontSize: 'var(--font-size-sm)', fontWeight: '500',
-                border: '0.5px solid',
-                borderColor: form.type === t.value ? t.color : 'var(--border)',
-                background: form.type === t.value ? t.soft : 'transparent',
-                color: form.type === t.value ? t.color : 'var(--text-muted)',
-              }}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Conta origem */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-          <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>
-            {isTransfer ? 'Conta origem *' : 'Conta *'}
-          </label>
-          <select value={form.account_id} onChange={e => set('account_id', e.target.value)} style={sel} required>
-            <option value="">Selecione...</option>
-            {accounts.map(a => <option key={a.id} value={a.id}>{a.name} — {a.bank_name}</option>)}
-          </select>
-        </div>
-
-        {/* Conta destino (só em transferência) */}
-        {isTransfer && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-            <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Conta destino *</label>
-            <select value={toAccountId} onChange={e => setToAccountId(e.target.value)} style={sel} required>
-              <option value="">Selecione...</option>
-              {accounts.filter(a => a.id !== form.account_id).map(a => <option key={a.id} value={a.id}>{a.name} — {a.bank_name}</option>)}
-            </select>
-          </div>
-        )}
-
-        {/* Descrição + Valor */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.625rem' }}>
-          {!isTransfer && (
-            <Input label="Descrição *" value={form.description} onChange={e => set('description', e.target.value)} placeholder="Ex: Supermercado" required />
-          )}
-          {isTransfer && (
-            <Input label="Descrição" value={form.description} onChange={e => set('description', e.target.value)} placeholder="Transferência" />
-          )}
-          <Input label="Valor (R$) *" value={amountStr} onChange={e => setAmountStr(e.target.value)}
-            placeholder="0,00" style={{ width: '7rem' }} inputMode="decimal" />
-        </div>
-
-        {/* Data + Categoria (sem categoria para transfer) */}
-        <div style={{ display: 'grid', gridTemplateColumns: isTransfer ? '1fr' : '1fr 1fr', gap: '0.625rem' }}>
-          <Input label="Data *" type="date" value={form.transaction_date}
-            onChange={e => set('transaction_date', e.target.value)} required />
-          {!isTransfer && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-              <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Categoria</label>
-              <select value={form.category_id || ''} onChange={e => set('category_id', e.target.value || undefined)} style={sel}>
-                <option value="">Sem categoria</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-          )}
-        </div>
-
-        {/* Notas */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-          <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Notas</label>
-          <textarea value={form.notes || ''} onChange={e => set('notes', e.target.value)}
-            placeholder="Opcional..." rows={2}
-            style={{ ...sel, resize: 'vertical', lineHeight: 1.5 }} />
-        </div>
-
-        {/* Tags */}
-        {!isTransfer && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-            <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Tags</label>
-            <Input
-              value={(form.tags || []).join(', ')}
-              onChange={e => {
-                const raw = e.target.value
-                const tags = raw.split(',').map(t => t.trim()).filter(Boolean)
-                set('tags', tags)
-              }}
-              placeholder="Ex: viagem, reembolsável, aniversário"
-              hint="Separe múltiplas tags por vírgula"
-            />
-          </div>
-        )}
-
-        {/* Recorrente + Parcelado (apenas em criação, não em transfer) */}
-        {!isEdit && !isTransfer && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', userSelect: 'none' }}>
-              <input type="checkbox" checked={!!form.is_recurring} onChange={e => set('is_recurring', e.target.checked)}
-                style={{ accentColor: 'var(--accent)', width: '0.9rem', height: '0.9rem', cursor: 'pointer' }} />
-              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>Transação recorrente</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', userSelect: 'none' }}>
-              <input type="checkbox" checked={installments} onChange={e => setInstallments(e.target.checked)}
-                style={{ accentColor: 'var(--accent)', width: '0.9rem', height: '0.9rem', cursor: 'pointer' }} />
-              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>Parcelado</span>
-            </label>
-            {installments && (
-              <Input label="Total de parcelas" type="number" min="2" max="48" value={installTotalStr}
-                onChange={e => setInstallTotalStr(e.target.value)} style={{ width: '8rem' }} />
-            )}
-          </div>
-        )}
-
-        {/* Recorrente (apenas edição, sem parcelado) */}
-        {isEdit && !isTransfer && (
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', userSelect: 'none' }}>
-            <input type="checkbox" checked={!!form.is_recurring} onChange={e => set('is_recurring', e.target.checked)}
-              style={{ accentColor: 'var(--accent)', width: '0.9rem', height: '0.9rem', cursor: 'pointer' }} />
-            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>Transação recorrente</span>
-          </label>
-        )}
-
-        {error && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)' }}>{error}</span>}
-
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
-          <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" loading={saving}>{isEdit ? 'Salvar alterações' : isTransfer ? 'Transferir' : installments ? `Criar ${installTotalStr} parcelas` : 'Salvar'}</Button>
-        </div>
-      </form>
-    </Modal>
-  )
-}
-
-// ── FilterBar ─────────────────────────────────────────────
-interface Filters {
-  search: string
-  account_id: string
-  type: string
-  category_id: string
-  start_date: string
-  end_date: string
-  tag: string
-}
-
-function FilterBar({ filters, onChange, accounts, categories, availableTags }: {
-  filters: Filters
-  onChange: (f: Filters) => void
-  accounts: Account[]
-  categories: Category[]
-  availableTags: string[]
-}) {
-  const [searchInput, setSearchInput] = useState(filters.search)
-  const [expanded, setExpanded] = useState(false)
-
-  useEffect(() => {
-    const id = setTimeout(() => onChange({ ...filters, search: searchInput }), 350)
-    return () => clearTimeout(id)
-  }, [searchInput]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { setSearchInput(filters.search) }, [filters.search])
-
-  const set = (k: keyof Filters, v: string) => onChange({ ...filters, [k]: v })
-  const activeExtra = [filters.account_id, filters.type, filters.category_id, filters.start_date, filters.end_date, filters.tag].filter(Boolean).length
-  const hasAny = !!filters.search || activeExtra > 0
-
-  const extraFilters = (
-    <>
-      <select value={filters.account_id} onChange={e => set('account_id', e.target.value)}
-        style={{ ...sel, width: 'auto', flex: '1 1 8rem', minWidth: '8rem', height: '2rem', padding: '0 0.625rem' }}>
-        <option value="">Todas as contas</option>
-        {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-      </select>
-      <select value={filters.type} onChange={e => set('type', e.target.value)}
-        style={{ ...sel, width: 'auto', flex: '0 0 auto', height: '2rem', padding: '0 0.625rem' }}>
-        <option value="">Todos os tipos</option>
-        <option value="credit">Receita</option>
-        <option value="debit">Gasto</option>
-      </select>
-      <select value={filters.category_id} onChange={e => set('category_id', e.target.value)}
-        style={{ ...sel, width: 'auto', flex: '1 1 8rem', minWidth: '8rem', height: '2rem', padding: '0 0.625rem' }}>
-        <option value="">Todas as categorias</option>
-        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>
-      {availableTags.length > 0 && (
-        <select value={filters.tag} onChange={e => set('tag', e.target.value)}
-          style={{ ...sel, width: 'auto', flex: '0 0 auto', height: '2rem', padding: '0 0.625rem' }}>
-          <option value="">Todas as tags</option>
-          {availableTags.map(t => <option key={t} value={t}>#{t}</option>)}
-        </select>
-      )}
-      <input type="date" value={filters.start_date} onChange={e => set('start_date', e.target.value)}
-        style={{ ...sel, width: 'auto', flex: '0 0 auto', height: '2rem', padding: '0 0.5rem' }} />
-      <input type="date" value={filters.end_date} onChange={e => set('end_date', e.target.value)}
-        style={{ ...sel, width: 'auto', flex: '0 0 auto', height: '2rem', padding: '0 0.5rem' }} />
-    </>
-  )
-
-  return (
-    <>
-      <style>{`@media(min-width:768px){.ft-filter-mobile-btn{display:none!important}.ft-filter-extra{display:flex!important}}`}</style>
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div style={{ flex: '1 1 10rem', minWidth: '10rem' }}>
-          <Input placeholder="Buscar..." value={searchInput}
-            onChange={e => setSearchInput(e.target.value)} style={{ height: '2rem' }} />
-        </div>
-        <button
-          className="ft-filter-mobile-btn"
-          onClick={() => setExpanded(v => !v)}
-          style={{ ...sel, width: 'auto', height: '2rem', padding: '0 0.625rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: '500' }}
-        >
-          Filtros{activeExtra > 0 ? ` (${activeExtra})` : ''} {expanded ? '▲' : '▾'}
-        </button>
-        <div className="ft-filter-extra" style={{ display: 'none', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end', flex: '1 1 0' }}>
-          {extraFilters}
-        </div>
-        {hasAny && (
-          <Button variant="ghost" size="sm" onClick={() => { onChange({ search: '', account_id: '', type: '', category_id: '', start_date: '', end_date: '', tag: '' }); setSearchInput('') }}>
-            Limpar
-          </Button>
-        )}
-      </div>
-      {expanded && (
-        <div className="ft-filter-mobile-btn" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          {extraFilters}
-        </div>
-      )}
-    </>
-  )
-}
-
-// ── PdfPreviewFlow ────────────────────────────────────────
-interface PreviewTx extends ParsedTransaction {
-  _id: string
-  selected: boolean
-}
-
-type FileParserResult = { bank?: string; transactions: ParsedTransaction[] }
-
-function PdfPreviewFlow({ files, accounts, onImported, onClose, fileParser, parsingLabel }: {
-  files: File[]; accounts: Account[]; onImported: () => void; onClose: () => void
-  fileParser?: (file: File) => Promise<FileParserResult>
-  parsingLabel?: string
-}) {
-  const parser = fileParser ?? ((f: File) => transactionsService.parsePdf(f))
-  const [step, setStep] = useState<'parsing' | 'preview' | 'importing' | 'done'>('parsing')
-  const [txns, setTxns] = useState<PreviewTx[]>([])
-  const [bankLabels, setBankLabels] = useState<string[]>([])
-  const [accountId, setAccountId] = useState(accounts[0]?.id || '')
-  const [errMsg, setErrMsg] = useState('')
-  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null)
-
-  useEffect(() => {
-    const parseAll = async () => {
-      const allTxns: PreviewTx[] = []
-      const labels: string[] = []
-      const errors: string[] = []
-      for (const file of files) {
-        try {
-          const res = await parser(file)
-          if (res.bank && !labels.includes(res.bank)) labels.push(res.bank)
-          res.transactions.forEach(tx => allTxns.push({ ...tx, _id: `${Date.now()}-${Math.random()}`, selected: true }))
-        } catch (e: unknown) {
-          const ae = e as { response?: { data?: { detail?: string } } }
-          errors.push(ae.response?.data?.detail || `Erro ao processar ${file.name}.`)
-        }
-      }
-      setBankLabels(labels)
-      setTxns(allTxns)
-      if (errors.length) setErrMsg(errors.join(' '))
-      setStep('preview')
+  const onSaved = (kind: SavedKind, count?: number) => {
+    const msg: Record<SavedKind, string> = {
+      created: t('transactions.form.toastCreated'),
+      installments: t('transactions.form.toastInstallments', { count }),
+      transfer: t('transactions.form.toastTransfer'),
+      updated: t('transactions.form.toastUpdated'),
     }
-    parseAll()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    toast({ message: msg[kind] })
+    if (kind !== 'updated') setPage(1)
+    setReload(n => n + 1)
+  }
 
-  const toggleAll = (checked: boolean) => setTxns(p => p.map(t => ({ ...t, selected: checked })))
-  const toggleOne = (_id: string) => setTxns(p => p.map(t => t._id === _id ? { ...t, selected: !t.selected } : t))
-  const updateTx = (_id: string, patch: Partial<PreviewTx>) => setTxns(p => p.map(t => t._id === _id ? { ...t, ...patch } : t))
-
-  const handleConfirm = async () => {
-    const selected: ParsedTransaction[] = txns
-      .filter(t => t.selected)
-      .map(t => ({ description: t.description, amount: t.amount, transaction_date: t.transaction_date, type: t.type }))
-    if (!selected.length) return
-    setStep('importing')
+  const confirmDelete = async () => {
+    if (!deleting) return
+    setDeleteBusy(true)
     try {
-      const res = await transactionsService.bulkCreate(accountId, selected)
-      setResult(res)
-      setStep('done')
-    } catch (e: unknown) {
-      const ae = e as { response?: { data?: { detail?: string } } }
-      setErrMsg(ae.response?.data?.detail || 'Erro ao importar. Tente novamente.')
-      setStep('preview')
+      await transactionsService.remove(deleting.id)
+      toast({ message: t('transactions.form.toastDeleted') })
+      setDeleting(null)
+      setReload(n => n + 1)
+    } catch {
+      toast({ message: t('transactions.delete.error'), variant: 'error' })
+    } finally {
+      setDeleteBusy(false)
     }
   }
 
-  if (step === 'parsing') return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem 0' }}>
-      <Spinner size={28} />
-      <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>
-        {parsingLabel ?? `Lendo ${files.length > 1 ? `${files.length} arquivos` : files[0]?.name}...`}
-      </p>
-    </div>
-  )
+  const runExport = async (format: ExportFormat) => {
+    setExporting(format)
+    try {
+      const n = await exportTransactions(format, filters, accounts, categories)
+      toast(n ? { message: t('transactions.actions.exported', { count: n }) } : { message: t('transactions.actions.exportEmpty'), variant: 'info' })
+    } catch {
+      toast({ message: t('transactions.actions.exportError'), variant: 'error' })
+    } finally {
+      setExporting(null)
+    }
+  }
 
-  if (step === 'importing') return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem 0' }}>
-      <Spinner size={28} />
-      <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>Importando transações...</p>
-    </div>
-  )
-
-  if (step === 'done' && result) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center', padding: '1rem 0' }}>
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.5" strokeLinecap="square">
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
-      <div>
-        {bankLabels.length > 0 && <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', marginBottom: '0.25rem' }}>{bankLabels.join(' · ')}</p>}
-        <p style={{ fontSize: 'var(--font-size-lg)', fontWeight: '600', color: 'var(--text-primary)' }}>
-          {result.imported} transaç{result.imported === 1 ? 'ão importada' : 'ões importadas'}
-        </p>
-        {result.skipped > 0 && (
-          <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            {result.skipped} ignorada{result.skipped > 1 ? 's' : ''} (duplicadas ou inválidas)
-          </p>
-        )}
-      </div>
-      <Button onClick={() => { onImported(); onClose() }}>Ver transações</Button>
-    </div>
-  )
-
-  const selectedCount = txns.filter(t => t.selected).length
-  const allSelected = txns.length > 0 && selectedCount === txns.length
+  const ready = !!list && refsReady
+  const filtered = hasAnyFilter(filters)
+  const firstRun = ready && list.total === 0 && !filtered
+  const subtitle = !ready ? <Skeleton width={140} height={14} style={{ marginTop: '0.375rem' }} />
+    : list.total === 0 ? undefined
+    : t(filtered ? 'transactions.found' : 'transactions.count', { count: list.total })
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-      {errMsg && (
-        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)', padding: '0.5rem 0.75rem', background: 'var(--red-soft)', borderRadius: 'var(--radius-md)' }}>
-          {errMsg}
-        </p>
-      )}
+    <Page className="tx-page">
+      <PageHeader title={t('transactions.title')} subtitle={subtitle} actions={!firstRun && (
+        <>
+          <Button variant="secondary" icon="upload" onClick={() => setImporting(true)}>{t('transactions.actions.import')}</Button>
+          <ExportMenu busy={exporting} onExport={runExport} />
+          <Button icon="plus" onClick={() => setCreating(true)}>
+            <span className="tx-only-desktop">{t('transactions.actions.new')}</span>
+            <span className="tx-only-mobile">{t('transactions.actions.newShort')}</span>
+          </Button>
+        </>
+      )} />
 
-      {txns.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '1.5rem 0', color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>
-          Nenhuma transação pôde ser extraída dos arquivos selecionados.
-        </div>
+      {failed && !busy ? (
+        <Card>
+          <EmptyState icon="alertCircle" title={t('transactions.list.loadError')} description={t('transactions.list.loadErrorText')}
+            action={<Button variant="secondary" icon="refresh" onClick={() => setReload(n => n + 1)}>{t('transactions.list.retry')}</Button>} />
+        </Card>
+      ) : !ready ? (
+        <Card padding="none" className="tx-list-card"><ListSkeleton /></Card>
+      ) : firstRun ? (
+        <Card>
+          {accounts.length === 0 ? (
+            <EmptyState icon="wallet" title={t('transactions.list.noAccountTitle')} description={t('transactions.list.noAccountText')}
+              action={<Button icon="plus" onClick={() => navigate('/profile')}>{t('transactions.list.goToProfile')}</Button>} />
+          ) : (
+            <EmptyState icon="list" title={t('transactions.list.emptyTitle')} description={t('transactions.list.emptyText')}
+              action={<>
+                <Button variant="secondary" icon="upload" onClick={() => setImporting(true)}>{t('transactions.import.title')}</Button>
+                <Button icon="plus" onClick={() => setCreating(true)}>{t('transactions.actions.new')}</Button>
+              </>} />
+          )}
+        </Card>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 12rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-              <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Conta *</label>
-              <select value={accountId} onChange={e => setAccountId(e.target.value)} style={sel}>
-                {accounts.map(a => <option key={a.id} value={a.id}>{a.name} — {a.bank_name}</option>)}
-              </select>
-            </div>
-            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', paddingBottom: '0.5rem', flexShrink: 0 }}>
-              {bankLabels.length > 0 && <span style={{ color: 'var(--text-hint)' }}>{bankLabels.join(' · ')} · </span>}
-              <strong>{selectedCount}</strong> de {txns.length} selecionada{txns.length !== 1 ? 's' : ''}
-            </div>
-          </div>
-
-          <div style={{ maxHeight: '320px', overflowY: 'auto', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-xs)' }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg-card-hover)' }}>
-                <tr>
-                  <th style={{ padding: '0.4rem 0.5rem', textAlign: 'center', width: '1.5rem' }}>
-                    <input type="checkbox" checked={allSelected} onChange={e => toggleAll(e.target.checked)} style={{ cursor: 'pointer' }} />
-                  </th>
-                  <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', color: 'var(--text-hint)', fontWeight: '500', whiteSpace: 'nowrap' }}>Data</th>
-                  <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', color: 'var(--text-hint)', fontWeight: '500', width: '100%' }}>Descrição</th>
-                  <th style={{ padding: '0.4rem 0.5rem', textAlign: 'right', color: 'var(--text-hint)', fontWeight: '500', whiteSpace: 'nowrap' }}>Valor (R$)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {txns.map(tx => (
-                  <tr key={tx._id} style={{ borderTop: '0.5px solid var(--border-subtle)', opacity: tx.selected ? 1 : 0.38 }}>
-                    <td style={{ padding: '0.3rem 0.5rem', textAlign: 'center' }}>
-                      <input type="checkbox" checked={tx.selected} onChange={() => toggleOne(tx._id)} style={{ cursor: 'pointer' }} />
-                    </td>
-                    <td style={{ padding: '0.3rem 0.5rem', whiteSpace: 'nowrap' }}>
-                      <input
-                        type="date" value={tx.transaction_date}
-                        onChange={e => updateTx(tx._id, { transaction_date: e.target.value })}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 'var(--font-size-xs)', fontFamily: 'var(--font)', cursor: 'pointer', padding: 0, width: '7rem' }}
-                      />
-                    </td>
-                    <td style={{ padding: '0.3rem 0.5rem' }}>
-                      <input
-                        value={tx.description}
-                        onChange={e => updateTx(tx._id, { description: e.target.value })}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 'var(--font-size-xs)', fontFamily: 'var(--font)', width: '100%', minWidth: '8rem', padding: 0 }}
-                      />
-                    </td>
-                    <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <input
-                        type="number" step="0.01" value={tx.amount}
-                        onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) updateTx(tx._id, { amount: v, type: v >= 0 ? 'credit' : 'debit' }) }}
-                        style={{ background: 'none', border: 'none', color: tx.amount >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 'var(--font-size-xs)', fontFamily: 'var(--font)', textAlign: 'right', width: '5.5rem', padding: 0 }}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <p className="tx-print-only">{describeFilters(filters, accounts, categories)}</p>
+          <FilterBar filters={filters} onChange={updateFilters} onClear={clearFilters} accounts={accounts} categories={categories} tags={tags} />
+          {list.total > 0 && <SummaryStrip data={all} onShowPending={filters.category_id === NO_CATEGORY ? undefined : () => updateFilters({ category_id: NO_CATEGORY })} />}
+          <div ref={listTop} className="tx-anchor" />
+          <Card padding="none" className="tx-list-card">
+            {list.total === 0 ? (
+              <EmptyState icon="search" title={t('transactions.list.noResultsTitle')} description={t('transactions.list.noResultsText')}
+                action={<Button variant="secondary" icon="close" onClick={clearFilters}>{t('transactions.filters.clear')}</Button>} />
+            ) : (
+              <TransactionList items={list.items} dayTotalsFrom={all} accounts={accounts} categories={categories}
+                page={Math.min(page, list.pages)} totalPages={list.pages} total={list.total} busy={busy}
+                onPage={goToPage} onEdit={setEditing} onDelete={setDeleting} onCategory={changeCategory} />
+            )}
+          </Card>
         </>
       )}
 
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-        <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-        {txns.length > 0 && (
-          <Button onClick={handleConfirm} disabled={selectedCount === 0 || !accountId}>
-            Importar {selectedCount} transaç{selectedCount === 1 ? 'ão' : 'ões'}
-          </Button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── CsvImportModal ────────────────────────────────────────
-type CsvStep = 'upload' | 'map' | 'importing' | 'done'
-
-function parseCsvAmount(raw: string): number {
-  let s = raw.trim().replace(/\s/g, '')
-  if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.')
-  else if (s.includes(',') && !s.includes('.')) {
-    const parts = s.split(',')
-    s = parts[1] && parts[1].length <= 2 ? s.replace(',', '.') : s.replace(',', '')
-  }
-  return parseFloat(s.replace(/[^0-9.-]/g, ''))
-}
-
-function parseCsvDate(raw: string): string | null {
-  const s = raw.trim()
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) { const [d, m, y] = s.split('/'); return `${y}-${m}-${d}` }
-  if (/^\d{2}\/\d{2}\/\d{2}$/.test(s)) { const [d, m, y] = s.split('/'); return `20${y}-${m}-${d}` }
-  if (/^\d{2}-\d{2}-\d{4}$/.test(s)) { const [d, m, y] = s.split('-'); return `${y}-${m}-${d}` }
-  if (/^\d{2}\.\d{2}\.\d{4}$/.test(s)) { const [d, m, y] = s.split('.'); return `${y}-${m}-${d}` }
-  return null
-}
-
-function CsvImportModal({ open, onClose, onImported, accounts }: {
-  open: boolean; onClose: () => void; onImported: () => void; accounts: Account[]
-}) {
-  const [step, setStep] = useState<CsvStep>('upload')
-  const [headers, setHeaders] = useState<string[]>([])
-  const [rows, setRows] = useState<Record<string, string>[]>([])
-  const [accountId, setAccountId] = useState('')
-  const [colDate, setColDate] = useState('')
-  const [colDesc, setColDesc] = useState('')
-  const [colAmount, setColAmount] = useState('')
-  const [colCredit, setColCredit] = useState('')
-  const [colDebit, setColDebit] = useState('')
-  const [splitMode, setSplitMode] = useState(false)
-  const [imported, setImported] = useState(0)
-  const [skipped, setSkipped] = useState(0)
-  const [error, setError] = useState('')
-  const [pdfFiles, setPdfFiles] = useState<File[]>([])
-  const [ofxFiles, setOfxFiles] = useState<File[]>([])
-
-  useEffect(() => {
-    if (!open) {
-      setStep('upload'); setHeaders([]); setRows([])
-      setAccountId(''); setColDate(''); setColDesc('')
-      setColAmount(''); setColCredit(''); setColDebit('')
-      setSplitMode(false); setImported(0); setSkipped(0); setError('')
-      setPdfFiles([]); setOfxFiles([])
-    } else {
-      setAccountId(accounts[0]?.id || '')
-    }
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (!files.length) return
-    setError('')
-    const ofxs = files.filter(f => /\.(ofx|qfx)$/i.test(f.name))
-    if (ofxs.length > 0) { setOfxFiles(ofxs); return }
-    const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'))
-    if (pdfs.length > 0) { setPdfFiles(pdfs); return }
-    const file = files[0]
-    const reader = new FileReader()
-    reader.onload = (evt) => {
-      try {
-        let text = evt.target?.result as string
-        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
-        const firstLine = text.split('\n')[0]
-        const delimiters = [';', ',', '\t', '|']
-        const delim = delimiters.reduce((b, d) => firstLine.split(d).length > firstLine.split(b).length ? d : b, ',')
-        const lines = text.split('\n').filter(l => l.trim())
-        if (lines.length < 2) { setError('Arquivo vazio ou sem dados.'); return }
-        const hdrs = lines[0].split(delim).map(h => h.trim().replace(/^["']|["']$/g, ''))
-        const data = lines.slice(1, 301).map(line => {
-          const vals = line.split(delim).map(v => v.trim().replace(/^["']|["']$/g, ''))
-          return Object.fromEntries(hdrs.map((h, i) => [h, vals[i] ?? '']))
-        }).filter(r => Object.values(r).some(v => v !== ''))
-        setHeaders(hdrs); setRows(data)
-        const lower = hdrs.map(h => h.toLowerCase())
-        const find = (pats: RegExp[]) => hdrs.find((_, i) => pats.some(p => p.test(lower[i]))) || ''
-        const dDate   = find([/^data/, /\bdate\b/, /\bdt\b/, /lancamento/])
-        const dDesc   = find([/descri/, /hist/, /\bmemo\b/, /complemento/, /\btitulo\b/, /\btitle\b/])
-        const dAmt    = find([/^valor$/, /^amount$/, /^value$/, /quantia/])
-        const dCredit = find([/credito/, /\bcredit\b/, /entrada/])
-        const dDebit  = find([/debito/, /\bdebit\b/, /saida/])
-        setColDate(dDate); setColDesc(dDesc)
-        if (dCredit && dDebit && !dAmt) { setSplitMode(true); setColCredit(dCredit); setColDebit(dDebit) }
-        else { setSplitMode(false); setColAmount(dAmt) }
-        setStep('map')
-      } catch { setError('Não foi possível ler o arquivo. Verifique se é um CSV válido.') }
-    }
-    reader.readAsText(file, 'utf-8')
-  }
-
-  const handleImport = async () => {
-    if (!accountId) { setError('Selecione uma conta.'); return }
-    if (!colDate || !colDesc) { setError('Mapeie data e descrição.'); return }
-    if (!splitMode && !colAmount) { setError('Mapeie o campo de valor.'); return }
-    if (splitMode && !colCredit && !colDebit) { setError('Mapeie crédito ou débito.'); return }
-    setStep('importing'); setError('')
-    let imp = 0; let skip = 0
-    for (const row of rows) {
-      try {
-        const dateStr = parseCsvDate(row[colDate] || '')
-        const description = (row[colDesc] || '').trim()
-        let amount: number
-        if (splitMode) {
-          const credit = parseCsvAmount(row[colCredit] || '0') || 0
-          const debit  = parseCsvAmount(row[colDebit]  || '0') || 0
-          amount = credit > 0 ? credit : -Math.abs(debit)
-        } else {
-          amount = parseCsvAmount(row[colAmount] || '0')
-        }
-        if (!dateStr || !description || isNaN(amount) || amount === 0) { skip++; continue }
-        await transactionsService.create({
-          account_id: accountId, description, amount,
-          transaction_date: dateStr, type: amount >= 0 ? 'credit' : 'debit',
-        })
-        imp++
-      } catch (e: unknown) {
-        const ae = e as { response?: { status: number } }
-        if (ae.response?.status === 409) skip++; else skip++
-      }
-    }
-    setImported(imp); setSkipped(skip); setStep('done')
-  }
-
-  const colSel: React.CSSProperties = { ...sel, fontSize: 'var(--font-size-sm)' }
-
-  return (
-    <Modal open={open} onClose={onClose} title="Importar extrato" width="36rem">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-        {error && <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)', padding: '0.5rem 0.75rem', background: 'var(--red-soft)', borderRadius: 'var(--radius-md)' }}>{error}</p>}
-
-          {/* PDF flow — preview before import */}
-        {pdfFiles.length > 0 && (
-          <PdfPreviewFlow files={pdfFiles} accounts={accounts} onImported={onImported} onClose={onClose} />
-        )}
-
-        {/* OFX flow */}
-        {ofxFiles.length > 0 && (
-          <PdfPreviewFlow
-            files={ofxFiles}
-            accounts={accounts}
-            onImported={onImported}
-            onClose={onClose}
-            fileParser={async (f) => {
-              const res = await transactionsService.parseOfx(f)
-              return { transactions: res.transactions }
-            }}
-            parsingLabel={`Lendo ${ofxFiles[0]?.name}...`}
-          />
-        )}
-
-        {pdfFiles.length === 0 && ofxFiles.length === 0 && step === 'upload' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              Selecione um arquivo <strong>.csv</strong>, <strong>.ofx</strong> ou um ou mais <strong>.pdf</strong> do seu banco.<br />
-              <span style={{ color: 'var(--text-hint)' }}>PDF automático (múltiplos permitidos): Nubank, Sicredi, Mercado Pago, Will Bank.<br />OFX: exportado pelo internet banking de qualquer banco.<br />CSV: qualquer banco — você mapeia as colunas.</span>
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-              <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Arquivo *</label>
-              <input type="file" accept=".csv,.txt,.pdf,.ofx,.qfx" multiple onChange={handleFile}
-                style={{ padding: '0.5rem', background: 'var(--bg-input)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-md)', color: 'var(--text-primary)', cursor: 'pointer', width: '100%' }} />
-            </div>
-          </div>
-        )}
-
-        {pdfFiles.length === 0 && ofxFiles.length === 0 && step === 'map' && (
-          <>
-            {/* Account */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-              <label style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500' }}>Conta *</label>
-              <select value={accountId} onChange={e => setAccountId(e.target.value)} style={sel}>
-                {accounts.map(a => <option key={a.id} value={a.id}>{a.name} — {a.bank_name}</option>)}
-              </select>
-            </div>
-
-            {/* Column mapping */}
-            <div>
-              <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', fontWeight: '500', marginBottom: '0.5rem' }}>Mapeamento de colunas</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <label style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>Data *</label>
-                  <select value={colDate} onChange={e => setColDate(e.target.value)} style={colSel}>
-                    <option value="">Selecione...</option>
-                    {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <label style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>Descrição *</label>
-                  <select value={colDesc} onChange={e => setColDesc(e.target.value)} style={colSel}>
-                    <option value="">Selecione...</option>
-                    {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </div>
-
-                {/* Mode toggle */}
-                <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.375rem' }}>
-                  {([false, true] as const).map(isSplit => (
-                    <button key={String(isSplit)} type="button" onClick={() => setSplitMode(isSplit)} style={{
-                      flex: 1, padding: '0.375rem', borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                      fontFamily: 'var(--font)', fontSize: 'var(--font-size-sm)', fontWeight: '500', border: '0.5px solid',
-                      borderColor: splitMode === isSplit ? 'var(--accent)' : 'var(--border)',
-                      background: splitMode === isSplit ? 'var(--accent-soft)' : 'transparent',
-                      color: splitMode === isSplit ? 'var(--accent)' : 'var(--text-muted)',
-                    }}>{isSplit ? 'Crédito / Débito separados' : 'Coluna única de valor'}</button>
-                  ))}
-                </div>
-
-                {!splitMode ? (
-                  <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>Valor * <span style={{ color: 'var(--text-hint)', fontWeight: '400' }}>(negativo = saída)</span></label>
-                    <select value={colAmount} onChange={e => setColAmount(e.target.value)} style={colSel}>
-                      <option value="">Selecione...</option>
-                      {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                    </select>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <label style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>Crédito (entradas)</label>
-                      <select value={colCredit} onChange={e => setColCredit(e.target.value)} style={colSel}>
-                        <option value="">Selecione...</option>
-                        {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <label style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>Débito (saídas)</label>
-                      <select value={colDebit} onChange={e => setColDebit(e.target.value)} style={colSel}>
-                        <option value="">Selecione...</option>
-                        {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                      </select>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div>
-              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '0.375rem' }}>
-                Prévia <span style={{ color: 'var(--text-hint)' }}>({rows.length} linhas detectadas)</span>
-              </p>
-              <div style={{ overflowX: 'auto', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-xs)' }}>
-                  <thead>
-                    <tr>{headers.map(h => <th key={h} style={{ padding: '0.3rem 0.5rem', textAlign: 'left', background: 'var(--bg-card-hover)', color: 'var(--text-hint)', fontWeight: '500', whiteSpace: 'nowrap' }}>{h}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {rows.slice(0, 3).map((row, i) => (
-                      <tr key={i} style={{ borderTop: '0.5px solid var(--border-subtle)' }}>
-                        {headers.map(h => <td key={h} style={{ padding: '0.3rem 0.5rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', maxWidth: '10rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row[h]}</td>)}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-              <Button onClick={handleImport}>Importar {rows.length} linhas</Button>
-            </div>
-          </>
-        )}
-
-        {pdfFiles.length === 0 && ofxFiles.length === 0 && step === 'importing' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem 0' }}>
-            <Spinner size={28} />
-            <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>Importando transações...</p>
-          </div>
-        )}
-
-        {pdfFiles.length === 0 && ofxFiles.length === 0 && step === 'done' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center', padding: '1rem 0' }}>
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.5" strokeLinecap="square">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <div>
-              <p style={{ fontSize: 'var(--font-size-lg)', fontWeight: '600', color: 'var(--text-primary)' }}>
-                {imported} transaç{imported === 1 ? 'ão importada' : 'ões importadas'}
-              </p>
-              {skipped > 0 && (
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                  {skipped} ignorada{skipped > 1 ? 's' : ''} (duplicadas ou com dados inválidos)
-                </p>
-              )}
-            </div>
-            <Button onClick={() => { onImported(); onClose() }}>Ver transações</Button>
-          </div>
-        )}
-      </div>
-    </Modal>
-  )
-}
-
-// ── Transactions (main page) ──────────────────────────────
-const PAGE_SIZE = 20
-
-export function Transactions() {
-  const { toast } = useToastStore()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(0)
-  const [total, setTotal] = useState(0)
-  const [showModal, setShowModal] = useState(false)
-  const [editingTxn, setEditingTxn] = useState<Transaction | null>(null)
-  const [exporting, setExporting] = useState(false)
-  const [showImport, setShowImport] = useState(false)
-
-  const [availableTags, setAvailableTags] = useState<string[]>([])
-
-  const [filters, setFilters] = useState<Filters>({
-    search: '', account_id: '', type: '', category_id: '', start_date: '', end_date: '', tag: '',
-  })
-
-  const load = useCallback(async (p: number, f: Filters) => {
-    setLoading(true)
-    try {
-      const res = await transactionsService.list({
-        page: p, page_size: PAGE_SIZE,
-        ...(f.search       && { search:      f.search }),
-        ...(f.account_id   && { account_id:  f.account_id }),
-        ...(f.type         && { type:         f.type }),
-        ...(f.category_id  && { category_id: f.category_id }),
-        ...(f.start_date   && { start_date:  f.start_date }),
-        ...(f.end_date     && { end_date:    f.end_date }),
-        ...(f.tag          && { tag:          f.tag }),
-      })
-      setTransactions(res.transactions || [])
-      setTotal(res.total)
-      setTotalPages(res.total_pages)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    Promise.all([
-      accountsService.list(),
-      categoriesService.list(),
-      tagsService.list(),
-    ]).then(([accRes, catRes, tags]) => {
-      setAccounts(accRes.accounts || [])
-      setCategories(catRes.categories || [])
-      setAvailableTags(tags)
-    })
-  }, [])
-
-  useEffect(() => {
-    load(page, filters)
-  }, [page, filters, load])
-
-  const handleFiltersChange = (f: Filters) => {
-    setFilters(f)
-    setPage(1)
-  }
-
-  const handleUpdated = (updated: Transaction) =>
-    setTransactions(prev => prev.map(t => t.id === updated.id ? updated : t))
-
-  const handleDeleted = (id: string) => {
-    setTransactions(prev => prev.filter(t => t.id !== id))
-    setTotal(n => n - 1)
-    toast({ message: 'Transação excluída.' })
-  }
-
-  const handleEdit = (txn: Transaction) => setEditingTxn(txn)
-
-  const handleEditSaved = (updated?: Transaction) => {
-    if (updated) { handleUpdated(updated); toast({ message: 'Transação atualizada!' }) }
-    setEditingTxn(null)
-  }
-
-  const handleExport = async () => {
-    setExporting(true)
-    try {
-      await transactionsService.exportCsv({
-        ...(filters.start_date  && { start_date:  filters.start_date }),
-        ...(filters.end_date    && { end_date:    filters.end_date }),
-        ...(filters.account_id  && { account_id:  filters.account_id }),
-      })
-    } finally {
-      setExporting(false)
-    }
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-      <div style={{ flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <div>
-            <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '600', color: 'var(--text-primary)' }}>Transações</h1>
-            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-              {total > 0 ? `${total} transaç${total === 1 ? 'ão' : 'ões'} encontrada${total === 1 ? '' : 's'}` : 'Nenhuma transação encontrada'}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <Button variant="secondary" size="sm" onClick={() => setShowImport(true)}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-              </svg>
-              Importar
-            </Button>
-            <Button variant="secondary" size="sm" loading={exporting} onClick={handleExport}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
-              </svg>
-              Exportar CSV
-            </Button>
-            <Button size="sm" onClick={() => setShowModal(true)}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Nova transação
-            </Button>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <FilterBar filters={filters} onChange={handleFiltersChange} accounts={accounts} categories={categories} availableTags={availableTags} />
-
-        {/* List */}
-        <Card style={{ flex: 1 }}>
-          {loading
-            ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
-                <Spinner size={24} />
-              </div>
-            )
-            : transactions.length === 0
-              ? (
-                <div style={{ textAlign: 'center', padding: '3rem 0' }}>
-                  <p style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-muted)' }}>Nenhuma transação encontrada.</p>
-                  {!filters.search && !filters.account_id && !filters.type && (
-                    <Button style={{ marginTop: '1rem' }} onClick={() => setShowModal(true)}>Criar primeira transação</Button>
-                  )}
-                </div>
-              )
-              : (
-                <>
-                  {transactions.map(txn => (
-                    <TxnRow
-                      key={txn.id}
-                      txn={txn}
-                      accounts={accounts}
-                      categories={categories}
-                      onUpdated={handleUpdated}
-                      onDeleted={handleDeleted}
-                      onEdit={handleEdit}
-                    />
-                  ))}
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', marginTop: '0.5rem', borderTop: '0.5px solid var(--border)' }}>
-                      <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>
-                        Página {page} de {totalPages}
-                      </span>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Anterior</Button>
-                        <Button variant="secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Próxima →</Button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )
-          }
-        </Card>
-      </div>
-
-      <TransactionModal
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        onSaved={() => { load(1, filters); toast({ message: 'Transação criada!' }) }}
-        accounts={accounts}
-        categories={categories}
-      />
-
-      <TransactionModal
-        open={!!editingTxn}
-        onClose={() => setEditingTxn(null)}
-        onSaved={handleEditSaved}
-        accounts={accounts}
-        categories={categories}
-        initial={editingTxn}
-      />
-
-      <CsvImportModal
-        open={showImport}
-        onClose={() => setShowImport(false)}
-        onImported={() => { setPage(1); load(1, filters); toast({ message: 'Importação concluída!' }) }}
-        accounts={accounts}
-      />
-
-      <PageFooter />
-    </div>
+      <TransactionModal open={creating} onClose={closeCreate} accounts={accounts} categories={categories}
+        defaultAccountId={filters.account_id} onSaved={onSaved} />
+      <TransactionModal open={!!editing} initial={editing} onClose={() => setEditing(null)} accounts={accounts} categories={categories}
+        onSaved={onSaved} onDelete={tx => { setEditing(null); setDeleting(tx) }} />
+      <ConfirmDialog open={!!deleting} onClose={() => setDeleting(null)} onConfirm={confirmDelete} loading={deleteBusy}
+        title={t('transactions.delete.title')} confirmLabel={t('transactions.delete.confirm')}
+        message={deleting && t('transactions.delete.message', { name: deleting.description, date: formatDate(deleting.transaction_date), amount: formatCurrency(Math.abs(deleting.amount)) })} />
+      <ImportModal open={importing} onClose={closeImport} accounts={accounts} defaultAccountId={filters.account_id}
+        onImported={() => { setPage(1); setReload(n => n + 1) }} />
+    </Page>
   )
 }

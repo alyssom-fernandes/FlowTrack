@@ -1,150 +1,171 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
-import { authService } from '../services'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
+import { authService, realAuthAvailable } from '../services'
 import { useAuthStore } from '../store'
-import { Button, Input, AfnBrand } from '../components/ui'
+import { Button, Input } from '../components/ui'
+import { Icon } from '../components/icons'
+import { AuthLayout, Notice, PasswordInput, StatusIcon } from './login/AuthLayout'
+import { authFailure, focusField, isEmail, reachServer, withTimeout, type AuthFailure } from './login/helpers'
 
-type View = 'login' | 'forgot' | 'forgot_sent'
+type View = 'login' | 'forgot' | 'sent'
+type FieldErrors = { email?: string; password?: string }
 
 export function Login() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuthStore()
-  const [view, setView] = useState<View>('login')
+  const askedForgot = (location.state as { view?: string } | null)?.view === 'forgot' && realAuthAvailable
+  const [view, setView] = useState<View>(askedForgot ? 'forgot' : 'login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [resetEmail, setResetEmail] = useState('')
-  const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [failure, setFailure] = useState<AuthFailure | null>(null)
   const [loading, setLoading] = useState(false)
   const [demoLoading, setDemoLoading] = useState(false)
+  const [demoError, setDemoError] = useState(false)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const shownView = useRef<View>('login')
 
   useEffect(() => { if (user) navigate('/dashboard', { replace: true }) }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
+  // O pedido de "novo link" vem no estado da navegação: limpa para não reabrir ao recarregar
+  useEffect(() => { if (location.state) navigate(location.pathname, { replace: true }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email || !password) return
-    setError(''); setLoading(true)
-    try { await authService.signIn(email, password); navigate('/dashboard', { replace: true }) }
-    catch { setError(t('login.wrongCredentials')) }
-    finally { setLoading(false) }
-  }
+  // Ao trocar de etapa, o foco vai para o título dela (ou para o e-mail, na volta)
+  useEffect(() => {
+    if (shownView.current === view) return
+    shownView.current = view
+    if (view === 'login') document.getElementById('ent-email')?.focus()
+    else headingRef.current?.focus()
+    window.scrollTo({ top: 0 })
+  }, [view])
+
+  const goTo = (next: View) => { setFailure(null); setFieldErrors({}); setView(next) }
 
   const handleDemo = async () => {
-    setError(''); setDemoLoading(true)
+    setDemoError(false); setDemoLoading(true)
     try { await authService.signInDemo(); navigate('/dashboard', { replace: true }) }
-    catch { setError(t('login.demoUnavailable')) }
-    finally { setDemoLoading(false) }
+    catch { setDemoError(true); setDemoLoading(false) }
   }
 
-  const handleForgot = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault()
-    if (!resetEmail) return
-    setError(''); setLoading(true)
+    const errors: FieldErrors = {}
+    if (!email.trim()) errors.email = t('login.form.emailRequired')
+    else if (!isEmail(email)) errors.email = t('login.form.emailInvalid')
+    if (!password) errors.password = t('login.form.passwordRequired')
+    setFieldErrors(errors); setFailure(null)
+    if (errors.email || errors.password) { focusField(errors.email ? 'ent-email' : 'ent-password'); return }
+    setLoading(true)
     try {
-      await authService.sendPasswordReset(resetEmail)
-      setView('forgot_sent')
-    } catch {
-      setError(t('login.resetSendError'))
+      await withTimeout(reachServer().then(() => authService.signIn(email.trim(), password)))
+      navigate('/dashboard', { replace: true })
+    } catch (err) {
+      setFailure(authFailure(err))
+      setLoading(false)
+    }
+  }
+
+  const handleForgot = async (e: FormEvent) => {
+    e.preventDefault()
+    const error = !email.trim() ? t('login.form.emailRequired') : !isEmail(email) ? t('login.form.emailInvalid') : undefined
+    setFieldErrors({ email: error }); setFailure(null)
+    if (error) { focusField('ent-forgot-email'); return }
+    setLoading(true)
+    try {
+      await withTimeout(reachServer().then(() => authService.sendPasswordReset(email.trim())))
+      setView('sent')
+    } catch (err) {
+      setFailure(authFailure(err))
     } finally {
       setLoading(false)
     }
   }
 
-  const goToLogin = () => { setView('login'); setError(''); setResetEmail('') }
+  const loginMessage = (f: AuthFailure) =>
+    f === 'credentials' || f === 'network' || f === 'unconfirmed' || f === 'rate' ? t(`login.errors.${f}`) : t('login.errors.unknown')
+  const forgotMessage = (f: AuthFailure) =>
+    f === 'network' || f === 'rate' ? t(`login.forgot.errors.${f}`) : t('login.forgot.errors.unknown')
 
-  return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div style={{ width: '100%', maxWidth: '22rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+  if (view === 'forgot') {
+    return (
+      <AuthLayout compact>
+        <form className="ent-stack" onSubmit={handleForgot} noValidate>
+          <button type="button" className="ent-link ent-back" onClick={() => goTo('login')}>
+            <Icon name="arrowLeft" size={14} />{t('login.backToLogin')}
+          </button>
+          <h2 className="ent-heading" ref={headingRef} tabIndex={-1}>{t('login.forgot.title')}</h2>
+          <p className="ent-sub">{t('login.forgot.text')}</p>
+          <Input id="ent-forgot-email" label={t('login.form.email')} type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false}
+            placeholder={t('login.form.emailPlaceholder')} value={email} error={fieldErrors.email}
+            onChange={e => { setEmail(e.target.value); setFieldErrors({}) }} />
+          {failure && <Notice tone={failure === 'network' ? 'amber' : 'red'} icon="alertCircle">{forgotMessage(failure)}</Notice>}
+          <Button type="submit" size="lg" block loading={loading}>{t('login.forgot.submit')}</Button>
+        </form>
+      </AuthLayout>
+    )
+  }
 
-        {/* Logo + headline */}
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-          <img src="/logo.png" alt="FlowTrack" className="ft-logo" style={{ height: '1.75rem', width: 'auto' }} />
-          <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)' }}>
-            {view === 'login' ? t('login.tagline') : t('login.passwordReset')}
+  if (view === 'sent') {
+    return (
+      <AuthLayout compact>
+        <div className="ent-stack">
+          <StatusIcon icon="mail" tone="accent" />
+          <h2 className="ent-heading" ref={headingRef} tabIndex={-1}>{t('login.sent.title')}</h2>
+          <p className="ent-sub">
+            <Trans i18nKey="login.sent.text" values={{ email: email.trim() }} components={{ b: <span className="ent-email" /> }} />
           </p>
-        </div>
-
-        {/* Card */}
-        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
-          {view === 'login' && (
-            <>
-              <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-                <Input label={t('login.email')} type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                  <Input label={t('login.password')} type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-                  <button
-                    type="button"
-                    onClick={() => { setView('forgot'); setResetEmail(email); setError('') }}
-                    style={{ alignSelf: 'flex-end', background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', padding: 0, textDecoration: 'underline dotted' }}
-                  >
-                    {t('login.forgotPassword')}
-                  </button>
-                </div>
-                {error && <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)', textAlign: 'center' }}>{error}</p>}
-                <Button type="submit" loading={loading} style={{ width: '100%', marginTop: '0.25rem' }}>{t('login.signIn')}</Button>
-              </form>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
-                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', letterSpacing: '0.05em' }}>ou</span>
-                <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                <Button variant="ghost" loading={demoLoading} onClick={handleDemo} style={{ width: '100%' }}>
-                  {t('login.demoMode')}
-                </Button>
-                <p style={{ textAlign: 'center', fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', letterSpacing: '0.02em' }}>
-                  {t('login.demoHint')}
-                </p>
-              </div>
-            </>
-          )}
-
-          {view === 'forgot' && (
-            <form onSubmit={handleForgot} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                {t('login.resetEmailLabel')}
-              </p>
-              <Input
-                label={t('login.email')}
-                type="email"
-                placeholder="seu@email.com"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                autoFocus
-                autoComplete="email"
-              />
-              {error && <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--red)' }}>{error}</p>}
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <Button type="button" variant="secondary" onClick={goToLogin} style={{ flex: 1 }}>{t('common.back')}</Button>
-                <Button type="submit" loading={loading} style={{ flex: 1 }}>{t('login.sendLink')}</Button>
-              </div>
-            </form>
-          )}
-
-          {view === 'forgot_sent' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', textAlign: 'center' }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.5" strokeLinecap="square">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                <polyline points="22,6 12,13 2,6"/>
-              </svg>
-              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                {t('login.resetSentTitle')} <strong style={{ color: 'var(--text-primary)' }}>{resetEmail}</strong>.<br />
-                {t('login.resetSentBody')}
-              </p>
-              <Button variant="secondary" onClick={goToLogin} style={{ width: '100%' }}>{t('login.backToLogin')}</Button>
-            </div>
-          )}
-
-          <div style={{ paddingTop: '0.75rem', borderTop: '0.5px solid var(--border)', display: 'flex', justifyContent: 'center' }}>
-            <AfnBrand size="md" />
+          <p className="ent-sub">{t('login.sent.spam')}</p>
+          <div className="ent-actions">
+            <Button size="lg" block variant="secondary" onClick={() => goTo('login')}>{t('login.backToLogin')}</Button>
+            <Button block variant="ghost" onClick={() => goTo('forgot')}>{t('login.sent.again')}</Button>
           </div>
         </div>
+      </AuthLayout>
+    )
+  }
 
+  return (
+    <AuthLayout>
+      <div className="ent-stack">
+        <div className="ent-intro">
+          <h2 className="ent-heading">{t('login.demo.title')}</h2>
+          <p className="ent-sub">{t('login.demo.text')}</p>
+        </div>
+        <Button size="lg" block iconRight="arrowRight" loading={demoLoading} onClick={handleDemo}>{t('login.demo.cta')}</Button>
+        <p className="ent-hint">{t('login.demo.hint')}</p>
+        {demoError && <Notice tone="red" icon="alertCircle">{t('login.demo.error')}</Notice>}
+
+        {realAuthAvailable ? (
+          <>
+            <div className="ent-divider" id="ent-login-label">{t('login.divider')}</div>
+            <form className="ent-form" onSubmit={handleLogin} noValidate aria-labelledby="ent-login-label">
+              <Input id="ent-email" label={t('login.form.email')} type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false}
+                placeholder={t('login.form.emailPlaceholder')} value={email} error={fieldErrors.email}
+                onChange={e => { setEmail(e.target.value); setFieldErrors(f => ({ ...f, email: undefined })) }} />
+              <div className="ent-field">
+                <div className="ent-field__head">
+                  <label htmlFor="ent-password" className="ft-field__label">{t('login.form.password')}</label>
+                  <button type="button" className="ent-link" onClick={() => goTo('forgot')}>{t('login.form.forgot')}</button>
+                </div>
+                <PasswordInput id="ent-password" autoComplete="current-password" value={password} error={fieldErrors.password}
+                  onChange={e => { setPassword(e.target.value); setFieldErrors(f => ({ ...f, password: undefined })) }} />
+              </div>
+              {failure && (
+                <Notice tone={failure === 'network' ? 'amber' : 'red'} icon="alertCircle">{loginMessage(failure)}</Notice>
+              )}
+              <Button type="submit" size="lg" block variant="secondary" loading={loading} style={{ marginTop: '0.25rem' }}>
+                {t('login.form.submit')}
+              </Button>
+            </form>
+          </>
+        ) : (
+          <Notice>
+            <strong>{t('login.unavailable.title')}</strong> {t('login.unavailable.text')}
+          </Notice>
+        )}
       </div>
-    </div>
+    </AuthLayout>
   )
 }

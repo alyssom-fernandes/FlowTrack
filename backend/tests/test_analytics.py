@@ -435,3 +435,40 @@ class TestAuditLog:
 
         r = c.post(f"/api/v1/audit-log/{TEST_LOG_ID}/undo")
         assert r.status_code == 400
+
+
+class TestTransfersExcluded:
+    def test_summary_ignores_transfers(self, client):
+        c, sb = client
+        q = MagicMock()
+        q.eq.return_value = q; q.gte.return_value = q
+        q.execute.return_value = MagicMock(data=[
+            {"transaction_date": "2026-06-01", "amount": 2000.0, "type": "credit"},
+            {"transaction_date": "2026-06-07", "amount": -1000.0, "type": "transfer"},
+            {"transaction_date": "2026-06-07", "amount": 1000.0, "type": "transfer"},
+            {"transaction_date": "2026-06-10", "amount": -500.0, "type": "debit"},
+        ])
+        sb.table.return_value.select.return_value = q
+        r = c.get("/api/v1/summary/monthly?months=1")
+        june = next(m for m in r.json() if m["month"] == "2026-06")
+        assert june["income"] == 2000.0
+        assert june["expense"] == 500.0
+
+
+class TestProjectionsIgnorePartialMonth:
+    def test_current_month_not_used_for_average(self, client):
+        c, sb = client
+        today = date.today()
+        prev = date(today.year - (1 if today.month == 1 else 0), 12 if today.month == 1 else today.month - 1, 15)
+        q = MagicMock()
+        q.eq.return_value = q; q.gte.return_value = q
+        q.execute.return_value = MagicMock(data=[
+            {"transaction_date": prev.isoformat(), "amount": 5000.0, "type": "credit"},
+            {"transaction_date": prev.isoformat(), "amount": -3000.0, "type": "debit"},
+            {"transaction_date": today.replace(day=1).isoformat(), "amount": 100.0, "type": "credit"},
+        ])
+        sb.table.return_value.select.return_value = q
+        body = c.get("/api/v1/projections").json()
+        assert body["avg_income"] == 5000.0
+        assert body["months_available"] == 1
+        assert len(body["history"]) == 2

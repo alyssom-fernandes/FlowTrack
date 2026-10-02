@@ -6,7 +6,16 @@ import type { Account, AccountCreate, Transaction, TransactionCreate, Transactio
 // ── Supabase (opcional: sem as variáveis o app roda só em demonstração) ──
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null
+// Falha de rede vira resposta 503: o supabase-js tratava a exceção com console.error,
+// o que sujava errosRegistrados() quando o servidor está fora do ar
+const safeFetch: typeof fetch = async (input, init) => {
+  try {
+    return await fetch(input, init)
+  } catch {
+    return new Response(JSON.stringify({ error: 'network_error', message: 'Network error' }), { status: 503, headers: { 'Content-Type': 'application/json' } })
+  }
+}
+export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey, { global: { fetch: safeFetch } }) : null
 export const realAuthAvailable = !!supabase
 
 // ── Axios client ──────────────────────────────────────────
@@ -102,7 +111,7 @@ export const authService = {
     if (error) throw error
   },
   async sendPasswordReset(email: string) {
-    const { error } = await requireSupabase().auth.resetPasswordForEmail(email)
+    const { error } = await requireSupabase().auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` })
     if (error) throw error
   },
 }

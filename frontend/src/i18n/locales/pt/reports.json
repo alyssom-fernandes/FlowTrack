@@ -1,28 +1,192 @@
 {
   "reports": {
     "title": "Relatórios",
-    "periodMonth": "Este mês",
-    "period3m": "Últimos 3 meses",
-    "period6m": "Últimos 6 meses",
-    "periodYear": "Este ano",
-    "periodCustom": "Personalizado",
-    "periodLabelMonth": "Mês",
-    "periodLabel3m": "3 meses",
-    "periodLabel6m": "6 meses",
-    "periodLabelYear": "Ano",
-    "periodLabelCustom": "Personalizado",
-    "previousPeriod": "Período anterior",
-    "compareToggle": "Comparar com período anterior",
-    "noData": "Nenhuma transação no período selecionado.",
-    "income": "Receitas",
-    "expenses": "Gastos",
-    "balance": "Saldo",
-    "byCategory": "Gastos por categoria",
-    "top5": "Top 5 categorias",
-    "projection": "Projeção — próximos 3 meses",
-    "projectionConfidence": "confiança",
-    "exportPdf": "Exportar PDF",
-    "exportingPdf": "Gerando PDF...",
-    "vsLabel": "vs anterior"
+    "view": {
+      "label": "Exibição",
+      "chart": "Gráfico",
+      "table": "Tabela"
+    },
+    "export": {
+      "button": "Exportar",
+      "pdf": "PDF",
+      "pdfHint": "Relatório completo, pronto para enviar",
+      "xlsx": "Excel",
+      "xlsxHint": "Resumo, categorias, meses e transações",
+      "csv": "CSV",
+      "csvHint": "Transações do período",
+      "print": "Imprimir",
+      "printHint": "Versão em A4, sem menus",
+      "empty": "Não há transações no período para exportar",
+      "done_pdf": "PDF gerado",
+      "done_xlsx": "Planilha gerada",
+      "done_csv": "CSV gerado",
+      "fail": "Não foi possível gerar o arquivo. Tente de novo.",
+      "fileBase": "relatorio"
+    },
+    "period": {
+      "thisMonth": "Este mês",
+      "lastMonth": "Mês passado",
+      "3m": "3 meses",
+      "6m": "6 meses",
+      "12m": "12 meses",
+      "year": "Este ano",
+      "custom": "Personalizado",
+      "label": "Período",
+      "from": "De",
+      "to": "Até",
+      "missing": "Escolha a data inicial e a final.",
+      "invalid": "Precisa ser depois da data inicial.",
+      "chooseTitle": "Defina o período",
+      "chooseText": "Os números aparecem assim que as duas datas forem válidas."
+    },
+    "compare": {
+      "toggle": "Comparar com o período anterior",
+      "with": "Comparado com {{range}}",
+      "noData": "Não há lançamentos em {{range}} para comparar."
+    },
+    "kpi": {
+      "label": "Resumo do período",
+      "income": "Receitas",
+      "expense": "Gastos",
+      "balance": "Saldo do período",
+      "savings": "Taxa de economia",
+      "noPrev": "Sem dados anteriores",
+      "noBase": "Sem base de comparação",
+      "noIncome": "Sem receitas no período",
+      "vsPrevShort": "vs. período anterior",
+      "pp": "{{value}} p.p.",
+      "transfersNote": "Transferências entre suas contas não entram nos totais."
+    },
+    "delta": {
+      "up": "{{value}} acima do período anterior",
+      "down": "{{value}} abaixo do período anterior",
+      "same": "Igual ao período anterior"
+    },
+    "legend": {
+      "income": "Receitas",
+      "expense": "Gastos",
+      "balance": "Saldo",
+      "previous": "Período anterior",
+      "previousShort": "Período anterior",
+      "previousFaded": "Período anterior (tom suave)"
+    },
+    "flow": {
+      "titleMonth": "Receitas e gastos por mês",
+      "titleWeek": "Receitas e gastos por semana",
+      "sub_one": "{{count}} lançamento no período",
+      "sub_other": "{{count}} lançamentos no período",
+      "compareSub": "Barras em tom suave: {{range}}"
+    },
+    "table": {
+      "week": "Semana",
+      "month": "Mês",
+      "income": "Receitas",
+      "expense": "Gastos",
+      "balance": "Saldo",
+      "savings": "Economia",
+      "prevIncome": "Receitas ant.",
+      "prevExpense": "Gastos ant.",
+      "total": "Total",
+      "category": "Categoria",
+      "count": "Lançamentos",
+      "value": "Valor",
+      "share": "% do total",
+      "previous": "Anterior",
+      "change": "Variação",
+      "kind": "Tipo",
+      "description": "Descrição",
+      "date": "Data",
+      "account": "Conta",
+      "type": "Tipo",
+      "typeIncome": "Receita",
+      "typeExpense": "Gasto",
+      "typeTransfer": "Transferência",
+      "byMonth": "Por mês",
+      "byWeek": "Por semana"
+    },
+    "categories": {
+      "title": "Gastos por categoria",
+      "summary_one": "{{total}} em {{count}} categoria",
+      "summary_other": "{{total}} em {{count}} categorias",
+      "others_one": "Outra categoria",
+      "others_other": "Outras {{count}} categorias",
+      "new": "nova",
+      "total": "Total",
+      "emptyTitle": "Nenhum gasto no período",
+      "emptyText": "Só houve entradas nestas datas."
+    },
+    "top": {
+      "title": "Maiores gastos",
+      "subtitle": "Somados pela descrição",
+      "count_one": "{{count}} lançamento",
+      "count_other": "{{count}} lançamentos",
+      "share": "{{value}} dos gastos"
+    },
+    "projection": {
+      "title": "Projeção dos próximos 3 meses",
+      "subtitle_one": "Com base no último mês · não depende do período escolhido",
+      "subtitle_other": "Com base nos últimos {{count}} meses · não depende do período escolhido",
+      "confidence": {
+        "high": "Confiança alta",
+        "medium": "Confiança média",
+        "low": "Confiança baixa"
+      },
+      "explain": {
+        "high_one": "A linha tracejada segue a tendência recente e a média do histórico. A faixa sombreada mostra a oscilação típica dos meses anteriores: o valor real deve ficar dentro dela na maioria dos meses.",
+        "high_other": "A linha tracejada segue a tendência recente e a média dos últimos {{count}} meses. A faixa sombreada mostra a oscilação típica desses meses: o valor real deve ficar dentro dela na maioria das vezes.",
+        "medium_one": "Projeção feita com {{count}} mês de histórico. A faixa sombreada mostra a oscilação típica; com 6 meses ou mais a estimativa fica mais firme.",
+        "medium_other": "Projeção feita com {{count}} meses de histórico. A faixa sombreada mostra a oscilação típica desses meses; com 6 meses ou mais a estimativa fica mais firme.",
+        "low_one": "Ainda há só {{count}} mês de histórico. Use os números como referência inicial: com 6 meses de lançamentos a projeção fica confiável.",
+        "low_other": "Ainda há só {{count}} meses de histórico. Use os números como referência inicial: com 6 meses de lançamentos a projeção fica confiável."
+      },
+      "zone": "Projeção",
+      "range": "Faixa provável",
+      "dashed": "Projeção",
+      "projected": "Projeção",
+      "history": "Histórico",
+      "avgIncome": "Receita média por mês",
+      "avgExpense": "Gasto médio por mês",
+      "projectedBalance": "Saldo previsto nos 3 meses"
+    },
+    "aria": {
+      "flow": "Gráfico de barras com receitas e gastos de {{range}}: receitas de {{income}} e gastos de {{expense}}. Os valores de cada período estão na visão em tabela.",
+      "categories": "Gráfico de rosca dos gastos por categoria: {{list}}.",
+      "projection": "Gráfico de linhas com o histórico e a projeção dos próximos 3 meses: receitas de cerca de {{income}} e gastos de cerca de {{expense}} por mês."
+    },
+    "empty": {
+      "title": "Ainda não há dados para os relatórios",
+      "text": "Importe um extrato ou lance suas primeiras transações. Receitas, gastos por categoria e projeções aparecem aqui.",
+      "action": "Lançar transações"
+    },
+    "noPeriod": {
+      "title": "Nenhuma transação neste período",
+      "text": "Não há lançamentos em {{range}}. Escolha outro período.",
+      "action": "Ver últimos 12 meses"
+    },
+    "error": {
+      "title": "Não foi possível carregar o relatório",
+      "text": "Verifique a conexão e tente de novo.",
+      "retry": "Tentar de novo"
+    },
+    "print": {
+      "title": "Relatório financeiro",
+      "generated": "Gerado em {{date}}"
+    },
+    "pdf": {
+      "docTitle": "Relatório financeiro",
+      "page": "Página {{current}} de {{total}}",
+      "vsPrev": "vs. anterior"
+    },
+    "xlsx": {
+      "summary": "Resumo",
+      "period": "Período",
+      "start": "Início",
+      "end": "Fim",
+      "current": "Período atual",
+      "previous": "Período anterior",
+      "transactions": "Transações do período",
+      "transfersNote": "transferências entre contas próprias não entram no saldo",
+      "netTotal": "Saldo (sem transferências)"
+    }
   }
 }

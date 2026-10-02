@@ -27,7 +27,8 @@ async def generate_insight(request: Request, period: InsightPeriod, user_id: str
 
     try:
         sb = get_supabase()
-        txns = sb.table("transactions").select("amount,category_id,description,is_recurring").eq("user_id", user_id).gte("transaction_date", period.start_date).lte("transaction_date", period.end_date).execute().data or []
+        txns = sb.table("transactions").select("amount,category_id,description,is_recurring,type").eq("user_id", user_id).gte("transaction_date", period.start_date).lte("transaction_date", period.end_date).execute().data or []
+        txns = [t for t in txns if t.get("type") != "transfer"]
         goals = sb.table("goals").select("name,type,target_amount,is_active").eq("user_id", user_id).eq("is_active", True).execute().data or []
         cats = sb.table("categories").select("id,name").execute().data or []
         cat_map = {c["id"]: c["name"] for c in cats}
@@ -58,7 +59,8 @@ async def generate_insight(request: Request, period: InsightPeriod, user_id: str
             client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
             prompt = (
                 f"Você é um assistente financeiro pessoal. Analise os dados abaixo e gere um insight conciso (máximo 3 frases) "
-                f"em português, tom amigável, com números específicos.\n\n"
+                f"em português, tom direto e cordial, com números específicos. Responda em texto corrido, "
+                f"sem markdown, sem títulos, sem listas e sem emoji.\n\n"
                 f"Período: {period.start_date} a {period.end_date}\n"
                 f"Receitas: R${total_inc:.2f} | Gastos: R${total_exp:.2f} | Economia: {savings_rate}%\n"
                 f"Top categorias:\n{top_cats_str or '- Sem dados'}\n"

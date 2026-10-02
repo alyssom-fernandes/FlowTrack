@@ -5,7 +5,7 @@ import type { Account, AuditLogEntry, Category, Investment, NetWorthSnapshot, Tr
 
 export const DEMO_EMAIL = 'demo@flowtrack.app'
 export const DEMO_USER_ID = 'demo-user'
-export const DB_VERSION = 1
+export const DB_VERSION = 2
 
 export interface GoalRow {
   id: string
@@ -69,6 +69,34 @@ function vary(base: number, k: number, i: number, spread = 0.12): number {
   return Math.round(base * (1 + (h * 2 - 1) * spread) * 100) / 100
 }
 
+// ── Dados em inglês ───────────────────────────────────────
+// A demonstração nasce no idioma escolhido (ft-lang) quando a aba abre.
+// Nomes de marcas e produtos ficam como estão.
+const EN: Record<string, string> = {
+  'Salário': 'Salary', 'Aluguel': 'Rent', 'Condomínio': 'Condo fee', 'Enel Energia': 'Enel electricity',
+  'Vivo Fibra': 'Vivo Fiber', 'Supermercado Pão de Açúcar': 'Pão de Açúcar supermarket', 'Posto Shell': 'Shell gas station',
+  '99 Táxi': '99 Taxi', 'Restaurante Madero': 'Madero restaurant',
+  'Transferência para Sicredi Poupança': 'Transfer to Sicredi Savings', 'Aporte na reserva': 'Emergency fund deposit',
+  'Rendimento da poupança': 'Savings interest', 'Consulta dermatologista': 'Dermatologist visit',
+  'Notebook Dell': 'Dell laptop', 'Passagem Lisboa — TAP': 'Lisbon flight — TAP', 'Viagem de férias em janeiro': 'Holiday trip in January',
+  'estudos': 'studies', 'saúde': 'health', 'trabalho': 'work', 'viagem': 'travel',
+  'Sicredi Poupança': 'Sicredi Savings',
+  'Limite de alimentação': 'Food limit', 'Reserva de emergência': 'Emergency fund', 'Limite de transporte': 'Transport limit', 'Assinaturas no ano': 'Subscriptions this year',
+  'Vencimento em 2029, indexado ao IPCA': 'Matures in 2029, indexed to inflation (IPCA)', 'Liquidez diária': 'Daily liquidity',
+  'Isenta de IR, vence em 12 meses': 'Tax-exempt, matures in 12 months', 'Dividendos mensais': 'Monthly dividends',
+  'Posição pequena, de longo prazo': 'Small long-term position', 'Estorno compra': 'Purchase refund',
+}
+
+export function demoLang(): 'pt' | 'en' {
+  try { return localStorage.getItem('ft-lang') === 'en' ? 'en' : 'pt' } catch { return 'pt' }
+}
+
+function tr(text: string): string
+function tr(text: string | undefined): string | undefined
+function tr(text: string | undefined): string | undefined {
+  return text && demoLang() === 'en' ? (EN[text] ?? text) : text
+}
+
 // ── Categorias (iguais às do schema.sql) ──────────────────
 const CATEGORY_DEFS: [string, string, string][] = [
   ['Alimentação', 'utensils', '#e06c75'],
@@ -112,7 +140,7 @@ export function buildSeed(now = new Date()): DemoDB {
   const accounts: Account[] = [
     { id: 'acc-nub', user_id: DEMO_USER_ID, name: 'Nubank', bank_name: 'Nubank', bank_color: '#820ad1', account_type: 'checking', currency: 'BRL', balance: 4180.35, is_active: true, created_at: createdAt, updated_at: createdAt },
     { id: 'acc-inter', user_id: DEMO_USER_ID, name: 'Inter', bank_name: 'Inter', bank_color: '#FF7A00', account_type: 'checking', currency: 'BRL', balance: 1245.8, is_active: true, created_at: createdAt, updated_at: createdAt },
-    { id: 'acc-sic', user_id: DEMO_USER_ID, name: 'Sicredi Poupança', bank_name: 'Sicredi', bank_color: '#008000', account_type: 'savings', currency: 'BRL', balance: 10950, is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'acc-sic', user_id: DEMO_USER_ID, name: tr('Sicredi Poupança'), bank_name: 'Sicredi', bank_color: '#008000', account_type: 'savings', currency: 'BRL', balance: 10950, is_active: true, created_at: createdAt, updated_at: createdAt },
   ]
   const accId = { nub: 'acc-nub', inter: 'acc-inter', sic: 'acc-sic' }
 
@@ -189,7 +217,7 @@ export function buildSeed(now = new Date()): DemoDB {
         user_id: DEMO_USER_ID,
         account_id: accId[s.acc],
         category_id: s.cat ? cat(s.cat) : undefined,
-        description: s.desc,
+        description: tr(s.desc),
         amount: Math.round(s.amount * 100) / 100,
         currency: 'BRL',
         transaction_date: iso(d),
@@ -201,8 +229,8 @@ export function buildSeed(now = new Date()): DemoDB {
         confidence_score: s.cat ? (s.conf ?? 1) : undefined,
         import_batch_id: s.type === 'transfer' ? `batch-${k}` : undefined,
         sync_status: 'synced',
-        notes: s.notes,
-        tags: s.tags,
+        notes: tr(s.notes),
+        tags: s.tags?.map(tag => tr(tag)),
         created_at: stamp(d),
         updated_at: stamp(d),
       })
@@ -213,18 +241,18 @@ export function buildSeed(now = new Date()): DemoDB {
 
   const monthStart = iso(new Date(now.getFullYear(), now.getMonth(), 1))
   const goals: GoalRow[] = [
-    { id: 'goal-1', user_id: DEMO_USER_ID, category_id: cat('Alimentação'), name: 'Limite de alimentação', type: 'spending_limit', target_amount: 1300, current_amount: 0, currency: 'BRL', period: 'monthly', start_date: monthStart, is_active: true, created_at: createdAt, updated_at: createdAt },
-    { id: 'goal-2', user_id: DEMO_USER_ID, category_id: cat('Investimentos'), name: 'Reserva de emergência', type: 'savings_target', target_amount: 15000, current_amount: 0, currency: 'BRL', period: 'custom', start_date: `${now.getFullYear()}-01-01`, end_date: `${now.getFullYear()}-12-31`, is_active: true, created_at: createdAt, updated_at: createdAt },
-    { id: 'goal-3', user_id: DEMO_USER_ID, category_id: cat('Transporte'), name: 'Limite de transporte', type: 'spending_limit', target_amount: 500, current_amount: 0, currency: 'BRL', period: 'monthly', start_date: monthStart, is_active: true, created_at: createdAt, updated_at: createdAt },
-    { id: 'goal-4', user_id: DEMO_USER_ID, category_id: cat('Assinaturas'), name: 'Assinaturas no ano', type: 'spending_limit', target_amount: 2400, current_amount: 0, currency: 'BRL', period: 'yearly', start_date: `${now.getFullYear()}-01-01`, is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'goal-1', user_id: DEMO_USER_ID, category_id: cat('Alimentação'), name: tr('Limite de alimentação'), type: 'spending_limit', target_amount: 1300, current_amount: 0, currency: 'BRL', period: 'monthly', start_date: monthStart, is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'goal-2', user_id: DEMO_USER_ID, category_id: cat('Investimentos'), name: tr('Reserva de emergência'), type: 'savings_target', target_amount: 15000, current_amount: 0, currency: 'BRL', period: 'custom', start_date: `${now.getFullYear()}-01-01`, end_date: `${now.getFullYear()}-12-31`, is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'goal-3', user_id: DEMO_USER_ID, category_id: cat('Transporte'), name: tr('Limite de transporte'), type: 'spending_limit', target_amount: 500, current_amount: 0, currency: 'BRL', period: 'monthly', start_date: monthStart, is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'goal-4', user_id: DEMO_USER_ID, category_id: cat('Assinaturas'), name: tr('Assinaturas no ano'), type: 'spending_limit', target_amount: 2400, current_amount: 0, currency: 'BRL', period: 'yearly', start_date: `${now.getFullYear()}-01-01`, is_active: true, created_at: createdAt, updated_at: createdAt },
   ]
 
   const investments: DemoDB['investments'] = [
-    { id: 'inv-1', user_id: DEMO_USER_ID, name: 'Tesouro IPCA+ 2029', type: 'tesouro_direto', institution: 'Tesouro Nacional', total_invested: 5000, current_value: 5347.2, currency: 'BRL', notes: 'Vencimento em 2029, indexado ao IPCA', is_active: true, created_at: createdAt, updated_at: createdAt },
-    { id: 'inv-2', user_id: DEMO_USER_ID, name: 'CDB Nubank 120% CDI', type: 'cdb', institution: 'Nubank', total_invested: 3000, current_value: 3128.5, currency: 'BRL', notes: 'Liquidez diária', is_active: true, created_at: createdAt, updated_at: createdAt },
-    { id: 'inv-3', user_id: DEMO_USER_ID, name: 'LCI Sicredi', type: 'lci_lca', institution: 'Sicredi', total_invested: 2000, current_value: 2089, currency: 'BRL', notes: 'Isenta de IR, vence em 12 meses', is_active: true, created_at: createdAt, updated_at: createdAt },
-    { id: 'inv-4', user_id: DEMO_USER_ID, name: 'MXRF11 — Maxi Renda', type: 'fundo_imobiliario', institution: 'XP Investimentos', total_invested: 1500, current_value: 1380, currency: 'BRL', notes: 'Dividendos mensais', is_active: true, created_at: createdAt, updated_at: createdAt },
-    { id: 'inv-5', user_id: DEMO_USER_ID, name: 'Bitcoin', type: 'criptomoeda', institution: 'Mercado Bitcoin', total_invested: 1500, current_value: 1854.6, currency: 'BRL', notes: 'Posição pequena, de longo prazo', is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'inv-1', user_id: DEMO_USER_ID, name: 'Tesouro IPCA+ 2029', type: 'tesouro_direto', institution: 'Tesouro Nacional', total_invested: 5000, current_value: 5347.2, currency: 'BRL', notes: tr('Vencimento em 2029, indexado ao IPCA'), is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'inv-2', user_id: DEMO_USER_ID, name: 'CDB Nubank 120% CDI', type: 'cdb', institution: 'Nubank', total_invested: 3000, current_value: 3128.5, currency: 'BRL', notes: tr('Liquidez diária'), is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'inv-3', user_id: DEMO_USER_ID, name: 'LCI Sicredi', type: 'lci_lca', institution: 'Sicredi', total_invested: 2000, current_value: 2089, currency: 'BRL', notes: tr('Isenta de IR, vence em 12 meses'), is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'inv-4', user_id: DEMO_USER_ID, name: 'MXRF11 — Maxi Renda', type: 'fundo_imobiliario', institution: 'XP Investimentos', total_invested: 1500, current_value: 1380, currency: 'BRL', notes: tr('Dividendos mensais'), is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'inv-5', user_id: DEMO_USER_ID, name: 'Bitcoin', type: 'criptomoeda', institution: 'Mercado Bitcoin', total_invested: 1500, current_value: 1854.6, currency: 'BRL', notes: tr('Posição pequena, de longo prazo'), is_active: true, created_at: createdAt, updated_at: createdAt },
   ]
 
   // Orçamentos do mês corrente: limites escolhidos para mostrar faixas diferentes
@@ -290,7 +318,7 @@ export function samplePdfStatement(now = new Date()): { bank: string; transactio
       { description: 'Raia Drogasil', amount: -38.9, transaction_date: d(2), type: 'debit' },
       { description: 'Ifood *Burger King', amount: -52.9, transaction_date: d(3), type: 'debit' },
       { description: 'Livraria da Vila', amount: -69.9, transaction_date: d(4), type: 'debit' },
-      { description: 'Estorno compra', amount: 39.9, transaction_date: d(5), type: 'credit' },
+      { description: tr('Estorno compra'), amount: 39.9, transaction_date: d(5), type: 'credit' },
       { description: 'Zaffari Supermercados', amount: -132.45, transaction_date: d(6), type: 'debit' },
       { description: 'Shell Box', amount: -150, transaction_date: d(7), type: 'debit' },
     ],

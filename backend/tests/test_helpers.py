@@ -287,3 +287,25 @@ class TestParseOfx:
         content = b"<BANKTRANLIST><STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20241201<TRNAMT>-20.00</STMTTRN></BANKTRANLIST>"
         txns = _parse_ofx(content)
         assert txns[0]["description"] == "DEBIT"
+
+
+# ── Transferências e parcelas ─────────────────────────────────
+from app.api.v1._helpers import is_transfer, latest_installments
+
+
+def test_is_transfer():
+    assert is_transfer({"type": "transfer"}) is True
+    assert is_transfer({"type": "debit"}) is False
+    assert is_transfer({}) is False
+
+
+def test_latest_installments_keeps_only_most_recent_per_purchase():
+    rows = [
+        {"description": "Notebook Dell", "installment_current": 3, "installment_total": 10},
+        {"description": "Notebook Dell", "installment_current": 5, "installment_total": 10},
+        {"description": "NOTEBOOK DELL", "installment_current": 4, "installment_total": 10},
+        {"description": "Passagem", "installment_current": 6, "installment_total": 6},
+        {"description": "Sofá", "installment_current": 1, "installment_total": 3},
+    ]
+    result = {r["description"]: r["installment_current"] for r in latest_installments(rows)}
+    assert result == {"Notebook Dell": 5, "Sofá": 1}

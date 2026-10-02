@@ -62,6 +62,7 @@ interface AlertsState {
   alerts: Alert[]
   count: number
   loading: boolean
+  error: boolean
   load: () => Promise<void>
   clear: () => void
 }
@@ -70,17 +71,18 @@ export const useAlertsStore = create<AlertsState>((set) => ({
   alerts: [],
   count: 0,
   loading: false,
+  error: false,
   load: async () => {
     set({ loading: true })
     try {
       const { alertsService } = await import('./services')
       const res = await alertsService.list()
-      set({ alerts: res.alerts, count: res.total, loading: false })
+      set({ alerts: res.alerts, count: res.total, loading: false, error: false })
     } catch {
-      set({ loading: false })
+      set({ loading: false, error: true })
     }
   },
-  clear: () => set({ alerts: [], count: 0 }),
+  clear: () => set({ alerts: [], count: 0, error: false }),
 }))
 
 export const syncQueueService = {

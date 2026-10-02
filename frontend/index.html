@@ -2,35 +2,6 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#9D2449" />
-    <meta name="description" content="FlowTrack — Controle financeiro inteligente" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="FlowTrack" />
-
-    <!-- Favicons -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/site.webmanifest" />
-
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
-
-    <!-- OG -->
-    <meta property="og:title" content="FlowTrack" />
-    <meta property="og:description" content="Controle financeiro inteligente" />
-    <meta property="og:image" content="/og-image.png" />
-
-    <title>FlowTrack</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script>try{var t=localStorage.getItem('ft-theme');if(t==='light')document.documentElement.dataset.theme='light';}catch(e){}</script>
     <script>
       /* Registro de erros do navegador: JS, promessas rejeitadas, console.error,
          recursos que não carregaram e falhas capturadas pelo ErrorBoundary.
@@ -60,6 +31,41 @@
         window.limparErros = function () { lista.length = 0; };
       })();
     </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0b0c" />
+    <meta name="description" content="FlowTrack: do extrato do banco ao relatório do mês. Importa PDF, OFX e CSV, categoriza gastos com IA e mostra orçamentos, metas e investimentos." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="FlowTrack" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Prévia de link -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="FlowTrack" />
+    <meta property="og:title" content="FlowTrack — do extrato ao relatório do mês" />
+    <meta property="og:description" content="Importa extratos em PDF, OFX e CSV, categoriza gastos com IA e mostra orçamentos, metas e investimentos. Demonstração sem cadastro." />
+    <meta property="og:url" content="https://flowtrack-afn.vercel.app/" />
+    <meta property="og:image" content="https://flowtrack-afn.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <title>FlowTrack</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>try{var t=localStorage.getItem('ft-theme');if(t==='light')document.documentElement.dataset.theme='light';}catch(e){}</script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

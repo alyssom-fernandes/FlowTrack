@@ -52,3 +52,7 @@ _samples/
 ROADMAP.md
 # Fotos de revisão (roteiro frontend/scripts/fotos)
 .fotos/
+
+# Relatórios do Playwright
+test-results/
+playwright-report/

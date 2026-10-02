@@ -7,7 +7,7 @@ from app.core.security import get_current_user_id
 from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.models import AlertListResponse, NetWorthResponse, ProjectionResponse, MonthData
-from app.api.v1._helpers import normalize_desc, _calc_goal_current
+from app.api.v1._helpers import normalize_desc, _calc_goal_current, is_transfer, latest_installments
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -24,12 +24,14 @@ async def monthly_summary(months: int = Query(default=6, ge=1, le=24), user_id: 
                 start = date(start.year - 1, 12, 1)
             else:
                 start = date(start.year, start.month - 1, 1)
-        result = (get_supabase().table("transactions").select("transaction_date,amount")
+        result = (get_supabase().table("transactions").select("transaction_date,amount,type")
                   .eq("user_id", user_id)
                   .gte("transaction_date", start.isoformat())
                   .execute())
         monthly: dict[str, dict] = {}
         for t in (result.data or []):
+            if is_transfer(t):
+                continue
             key = t["transaction_date"][:7]
             if key not in monthly:
                 monthly[key] = {"month": key, "income": 0.0, "expense": 0.0}
@@ -141,7 +143,7 @@ async def cashflow_projection(user_id: str = Depends(get_current_user_id)):
         recurring = sb.table("transactions").select("description,amount,transaction_date").eq("user_id", user_id).eq("is_recurring", True).gte("transaction_date", str(lookback_start)).execute().data or []
 
         inst_res = sb.table("transactions").select("description,amount,transaction_date,installment_current,installment_total").eq("user_id", user_id).not_.is_("installment_total", "null").execute().data or []
-        pending_inst = [t for t in inst_res if t.get("installment_current") and t.get("installment_total") and t["installment_current"] < t["installment_total"]]
+        pending_inst = latest_installments(inst_res)
 
         days: dict[str, list[dict]] = {}
 
@@ -229,10 +231,12 @@ async def financial_projections(user_id: str = Depends(get_current_user_id)):
         for _ in range(5):
             start = date(start.year - (1 if start.month == 1 else 0), 12 if start.month == 1 else start.month - 1, 1)
 
-        txns = sb.table("transactions").select("transaction_date,amount").eq("user_id", user_id).gte("transaction_date", str(start)).execute().data or []
+        txns = sb.table("transactions").select("transaction_date,amount,type").eq("user_id", user_id).gte("transaction_date", str(start)).execute().data or []
 
         monthly: dict[str, dict] = {}
         for t in txns:
+            if is_transfer(t):
+                continue
             key = t["transaction_date"][:7]
             if key not in monthly:
                 monthly[key] = {"income": 0.0, "expense": 0.0}
@@ -242,24 +246,28 @@ async def financial_projections(user_id: str = Depends(get_current_user_id)):
                 monthly[key]["expense"] += abs(t["amount"])
 
         history_items = sorted(monthly.items())
-        n = len(history_items)
 
-        if n == 0:
+        if not history_items:
             return ProjectionResponse(history=[], projections=[], months_available=0, avg_income=0, avg_expense=0)
 
-        avg_income = sum(v["income"] for _, v in history_items) / n
-        avg_expense = sum(v["expense"] for _, v in history_items) / n
+        # O mês corrente ainda está pela metade: aparece no histórico, mas fica fora da conta
+        current_key = f"{today.year}-{today.month:02d}"
+        base_items = [item for item in history_items if item[0] < current_key] or history_items
+        n = len(base_items)
+
+        avg_income = sum(v["income"] for _, v in base_items) / n
+        avg_expense = sum(v["expense"] for _, v in base_items) / n
 
         if n >= 2:
-            income_vals = [v["income"] for _, v in history_items]
-            expense_vals = [v["expense"] for _, v in history_items]
+            income_vals = [v["income"] for _, v in base_items]
+            expense_vals = [v["expense"] for _, v in base_items]
             income_slope = (income_vals[-1] - income_vals[0]) / (n - 1)
             expense_slope = (expense_vals[-1] - expense_vals[0]) / (n - 1)
         else:
             income_slope = expense_slope = 0.0
 
-        last_income = history_items[-1][1]["income"]
-        last_expense = history_items[-1][1]["expense"]
+        last_income = base_items[-1][1]["income"]
+        last_expense = base_items[-1][1]["expense"]
 
         projections = []
         for i in range(1, 4):

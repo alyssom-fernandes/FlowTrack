@@ -1,0 +1,175 @@
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Button, Card, CardHeader, ConfirmDialog, EmptyState, IconButton, Input, Modal } from '../../components/ui'
+import { Icon } from '../../components/icons'
+import { useToastStore } from '../../store'
+import { categoriesService } from '../../services'
+import { categoryLabel, currentLocale } from '../../utils'
+import type { Category } from '../../types'
+import { DEFAULT_COLOR, PALETTE, focusInvalid, uniqueColors } from './helpers'
+import { ColorPicker, ListSkeleton, LoadError } from './parts'
+
+export function CategoriesTab() {
+  const { t } = useTranslation()
+  const { toast } = useToastStore()
+  const [categories, setCategories] = useState<Category[] | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [modal, setModal] = useState<{ category: Category | null } | null>(null)
+  const [toDelete, setToDelete] = useState<Category | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const load = useCallback(async () => {
+    setFailed(false)
+    try {
+      const res = await categoriesService.list()
+      setCategories(res.categories || [])
+    } catch {
+      setFailed(true)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const locale = currentLocale()
+  const byLabel = (a: Category, b: Category) => categoryLabel(a).localeCompare(categoryLabel(b), locale)
+  const custom = (categories || []).filter(c => !c.is_default).sort(byLabel)
+  const defaults = (categories || []).filter(c => c.is_default).sort(byLabel)
+  const loading = categories === null && !failed
+
+  const openNew = () => setModal({ category: null })
+  const openEdit = (c: Category) => setModal({ category: c })
+
+  const saved = (wasEdit: boolean) => {
+    setModal(null)
+    toast({ message: wasEdit ? t('profile.categories.updated') : t('profile.categories.created') })
+    load()
+  }
+
+  const confirmDelete = async () => {
+    if (!toDelete) return
+    setDeleting(true)
+    try {
+      await categoriesService.remove(toDelete.id)
+      setCategories(prev => prev?.filter(c => c.id !== toDelete.id) ?? prev)
+      toast({ message: t('profile.categories.deleted') })
+      setToDelete(null)
+    } catch {
+      toast({ message: t('profile.categories.deleteError'), variant: 'error' })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader title={t('profile.categories.customTitle')} subtitle={t('profile.categories.customSubtitle')}
+          action={custom.length > 0 ? <Button size="sm" icon="plus" onClick={openNew}>{t('profile.categories.new')}</Button> : undefined} />
+        {failed ? (
+          <LoadError message={t('profile.categories.loadError')} onRetry={load} />
+        ) : loading ? (
+          <ListSkeleton rows={2} />
+        ) : custom.length === 0 ? (
+          <EmptyState compact icon="tag" title={t('profile.categories.emptyTitle')} description={t('profile.categories.emptyText')}
+            action={<Button icon="plus" onClick={openNew}>{t('profile.categories.new')}</Button>} />
+        ) : (
+          <ul className="prf-list">
+            {custom.map(c => (
+              <li key={c.id} className="prf-item">
+                <button type="button" className="prf-item__main prf-item__main--compact" onClick={() => openEdit(c)}>
+                  <span className="prf-dot prf-dot--lg" style={{ background: c.color }} aria-hidden />
+                  <span className="prf-item__text"><span className="prf-item__title">{c.name}</span></span>
+                  <Icon name="chevronRight" size={16} className="prf-item__chevron" />
+                </button>
+                <span className="prf-item__actions">
+                  <IconButton icon="edit" label={t('profile.categories.edit', { name: c.name })} onClick={() => openEdit(c)} />
+                  <IconButton icon="trash" label={t('profile.categories.delete', { name: c.name })} onClick={() => setToDelete(c)} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {!failed && (
+        <Card>
+          <CardHeader icon="lock" title={t('profile.categories.defaultTitle')} subtitle={t('profile.categories.defaultSubtitle')} />
+          {loading ? (
+            <ListSkeleton rows={2} mark={false} />
+          ) : (
+            <ul className="prf-chips">
+              {defaults.map(c => (
+                <li key={c.id} className="prf-chip">
+                  <span className="prf-dot" style={{ background: c.color }} aria-hidden />
+                  <span className="prf-truncate">{categoryLabel(c)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
+      {modal && (
+        <CategoryModal category={modal.category} existing={categories || []}
+          onClose={() => setModal(null)} onSaved={saved} onDelete={c => { setModal(null); setToDelete(c) }} />
+      )}
+
+      <ConfirmDialog open={!!toDelete} onClose={() => !deleting && setToDelete(null)} onConfirm={confirmDelete} loading={deleting}
+        title={t('profile.categories.deleteTitle')} message={t('profile.categories.deleteText', { name: toDelete?.name ?? '' })}
+        confirmLabel={t('profile.categories.deleteAction')} />
+    </>
+  )
+}
+
+// ── Nova categoria / editar categoria ──
+function CategoryModal({ category, existing, onClose, onSaved, onDelete }: {
+  category: Category | null; existing: Category[]; onClose: () => void; onSaved: (wasEdit: boolean) => void; onDelete: (c: Category) => void
+}) {
+  const { t } = useTranslation()
+  const isEdit = !!category
+  const [name, setName] = useState(category?.name ?? '')
+  const [color, setColor] = useState(category?.color ?? DEFAULT_COLOR)
+  const [errors, setErrors] = useState<{ name?: string; form?: string }>({})
+  const [saving, setSaving] = useState(false)
+
+  const colors = uniqueColors([...PALETTE, category?.color])
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    const clean = name.trim()
+    const key = clean.toLocaleLowerCase()
+    const taken = existing.some(c => c.id !== category?.id && (c.name.toLocaleLowerCase() === key || categoryLabel(c).toLocaleLowerCase() === key))
+    const next = !clean ? t('profile.categories.nameRequired') : taken ? t('profile.categories.nameTaken') : undefined
+    setErrors({ name: next })
+    if (next) { focusInvalid(e.currentTarget); return }
+    setSaving(true)
+    try {
+      if (category) await categoriesService.update(category.id, { name: clean, color })
+      else await categoriesService.create({ name: clean, color })
+      onSaved(isEdit)
+    } catch {
+      setErrors({ form: t('profile.categories.saveError') })
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={isEdit ? t('profile.categories.editTitle') : t('profile.categories.newTitle')} width="30rem"
+      footer={<>
+        {category && <Button variant="danger" icon="trash" onClick={() => onDelete(category)} disabled={saving} className="prf-footer-start">{t('profile.categories.deleteAction')}</Button>}
+        <Button variant="secondary" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
+        <Button type="submit" form="prf-category-form" loading={saving}>{isEdit ? t('profile.categories.save') : t('profile.categories.create')}</Button>
+      </>}>
+      <form id="prf-category-form" onSubmit={submit} className="prf-form" noValidate>
+        <Input label={t('profile.categories.name')} value={name} onChange={e => setName(e.target.value)} placeholder={t('profile.categories.namePlaceholder')}
+          error={errors.name} maxLength={40} autoComplete="off" className="prf-input-dot"
+          leading={<span className="prf-dot prf-dot--lg" style={{ background: color }} />} />
+        <div className="ft-field">
+          <span className="ft-field__label">{t('profile.categories.color')}</span>
+          <ColorPicker label={t('profile.categories.color')} value={color} onChange={setColor} colors={colors} />
+        </div>
+        {errors.form && <p className="prf-form-error" role="alert">{errors.form}</p>}
+      </form>
+    </Modal>
+  )
+}

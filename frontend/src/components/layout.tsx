@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore, useAlertsStore } from '../store'
 import { authService } from '../services'
 import { demo } from '../demo'
-import { useOnlineStatus } from '../utils'
+import { useOnlineStatus, alertHref } from '../utils'
 import { Icon, type IconName } from './icons'
 import { IconButton, Logo, Modal, Spinner } from './ui'
 import type { Alert } from '../types'
@@ -12,7 +12,7 @@ import './layout.css'
 
 const NAV: { path: string; key: string; mobileKey: string; icon: IconName }[] = [
   { path: '/dashboard',    key: 'dashboard',    mobileKey: 'home',         icon: 'dashboard' },
-  { path: '/transactions', key: 'transactions', mobileKey: 'transactions', icon: 'list' },
+  { path: '/transactions', key: 'transactions', mobileKey: 'transactionsShort', icon: 'list' },
   { path: '/investments',  key: 'investments',  mobileKey: 'invest',       icon: 'trendUp' },
   { path: '/goals',        key: 'goals',        mobileKey: 'goals',        icon: 'target' },
   { path: '/reports',      key: 'reports',      mobileKey: 'reports',      icon: 'pie' },
@@ -26,10 +26,19 @@ const ALERT_LOOK: Record<Alert['type'], { icon: IconName; color: string }> = {
 }
 
 // ── Lista de alertas (popover no computador, folha no celular) ──
-function AlertsList() {
+function AlertsList({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation()
-  const { alerts, loading } = useAlertsStore()
-  if (loading) return <div style={{ padding: '1.25rem', display: 'flex', justifyContent: 'center' }}><Spinner size={18} /></div>
+  const { alerts, loading, error, load } = useAlertsStore()
+  if (loading && !alerts.length) return <div style={{ padding: '1.25rem', display: 'flex', justifyContent: 'center' }}><Spinner size={18} /></div>
+  if (error && !alerts.length) {
+    return (
+      <div style={{ padding: '1.25rem 1rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+        <Icon name="alertCircle" size={20} style={{ color: 'var(--red)' }} />
+        <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>{t('nav.alertsError')}</span>
+        <button type="button" className="ft-link-btn" onClick={() => load()}>{t('nav.retry')}</button>
+      </div>
+    )
+  }
   if (!alerts.length) {
     return (
       <div style={{ padding: '1.5rem 1rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
@@ -42,12 +51,17 @@ function AlertsList() {
     <div style={{ padding: '0.25rem' }}>
       {alerts.map((a, i) => {
         const look = ALERT_LOOK[a.type] ?? ALERT_LOOK.info
-        return (
-          <div key={i} className="ft-alert-item">
+        const href = alertHref(a)
+        const content = (
+          <>
             <Icon name={look.icon} size={16} style={{ color: look.color, marginTop: '0.0625rem' }} />
             <span className="ft-alert-item__text">{a.message}</span>
-          </div>
+            {href && <Icon name="chevronRight" size={14} style={{ color: 'var(--text-hint)', marginLeft: 'auto', marginTop: '0.125rem' }} />}
+          </>
         )
+        return href
+          ? <Link key={i} to={href} className="ft-alert-item ft-alert-item--link" onClick={onNavigate}>{content}</Link>
+          : <div key={i} className="ft-alert-item">{content}</div>
       })}
     </div>
   )
@@ -97,7 +111,7 @@ export function Sidebar() {
                     <span style={{ fontSize: 'var(--font-size-md)', fontWeight: 600 }}>{t('nav.alerts')}</span>
                     <IconButton icon="close" label={t('common.close')} onClick={() => setShowAlerts(false)} />
                   </div>
-                  <AlertsList />
+                  <AlertsList onNavigate={() => setShowAlerts(false)} />
                 </div>
               </>
             )}
@@ -140,7 +154,7 @@ function MobileTopBar() {
       <Link to="/dashboard" aria-label="FlowTrack"><Logo height={20} /></Link>
       <BellButton onClick={() => setOpen(true)} />
       <Modal open={open} onClose={() => setOpen(false)} title={t('nav.alerts')}>
-        <AlertsList />
+        <AlertsList onNavigate={() => setOpen(false)} />
       </Modal>
     </header>
   )

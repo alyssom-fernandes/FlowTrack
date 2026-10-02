@@ -1,40 +1,91 @@
 {
   "investments": {
     "title": "Investments",
-    "totalInvested": "Total invested",
-    "currentValue": "Current value",
-    "totalReturn": "Total return",
+    "subtitle_one": "{{count}} holding · values entered manually",
+    "subtitle_other": "{{count}} holdings · values entered manually",
+    "subtitleEmpty": "Values entered manually",
     "newInvestment": "New investment",
     "editInvestment": "Edit investment",
-    "none": "No investments added.",
-    "createFirst": "Add first investment",
-    "editAriaLabel": "Edit investment",
-    "deleteAriaLabel": "Delete investment",
-    "investedAt": "Invested",
-    "currentVal": "Current",
-    "profitability": "Return",
-    "since": "since {{date}}",
-    "nameLabel": "Name *",
-    "namePlaceholder": "e.g. Treasury Bond 2029",
-    "typeLabel": "Type *",
-    "investedLabel": "Invested amount *",
-    "currentLabel": "Current value *",
-    "startDateLabel": "Start date *",
-    "notesLabel": "Notes",
-    "errorSave": "Error saving investment. Please try again.",
-    "toastCreated": "Investment added!",
-    "toastUpdated": "Investment updated!",
-    "toastDeleted": "Investment deleted.",
+    "kpi": {
+      "invested": "Invested",
+      "current": "Current value",
+      "result": "Return",
+      "resultRef": "on amount invested",
+      "positions_one": "across {{count}} holding",
+      "positions_other": "across {{count}} holdings",
+      "types_one": "{{count}} asset type",
+      "types_other": "{{count}} asset types"
+    },
+    "allocation": {
+      "title": "Allocation by type",
+      "subtitle": "By current value",
+      "aria": "Portfolio allocation by type, by current value: {{list}}",
+      "share": "{{pct}} of portfolio",
+      "assets_one": "{{count}} holding",
+      "assets_other": "{{count}} holdings",
+      "legend": "Asset types"
+    },
+    "assets": {
+      "title": "Holdings",
+      "subtitle": "Sorted by current value",
+      "asset": "Holding",
+      "type": "Type",
+      "invested": "Invested",
+      "current": "Current",
+      "result": "Return",
+      "actions": "Actions"
+    },
+    "actions": {
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}"
+    },
+    "empty": {
+      "title": "No investments yet",
+      "text": "Add holdings such as treasury bonds, bank deposits or stocks to see your portfolio total, allocation by type and the return on each one.",
+      "action": "Add investment"
+    },
+    "loadError": "Couldn't load your investments.",
+    "retry": "Try again",
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "e.g. Treasury IPCA+ 2029",
+      "type": "Type",
+      "institution": "Institution",
+      "institutionPlaceholder": "e.g. Nubank",
+      "invested": "Amount invested",
+      "current": "Current value",
+      "currentHint": "Update the current value whenever you check your balance with the institution.",
+      "preview": "Return",
+      "notes": "Notes",
+      "notesPlaceholder": "e.g. maturity, liquidity, agreed rate",
+      "create": "Add investment",
+      "errorName": "Give the investment a name.",
+      "errorInvested": "Enter an amount greater than zero.",
+      "errorCurrent": "Enter the current value (zero or more).",
+      "errorSave": "Couldn't save. Please try again."
+    },
+    "delete": {
+      "title": "Delete investment",
+      "message": "“{{name}}” will be removed from your portfolio and totals. This can't be undone.",
+      "confirm": "Delete investment"
+    },
+    "toast": {
+      "created": "Investment added",
+      "updated": "Investment updated",
+      "deleted": "Investment deleted",
+      "deleteError": "Couldn't delete the investment."
+    },
     "types": {
-      "renda_fixa": "Fixed Income",
-      "renda_variavel": "Variable Income",
-      "fundo_imobiliario": "Real Estate Fund",
-      "tesouro_direto": "Government Bonds",
+      "renda_fixa": "Fixed income",
+      "renda_variavel": "Variable income",
+      "fundo_imobiliario": "Real estate fund",
+      "tesouro_direto": "Treasury bonds",
       "cdb": "CDB",
       "lci_lca": "LCI / LCA",
       "acoes": "Stocks",
-      "criptomoeda": "Cryptocurrency",
+      "criptomoeda": "Crypto",
       "outro": "Other"
-    }
+    },
+    "otherFolded": "Other"
   }
 }

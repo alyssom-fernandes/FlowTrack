@@ -1,473 +1,187 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PageFooter } from '../components/layout'
-import { Card, Spinner } from '../components/ui'
-import { transactionsService, accountsService, goalsService, categoriesService, summaryService, insightsService, cashflowService, budgetsService, netWorthService } from '../services'
-import { formatCurrency, formatCurrencyCompact, formatDateShort, getCurrentMonthRange, toISODate } from '../utils'
-import type { Transaction, Account, Goal, Category, CashflowProjection, Budget, NetWorth } from '../types'
+import { Icon } from '../components/icons'
+import { Button, Card, EmptyState, Page, PageHeader } from '../components/ui'
+import { useAlertsStore, useToastStore } from '../store'
+import { transactionsService, accountsService, categoriesService, summaryService, insightsService, cashflowService, budgetsService, netWorthService } from '../services'
+import { formatCurrency, formatCurrencyCompact, formatMonth, formatPercent, getCurrentMonthRange } from '../utils'
+import type { Transaction, Account, Category, CashflowProjection, Budget, NetWorth, InsightResponse } from '../types'
+import { AlertsCard, BudgetsCard, CashflowCard, DashboardSkeleton, InsightCard, KpiTile, MonthlyCard, NetWorthCard, Onboarding, RecentCard, type Delta } from './dashboard/cards'
+import { dailyProjection, lastMonths, monthKey, pctChange, type MonthTotals } from './dashboard/data'
+import './dashboard/dashboard.css'
 
-// ── Metric Card ───────────────────────────────────────────
-function MetricCard({ label, value, sub, subColor }: { label: string; value: string; sub?: string; subColor?: string }) {
-  return (
-    <Card hover style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-      <span style={{ fontSize: 'var(--font-size-3xl)', fontWeight: '700', color: 'var(--text-primary)', lineHeight: 1 }}>{value}</span>
-      {sub && <span style={{ fontSize: 'var(--font-size-sm)', color: subColor || 'var(--text-muted)' }}>{sub}</span>}
-    </Card>
-  )
-}
+const isFlow = (tx: Transaction) => tx.type !== 'transfer'
 
-// ── Mini Chart (SVG sparkline) ────────────────────────────
-function SparklineChart({ data, color }: { data: number[]; color: string }) {
-  if (data.length < 2) return null
-  const max = Math.max(...data)
-  const min = Math.min(...data)
-  const range = max - min || 1
-  const w = 300; const h = 60
-  const points = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w
-    const y = h - ((v - min) / range) * (h - 8) - 4
-    return `${x},${y}`
-  }).join(' ')
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: '3.75rem' }} preserveAspectRatio="none">
-      <polyline fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="square" points={points} />
-    </svg>
-  )
-}
+// Valores muito altos viram "R$ 1,2 mi" para caber no cartão
+const kpiMoney = (v: number) => (Math.abs(v) >= 100_000 ? formatCurrencyCompact(v) : formatCurrency(v))
 
-// ── Chart Card ────────────────────────────────────────────
-type MonthlySummary = { month: string; income: number; expense: number }
-
-function ChartCard({ summary }: { summary: MonthlySummary[] }) {
-  const { t } = useTranslation()
-  const monthNames: string[] = t('common.months', { returnObjects: true }) as string[]
-  const labels = summary.map(s => monthNames[parseInt(s.month.split('-')[1], 10) - 1])
-  const incomeData = summary.map(s => s.income)
-  const expenseData = summary.map(s => s.expense)
-
-  return (
-    <Card style={{ marginBottom: '0.75rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>{t('dashboard.monthlyChart')}</span>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-            <span style={{ width: '1.5rem', height: '1.5px', background: 'var(--green)', display: 'inline-block' }} />{t('dashboard.incomeLabel')}
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-            <span style={{ width: '1.5rem', height: '1.5px', background: 'var(--accent)', display: 'inline-block' }} />{t('dashboard.expensesLabel')}
-          </span>
-        </div>
-      </div>
-
-      <div style={{ position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
-          <SparklineChart data={incomeData} color="var(--green)" />
-        </div>
-        <SparklineChart data={expenseData} color="#9D2449" />
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.375rem' }}>
-        {labels.map((l) => (
-          <span key={l} style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', flex: 1, textAlign: 'center' }}>{l}</span>
-        ))}
-      </div>
-    </Card>
-  )
-}
-
-// ── Cashflow Chart ────────────────────────────────────────
-function CashflowCard({ cashflow }: { cashflow: CashflowProjection }) {
-  const { t } = useTranslation()
-  if (cashflow.days.length === 0) return null
-
-  const W = 320; const H = 80
-  const balances = cashflow.days.map(d => d.projected_balance)
-  const allVals = [cashflow.starting_balance, ...balances]
-  const max = Math.max(...allVals)
-  const min = Math.min(...allVals, 0)
-  const range = max - min || 1
-
-  const toY = (v: number) => H - ((v - min) / range) * (H - 8) - 4
-
-  const pts = [
-    `0,${toY(cashflow.starting_balance)}`,
-    ...cashflow.days.map((d, i) => {
-      const x = ((i + 1) / cashflow.days.length) * W
-      return `${x},${toY(d.projected_balance)}`
-    }),
-  ].join(' ')
-
-  const zeroY = toY(0)
-  const negColor = 'var(--red)'
-  const posColor = 'var(--green)'
-
-  return (
-    <Card>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
-        <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>{t('dashboard.cashflowTitle')}</span>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {cashflow.has_negative_days && (
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--red)', background: 'var(--red-soft)', padding: '0.125rem 0.4rem', borderRadius: 'var(--radius-sm)' }}>
-              {t('dashboard.negativeForecast')}
-            </span>
-          )}
-          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-            {t('dashboard.projected')} <strong style={{ color: cashflow.projected_balance >= 0 ? 'var(--green)' : 'var(--red)' }}>{formatCurrencyCompact(cashflow.projected_balance)}</strong>
-          </span>
-        </div>
-      </div>
-      <div style={{ overflowX: 'auto' }}>
-        <svg viewBox={`0 0 ${W} ${H + 16}`} style={{ width: '100%', height: `${H + 16}px`, minWidth: '16rem' }}>
-          {/* Zero line */}
-          {min < 0 && (
-            <line x1="0" y1={zeroY} x2={W} y2={zeroY} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="4,4" />
-          )}
-          {/* Projected balance line */}
-          <polyline fill="none" stroke={cashflow.has_negative_days ? negColor : posColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={pts} />
-          {/* Starting balance dot */}
-          <circle cx="0" cy={toY(cashflow.starting_balance)} r="3" fill="var(--text-muted)" />
-          {/* End dot */}
-          <circle cx={W} cy={toY(cashflow.projected_balance)} r="3" fill={cashflow.projected_balance >= 0 ? posColor : negColor} />
-          {/* Date labels for first and last */}
-          {cashflow.days.length > 0 && (
-            <>
-              <text x="4" y={H + 13} fontSize="8" fill="var(--text-hint)">{cashflow.days[0].date.slice(5)}</text>
-              <text x={W - 4} y={H + 13} fontSize="8" fill="var(--text-hint)" textAnchor="end">{cashflow.days[cashflow.days.length - 1].date.slice(5)}</text>
-            </>
-          )}
-        </svg>
-      </div>
-      {cashflow.days.some(d => d.events.length > 0) && (
-        <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
-          {cashflow.days.flatMap(d => d.events).slice(0, 4).map((e, i) => (
-            <span key={i} style={{
-              fontSize: 'var(--font-size-xs)', color: e.amount < 0 ? 'var(--accent)' : 'var(--green)',
-              background: e.amount < 0 ? 'var(--accent-soft)' : 'var(--green-soft)',
-              padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-sm)',
-            }}>
-              {e.description.slice(0, 18)}{e.description.length > 18 ? '…' : ''} {formatCurrencyCompact(e.amount)}
-            </span>
-          ))}
-          {cashflow.days.flatMap(d => d.events).length > 4 && (
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>{t('dashboard.cashflowMore', { count: cashflow.days.flatMap(d => d.events).length - 4 })}</span>
-          )}
-        </div>
-      )}
-    </Card>
-  )
-}
-
-// ── Budget Card ───────────────────────────────────────────
-function BudgetCard({ budgets }: { budgets: Budget[] }) {
-  const { t } = useTranslation()
-  if (budgets.length === 0) return null
-  return (
-    <Card>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
-        <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>{t('dashboard.budgets')}</span>
-        <a href="/profile" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', textDecoration: 'none' }}>{t('common.manage')}</a>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-        {budgets.map(b => {
-          const over = b.percent >= 100
-          const warn = b.percent >= 80 && b.percent < 100
-          const color = over ? 'var(--red)' : warn ? 'var(--accent)' : 'var(--green)'
-          return (
-            <div key={b.id}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: '500' }}>
-                  {b.category_name || 'Categoria'}
-                </span>
-                <span style={{ fontSize: 'var(--font-size-xs)', color, fontWeight: '600' }}>
-                  {formatCurrencyCompact(b.spent)} / {formatCurrencyCompact(b.limit_amount)} ({b.percent.toFixed(0)}%)
-                </span>
-              </div>
-              <div style={{ height: '4px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(b.percent, 100)}%`, background: color, borderRadius: '2px', transition: 'width 0.5s ease' }} />
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </Card>
-  )
-}
-
-// ── Net Worth Card ────────────────────────────────────────
-function NetWorthCard({ nw }: { nw: NetWorth }) {
-  const { t } = useTranslation()
-  const W = 200; const H = 40
-  const snaps = nw.snapshots
-  const positive = nw.net_worth >= 0
-  const color = positive ? 'var(--green)' : 'var(--red)'
-
-  const sparkline = snaps.length >= 2 ? (() => {
-    const vals = snaps.map(s => s.net_worth)
-    const max = Math.max(...vals); const min = Math.min(...vals)
-    const range = max - min || 1
-    const pts = vals.map((v, i) => {
-      const x = (i / (vals.length - 1)) * W
-      const y = H - ((v - min) / range) * (H - 4) - 2
-      return `${x},${y}`
-    }).join(' ')
-    return <polyline fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" points={pts} />
-  })() : null
-
-  return (
-    <Card>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-        <div>
-          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.25rem' }}>
-            {t('dashboard.netWorth')}
-          </span>
-          <span style={{ fontSize: 'var(--font-size-3xl)', fontWeight: '700', color, lineHeight: 1 }}>
-            {formatCurrencyCompact(nw.net_worth)}
-          </span>
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.375rem' }}>
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>
-              {t('dashboard.netWorthAccounts')} <strong style={{ color: 'var(--text-muted)' }}>{formatCurrencyCompact(nw.total_accounts)}</strong>
-            </span>
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>
-              {t('dashboard.netWorthInvestments')} <strong style={{ color: 'var(--text-muted)' }}>{formatCurrencyCompact(nw.total_investments)}</strong>
-            </span>
-          </div>
-          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)', display: 'block', marginTop: '0.375rem', fontStyle: 'italic' }}>
-            {t('dashboard.netWorthHint')}
-          </span>
-        </div>
-        {sparkline && (
-          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '7rem', height: '2.5rem', flexShrink: 0 }} preserveAspectRatio="none">
-            {sparkline}
-          </svg>
-        )}
-      </div>
-    </Card>
-  )
-}
-
-// ── Transaction Row ───────────────────────────────────────
-function TxnRow({ txn }: { txn: Transaction }) {
-  const isPositive = txn.amount > 0
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.5rem 0', borderBottom: '0.5px solid var(--border)' }}>
-      <div style={{ width: '1.875rem', height: '1.875rem', borderRadius: '0.4375rem', background: isPositive ? 'var(--green-soft)' : 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={isPositive ? 'var(--green)' : 'var(--accent)'} strokeWidth="1.5" strokeLinecap="square">
-          {isPositive ? <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/> : <path d="M3 11l19-9-9 19-2-8-8-2z"/>}
-        </svg>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{txn.description}</div>
-        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-hint)' }}>{formatDateShort(txn.transaction_date)}</div>
-      </div>
-      <span style={{ fontSize: 'var(--font-size-base)', fontWeight: '500', color: isPositive ? 'var(--green)' : 'var(--red)', flexShrink: 0 }}>
-        {isPositive ? '+' : ''}{formatCurrency(txn.amount)}
-      </span>
-    </div>
-  )
-}
-
-// ── AI Insight Card ───────────────────────────────────────
-function InsightCard({ startDate, endDate }: { startDate: string; endDate: string }) {
-  const { t } = useTranslation()
-  const [text, setText] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [cached, setCached] = useState(false)
-
-  const load = async (force = false) => {
-    setLoading(true)
-    try {
-      const res = await insightsService.generate(startDate, endDate)
-      setText(res.text)
-      setCached(res.cached && !force)
-    } catch {
-      setText(t('dashboard.aiError'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { load() }, [startDate, endDate]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <Card accent>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.375rem' }}>
-        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-          {t('dashboard.aiInsight')} {cached && <span style={{ opacity: 0.6 }}>{t('dashboard.aiCache')}</span>}
-        </span>
-        <button
-          onClick={() => load(true)}
-          disabled={loading}
-          title={t('dashboard.aiRefresh')}
-          aria-label={t('dashboard.aiRefresh')}
-          style={{ background: 'none', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', color: 'var(--accent)', opacity: loading ? 0.5 : 1, padding: '0.125rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center' }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }}>
-            <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-          </svg>
-        </button>
-      </div>
-      {loading ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0' }}>
-          <Spinner size={14} />
-          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>{t('dashboard.aiAnalyzing')}</span>
-        </div>
-      ) : (
-        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{text}</p>
-      )}
-    </Card>
-  )
-}
-
-// ── Dashboard ─────────────────────────────────────────────
 export function Dashboard() {
   const { t } = useTranslation()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [monthlySummary, setMonthlySummary] = useState<MonthlySummary[]>([])
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [goals, setGoals] = useState<Goal[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [cashflow, setCashflow] = useState<CashflowProjection | null>(null)
-  const [budgets, setBudgets] = useState<Budget[]>([])
-  const [netWorth, setNetWorth] = useState<NetWorth | null>(null)
-  const [loading, setLoading] = useState(true)
-
+  const [now] = useState(() => new Date())
   const { start_date, end_date } = getCurrentMonthRange()
-  const currentMonth = toISODate().slice(0, 7)
+  const currentMonth = monthKey(now)
+  const prevMonth = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1))
+
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [attempt, setAttempt] = useState(0)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [summary, setSummary] = useState<MonthTotals[]>([])
+  const [cashflow, setCashflow] = useState<CashflowProjection | null>(null)
+  const [budgets, setBudgets] = useState<Budget[] | null>(null)
+  const [netWorth, setNetWorth] = useState<NetWorth | null | false>(null)
+  const [insight, setInsight] = useState<InsightResponse | null>(null)
+  const [insightLoading, setInsightLoading] = useState(false)
+  const [insightError, setInsightError] = useState(false)
+  const { alerts, loading: alertsLoading, error: alertsError, load: reloadAlerts } = useAlertsStore()
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [txnRes, accRes, goalsRes, catRes, summary] = await Promise.all([
-          transactionsService.list({ start_date, end_date, page_size: 200 }),
-          accountsService.list(),
-          goalsService.list(),
-          categoriesService.list(),
-          summaryService.monthly(6),
-        ])
-        setTransactions(txnRes.transactions || [])
-        setAccounts(accRes.accounts || [])
-        setGoals(goalsRes.goals || [])
-        setCategories(catRes.categories || [])
-        setMonthlySummary(summary)
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setLoading(false)
-      }
+    let alive = true
+    setStatus('loading')
+    Promise.all([
+      transactionsService.list({ start_date, end_date, page_size: 200 }),
+      accountsService.list(),
+      categoriesService.list(),
+      summaryService.monthly(6),
+    ]).then(([txRes, accRes, catRes, months]) => {
+      if (!alive) return
+      setTransactions(txRes.transactions || [])
+      setAccounts(accRes.accounts || [])
+      setCategories(catRes.categories || [])
+      setSummary(months || [])
+      setStatus('ready')
+    }).catch(() => { if (alive) setStatus('error') })
+    // Cartões secundários carregam em paralelo, cada um com seu esqueleto
+    cashflowService.projection().then(r => { if (alive) setCashflow(r) }).catch(() => { if (alive) setCashflow({ days: [], starting_balance: 0, projected_balance: 0, has_negative_days: false }) })
+    budgetsService.list(currentMonth).then(r => { if (alive) setBudgets(r.budgets || []) }).catch(() => { if (alive) setBudgets([]) })
+    netWorthService.get().then(r => { if (alive) setNetWorth(r) }).catch(() => { if (alive) setNetWorth(false) })
+    return () => { alive = false }
+  }, [attempt]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const months6 = useMemo(() => lastMonths(summary, 6, now), [summary, now])
+  const hasHistory = summary.some(m => m.income || m.expense) || transactions.length > 0
+  const isNew = status === 'ready' && !hasHistory
+
+  const { toast } = useToastStore()
+  const hadInsight = useRef(false)
+  useEffect(() => { hadInsight.current = !!insight }, [insight])
+
+  const loadInsight = useCallback(async () => {
+    setInsightLoading(true)
+    setInsightError(false)
+    try {
+      setInsight(await insightsService.generate(start_date, end_date))
+    } catch {
+      setInsightError(true)
+      // Se já havia um resumo na tela, ele fica e o aviso vem num toast
+      if (hadInsight.current) toast({ message: t('dashboard.insight.refreshError'), variant: 'error' })
+    } finally {
+      setInsightLoading(false)
     }
-    load()
-    // Non-blocking secondary loads
-    cashflowService.projection().then(setCashflow).catch(() => null)
-    budgetsService.list(currentMonth).then(r => setBudgets(r.budgets || [])).catch(() => null)
-    netWorthService.get().then(setNetWorth).catch(() => null)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [start_date, end_date, toast, t])
 
-  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
-  const income = transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
-  const expenses = Math.abs(transactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0))
-  const recentTxns = [...transactions].sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()).slice(0, 5)
-  const currentMonthTxns = transactions
+  useEffect(() => {
+    if (status === 'ready' && hasHistory) loadInsight()
+  }, [status, hasHistory, loadInsight])
 
-  if (loading) {
+  const points = useMemo(() => (cashflow ? dailyProjection(cashflow, now) : []), [cashflow, now])
+
+  // ── Métricas do mês ─────────────────────────────────────
+  const flows = transactions.filter(isFlow)
+  const fromSummary = summary.find(m => m.month === currentMonth)
+  const income = fromSummary ? fromSummary.income : flows.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0)
+  const expenses = fromSummary ? fromSummary.expense : Math.abs(flows.filter(tx => tx.amount < 0).reduce((s, tx) => s + tx.amount, 0))
+  const prev = months6[months6.length - 2]
+  const net = income - expenses
+  const rate = income > 0 ? (net / income) * 100 : null
+  const balance = accounts.reduce((s, a) => s + a.balance, 0)
+  const prevShort = formatMonth(prevMonth, 'short')
+  const vsPrev = t('dashboard.kpi.vsMonth', { month: prevShort })
+
+  const delta = (cur: number, before: number | undefined, upIsGood: boolean, ref = vsPrev): Delta | null => {
+    if (before === undefined) return null
+    const pct = pctChange(cur, before)
+    if (pct === null) return null
+    const dir = Math.abs(pct) < 0.05 ? 'flat' : pct > 0 ? 'up' : 'down'
+    const tone = dir === 'flat' ? 'neutral' : (dir === 'up') === upIsGood ? 'good' : 'bad'
+    return { text: formatPercent(pct, 1), dir, tone, ref }
+  }
+  const prevNet = prev && (prev.income || prev.expense) ? prev.income - prev.expense : undefined
+  const netDelta = delta(net, prevNet, true)
+  const prevSnap = netWorth ? netWorth.snapshots.find(s => s.date.startsWith(prevMonth)) : undefined
+  const balanceDelta = prevSnap ? delta(balance, prevSnap.total_accounts, true, t('dashboard.kpi.sinceMonthEnd', { month: prevShort })) : null
+
+  const recent = [...transactions]
+    .sort((a, b) => b.transaction_date.localeCompare(a.transaction_date) || b.created_at.localeCompare(a.created_at))
+    .slice(0, 7)
+
+  const actions = status === 'ready' && hasHistory ? (
+    <>
+      <Link to="/transactions?acao=importar" className="ft-btn ft-btn--secondary ft-btn--md ft-dash-head-btn"><Icon name="upload" size={16} />{t('dashboard.actions.import')}</Link>
+      <Link to="/transactions?acao=nova" className="ft-btn ft-btn--primary ft-btn--md ft-dash-head-btn"><Icon name="plus" size={16} />{t('dashboard.actions.newTransaction')}</Link>
+    </>
+  ) : undefined
+  const header = <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.subtitle', { month: formatMonth(currentMonth, 'long') })} actions={actions} />
+
+  if (status === 'loading') {
+    return <Page>{header}<div className="ft-dash"><DashboardSkeleton /></div></Page>
+  }
+
+  if (status === 'error') {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: '60dvh' }}>
-        <Spinner size={28} />
-      </div>
+      <Page>
+        {header}
+        <Card>
+          <EmptyState icon="alertCircle" title={t('dashboard.error.title')} description={t('dashboard.error.text')}
+            action={<Button icon="refresh" onClick={() => setAttempt(a => a + 1)}>{t('dashboard.error.retry')}</Button>} />
+        </Card>
+      </Page>
+    )
+  }
+
+  if (isNew) {
+    return (
+      <Page>
+        {header}
+        <div className="ft-dash">
+          <Onboarding hasAccount={accounts.length > 0} hasTransactions={false} hasBudget={!!budgets?.length} />
+        </div>
+      </Page>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-      <style>{`.ft-dash-bottom{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}@media(max-width:640px){.ft-dash-bottom{grid-template-columns:1fr}}`}</style>
-      <div style={{ flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+    <Page>
+      {header}
+      <div className="ft-dash">
+        <div className="ft-dash-grid">
+          <section className="ft-dash-kpis" aria-label={t('dashboard.kpi.label')}>
+            <KpiTile label={t('dashboard.kpi.balance')} value={kpiMoney(balance)} negative={balance < 0} delta={balanceDelta}
+              foot={<span className="ft-kpi__ref">{accounts.length ? t('dashboard.kpi.accounts', { count: accounts.length }) : t('dashboard.kpi.noAccounts')}</span>} />
+            <KpiTile label={t('dashboard.kpi.income')} value={kpiMoney(income)} delta={delta(income, prev?.income || undefined, true)}
+              foot={<span className="ft-kpi__ref">{t('dashboard.kpi.noComparison', { month: prevShort })}</span>} />
+            <KpiTile label={t('dashboard.kpi.expenses')} value={kpiMoney(expenses)} delta={delta(expenses, prev?.expense || undefined, false)}
+              foot={<span className="ft-kpi__ref">{t('dashboard.kpi.noComparison', { month: prevShort })}</span>} />
+            <KpiTile label={t('dashboard.kpi.net')} value={kpiMoney(net)} negative={net < 0} delta={netDelta}
+              foot={rate === null ? <span className="ft-kpi__ref">{t('dashboard.kpi.noIncome')}</span> : undefined}
+              extra={rate !== null
+                ? <span className="ft-kpi__ref">{t(netDelta ? 'dashboard.kpi.savedShort' : 'dashboard.kpi.savingsRate')} <strong className="ft-num" style={{ color: rate < 0 ? 'var(--red)' : 'var(--text-secondary)' }}>{formatPercent(rate, 0, false)}</strong></span>
+                : undefined} />
+          </section>
 
-        {/* Page header */}
-        <div style={{ marginBottom: '0.25rem' }}>
-          <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '600', color: 'var(--text-primary)' }}>{t('dashboard.title')}</h1>
-          <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>{t('dashboard.subtitle')}</p>
-        </div>
-
-        {/* Metrics */}
-        <div className="ft-metrics-grid">
-          <MetricCard label={t('dashboard.totalBalance')} value={formatCurrencyCompact(totalBalance)} sub={accounts.length > 0 ? t('dashboard.accounts', { count: accounts.length }) : t('dashboard.noAccounts')} />
-          <MetricCard label={t('dashboard.income')} value={formatCurrencyCompact(income)} sub={t('dashboard.incomeThisMonth')} subColor="var(--green)" />
-          <MetricCard label={t('dashboard.expenses')} value={formatCurrencyCompact(expenses)} sub={t('dashboard.expensesThisMonth')} subColor="var(--red)" />
-        </div>
-
-        {/* Chart */}
-        <ChartCard summary={monthlySummary} />
-
-        {/* Cashflow projection */}
-        {cashflow && <CashflowCard cashflow={cashflow} />}
-
-        {/* Net worth */}
-        {netWorth && <NetWorthCard nw={netWorth} />}
-
-        {/* Budgets */}
-        {budgets.length > 0 && <BudgetCard budgets={budgets} />}
-
-        {/* Bottom grid — responsive via CSS class */}
-        <div className="ft-dash-bottom">
-
-          {/* Recent transactions */}
-          <Card>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)' }}>{t('dashboard.recentTransactions')}</span>
-              <a href="/transactions" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--accent)', textDecoration: 'none' }}>{t('common.viewAll')}</a>
-            </div>
-            {recentTxns.length === 0
-              ? <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', padding: '1rem 0' }}>{t('dashboard.noTransactions')}</p>
-              : recentTxns.map(t => <TxnRow key={t.id} txn={t} />)
-            }
-          </Card>
-
-          {/* Alerts + AI Insight */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {/* Alerts (computed locally from loaded data) */}
-            <Card>
-              <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '500', color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>{t('dashboard.alertsTitle')}</span>
-              {(() => {
-                const alerts: { color: string; bg: string; text: string }[] = []
-                if (expenses > income && income > 0)
-                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: t('dashboard.expensesExceedIncome') })
-                accounts.filter(a => a.balance < 0).forEach(a =>
-                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: t('dashboard.negativeBalance', { name: a.name }) }))
-                goals.filter(g => g.type === 'spending_limit' && g.progress_percent >= 80 && g.progress_percent < 100).forEach(g => {
-                  const cat = g.category_id ? categories.find(c => c.id === g.category_id) : null
-                  const label = cat ? `"${g.name}" (${cat.name})` : `"${g.name}"`
-                  alerts.push({ color: 'var(--accent)', bg: 'var(--accent-soft)', text: t('dashboard.goalWarning', { label, pct: g.progress_percent.toFixed(0) }) })
-                })
-                goals.filter(g => g.type === 'spending_limit' && g.progress_percent >= 100).forEach(g =>
-                  alerts.push({ color: 'var(--red)', bg: 'var(--red-soft)', text: t('dashboard.goalExceeded', { name: g.name }) }))
-                const uncategorized = currentMonthTxns.filter(tx => !tx.category_id).length
-                if (uncategorized > 3)
-                  alerts.push({ color: 'var(--text-muted)', bg: 'var(--bg-input)', text: t('dashboard.uncategorized', { count: uncategorized }) })
-                if (cashflow?.has_negative_days)
-                  alerts.push({ color: 'var(--accent)', bg: 'var(--accent-soft)', text: t('dashboard.cashflowNegativeDays') })
-                if (alerts.length === 0)
-                  return <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)' }}>
-                    {t('dashboard.allGood')}
-                  </p>
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {alerts.map((a, i) => (
-                      <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', padding: '0.375rem 0.5rem', borderRadius: 'var(--radius-sm)', background: a.bg }}>
-                        <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: a.color, flexShrink: 0, marginTop: '0.3rem' }} />
-                        <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>{a.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                )
-              })()}
-            </Card>
-
-            {/* AI Insight */}
-            <InsightCard startDate={start_date} endDate={end_date} />
+          <MonthlyCard data={months6} currentMonth={currentMonth} />
+          {netWorth !== false && <NetWorthCard nw={netWorth} />}
+          <CashflowCard cashflow={cashflow} points={points} />
+          <div className="ft-dash-side">
+            <InsightCard insight={insight} loading={insightLoading} error={insightError} onRefresh={loadInsight} />
+            <AlertsCard alerts={alerts} loading={alertsLoading} error={alertsError} onRetry={reloadAlerts} />
           </div>
+          <RecentCard transactions={recent} categories={categories} accounts={accounts} />
+          <BudgetsCard budgets={budgets ?? []} categories={categories} loading={budgets === null} />
         </div>
       </div>
-      <PageFooter />
-    </div>
+    </Page>
   )
 }

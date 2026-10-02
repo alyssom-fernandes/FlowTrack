@@ -1,46 +1,156 @@
 {
   "goals": {
     "title": "Goals",
-    "active_one": "{{count}} active goal",
-    "active_other": "{{count}} active goals",
-    "none": "No goals created",
+    "subtitle": {
+      "metas": "Spending limits and savings goals",
+      "orcamentos": "Monthly spending limit per category"
+    },
+    "tabsLabel": "Goals and budgets",
+    "tabs": {
+      "metas": "Goals",
+      "orcamentos": "Budgets"
+    },
     "newGoal": "New goal",
     "editGoal": "Edit goal",
-    "createFirst": "No active goals. Create your first goal to track spending or savings.",
-    "createFirstBtn": "Create first goal",
-    "spendingLimits": "Spending limits",
-    "savingsGoals": "Savings goals",
-    "badgeSavings": "Savings",
-    "badgeLimit": "Limit",
-    "badgeExceeded": "Exceeded",
-    "until": "Until {{date}}",
-    "editAriaLabel": "Edit goal",
-    "deleteAriaLabel": "Delete goal",
-    "accumulated": "Accumulated",
-    "spent": "Spent",
-    "target": "Target",
-    "nameLabel": "Name *",
-    "namePlaceholder": "e.g. Restaurant limit",
-    "typeLabel": "Type *",
-    "typeSpending": "Spending limit",
-    "typeSavings": "Savings target",
-    "targetAmountLabel": "Target amount *",
-    "periodLabel": "Period",
-    "periodMonthly": "Monthly",
-    "periodYearly": "Yearly",
-    "periodCustom": "Custom",
-    "linkedCategory": "Linked category",
-    "linkedCategoryHint": "Progress will be automatically tracked from transactions in this category.",
-    "allCategories": "All categories",
-    "progressAuto": "Current progress is automatically calculated from your transactions in this period.",
-    "startDate": "Start date",
-    "endDate": "End date",
-    "createBtn": "Create goal",
-    "errorName": "Enter a goal name.",
-    "errorAmount": "Enter a valid target amount.",
-    "errorSave": "Error saving goal. Please try again.",
-    "toastCreated": "Goal created!",
-    "toastUpdated": "Goal updated!",
-    "toastDeleted": "Goal deleted."
+    "sections": {
+      "limits": "Spending limits",
+      "savings": "Savings goals"
+    },
+    "type": {
+      "spending_limit": "Spending limit",
+      "savings_target": "Savings goal"
+    },
+    "allSpending": "All spending",
+    "allIncome": "All income",
+    "of": "of {{value}}",
+    "status": {
+      "ok": "Within limit",
+      "okSavings": "On track",
+      "warn": "Close to limit",
+      "over": "Over limit",
+      "behind": "Behind pace",
+      "done": "Reached",
+      "upcoming": "Not started",
+      "ended": "Ended"
+    },
+    "left": "{{value}} left",
+    "overBy": "{{value}} over the limit",
+    "missing": "{{value}} to go",
+    "reached": "Goal reached",
+    "beyond": "{{value}} above target",
+    "daysLeft_one": "{{count}} day left",
+    "daysLeft_other": "{{count}} days left",
+    "startsOn": "Starts {{date}}",
+    "endedOn": "Ended {{date}}",
+    "period": {
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "custom": "Custom",
+      "monthlyOf": "Monthly · {{month}}",
+      "yearlyOf": "Yearly · {{year}}",
+      "from": "Since {{date}}"
+    },
+    "actions": {
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}"
+    },
+    "empty": {
+      "title": "No goals yet",
+      "text": "Set a spending limit for a category or a savings goal. Progress is calculated from your transactions.",
+      "limit": "Create spending limit",
+      "savings": "Create savings goal"
+    },
+    "loadError": "Couldn't load your goals.",
+    "retry": "Try again",
+    "form": {
+      "typeLabel": "Type",
+      "nameLabel": "Name",
+      "namePlaceholderLimit": "e.g. Groceries and dining out",
+      "namePlaceholderSavings": "e.g. Emergency fund",
+      "amountLimit": "Limit",
+      "amountSavings": "Amount to save",
+      "periodLabel": "Period",
+      "categoryLabel": "Category",
+      "hintLimit": "Progress adds up spending in this category during the period.",
+      "hintSavings": "Progress adds up income in this category during the period.",
+      "startDate": "Start",
+      "endDate": "End",
+      "create": "Create goal",
+      "errorName": "Give the goal a name.",
+      "errorAmount": "Enter an amount greater than zero.",
+      "errorStart": "Enter a start date.",
+      "errorEnd": "Enter an end date on or after the start.",
+      "errorSave": "Couldn't save. Please try again."
+    },
+    "delete": {
+      "title": "Delete goal",
+      "message": "“{{name}}” will no longer be tracked. Your transactions stay as they are.",
+      "confirm": "Delete goal"
+    },
+    "toast": {
+      "created": "Goal created",
+      "updated": "Goal updated",
+      "deleted": "Goal deleted",
+      "deleteError": "Couldn't delete the goal."
+    },
+    "budgets": {
+      "new": "New budget",
+      "edit": "Edit budget",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "thisMonth": "This month",
+      "monthNav": "Budget month",
+      "budgeted": "Budgeted",
+      "spent": "Spent",
+      "remaining": "Remaining",
+      "overTotal": "Over budget",
+      "usedPct": "{{pct}} of budget used",
+      "overCount_one": "{{count}} category over its limit",
+      "overCount_other": "{{count}} categories over their limit",
+      "allWithin": "All categories within their limit",
+      "notStarted": "This month hasn’t started yet",
+      "daysLeft_one": "{{count}} day until month end",
+      "daysLeft_other": "{{count}} days until month end",
+      "listLabel": "Budgets by category",
+      "spentOf": "{{spent}} of {{limit}}",
+      "left": "{{value}} left",
+      "overBy": "{{value}} over",
+      "empty": {
+        "title": "No budgets for {{month}}",
+        "text": "Set a monthly limit per category to see how much you can still spend.",
+        "textPast": "This month ended without budgets. You can still add one to compare against what you spent.",
+        "copy": "Copy from {{month}}",
+        "create": "Create budget"
+      },
+      "loadError": "Couldn't load your budgets.",
+      "form": {
+        "categoryLabel": "Category",
+        "choose": "Choose a category",
+        "limitLabel": "Monthly limit",
+        "average": "3-month average: {{value}}",
+        "noHistory": "No spending in this category over the last 3 months.",
+        "useAverage": "Use average",
+        "allTaken": "Every category already has a budget this month.",
+        "create": "Create budget",
+        "errorCategory": "Choose a category.",
+        "errorAmount": "Enter a limit greater than zero.",
+        "errorDuplicate": "This category already has a budget this month.",
+        "errorSave": "Couldn't save. Please try again."
+      },
+      "delete": {
+        "title": "Delete budget",
+        "message": "The {{name}} budget for {{month}} will be removed. Your spending stays recorded.",
+        "confirm": "Delete budget"
+      },
+      "toast": {
+        "created": "Budget created",
+        "updated": "Budget updated",
+        "deleted": "Budget deleted",
+        "copied_one": "{{count}} budget copied from {{month}}",
+        "copied_other": "{{count}} budgets copied from {{month}}",
+        "copyError": "Couldn't copy the budgets.",
+        "deleteError": "Couldn't delete the budget."
+      }
+    }
   }
 }

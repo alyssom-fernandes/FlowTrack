@@ -1,42 +1,148 @@
 {
   "dashboard": {
     "title": "Dashboard",
-    "subtitle": "Current month overview",
-    "totalBalance": "Total balance",
-    "income": "Income",
-    "expenses": "Expenses",
-    "incomeThisMonth": "↑ this month",
-    "expensesThisMonth": "↓ this month",
-    "accounts_one": "{{count}} account",
-    "accounts_other": "{{count}} accounts",
-    "noAccounts": "No accounts",
-    "monthlyChart": "Monthly overview",
-    "incomeLabel": "Income",
-    "expensesLabel": "Expenses",
-    "cashflowTitle": "Projection — next 30 days",
-    "negativeForecast": "Negative balance forecast",
-    "projected": "Projected:",
-    "netWorth": "Net worth",
-    "netWorthAccounts": "Accounts:",
-    "netWorthInvestments": "Investments:",
-    "netWorthHint": "Manually entered values — keep investments up to date.",
-    "budgets": "Monthly budgets",
-    "recentTransactions": "Recent transactions",
-    "noTransactions": "No transactions this month.",
-    "alertsTitle": "Alerts",
-    "allGood": "Everything looks good this month.",
-    "expensesExceedIncome": "Expenses exceed income this month",
-    "negativeBalance": "Negative balance: {{name}}",
-    "goalWarning": "Goal {{label}} at {{pct}}% of limit",
-    "goalExceeded": "Goal \"{{name}}\" exceeded",
-    "uncategorized_one": "{{count}} uncategorized transaction this month",
-    "uncategorized_other": "{{count}} uncategorized transactions this month",
-    "cashflowNegativeDays": "Projected negative balance in the next 30 days",
-    "aiInsight": "AI Insight",
-    "aiCache": "· cached",
-    "aiRefresh": "Refresh insight",
-    "aiAnalyzing": "Analyzing your data...",
-    "aiError": "Could not generate insight right now. Try again later.",
-    "cashflowMore": "+{{count}} more"
+    "subtitle": "Overview for {{month}}",
+    "kpi": {
+      "label": "This month in numbers",
+      "balance": "Account balance",
+      "income": "Income this month",
+      "expenses": "Spending this month",
+      "net": "Left over this month",
+      "vsMonth": "vs {{month}}",
+      "sinceMonthEnd": "vs end of {{month}}",
+      "accounts_one": "{{count}} account",
+      "accounts_other": "{{count}} accounts",
+      "noAccounts": "No accounts yet",
+      "noComparison": "No {{month}} data to compare",
+      "savingsRate": "Savings rate",
+      "savedShort": "Saved",
+      "noIncome": "No income this month"
+    },
+    "monthly": {
+      "title": "Monthly trend",
+      "subtitle": "Last 6 months",
+      "income": "Income",
+      "expenses": "Spending",
+      "net": "Left over",
+      "avgNet_one": "Left over in the period:",
+      "avgNet_other": "Average left over per month:",
+      "a11yMonth": "{{month}}, income {{income}} and spending {{expense}}",
+      "keyboardHint": "Income and spending by month. Use the arrow keys to move between months."
+    },
+    "insight": {
+      "title": "Monthly summary",
+      "byAi": "AI-generated",
+      "generated": "AI-generated · {{when}}",
+      "refresh": "Refresh summary",
+      "loading": "Generating the summary",
+      "error": "The summary could not be generated right now.",
+      "retry": "Try again",
+      "refreshError": "The summary could not be refreshed right now."
+    },
+    "cashflow": {
+      "title": "Balance forecast",
+      "subtitle": "Next 30 days, including recurring payments and installments",
+      "in30": "In 30 days",
+      "today": "Today",
+      "todayLower": "today",
+      "lowest": "Lowest balance",
+      "balance": "Forecast balance",
+      "moreEvents_one": "{{count}} more entry",
+      "moreEvents_other": "{{count}} more entries",
+      "negative": "Negative balance expected",
+      "upcoming": "Upcoming entries",
+      "recurring": "Recurring",
+      "installment": "Installment",
+      "showAll": "Show all ({{count}})",
+      "showLess": "Show less",
+      "emptyTitle": "Nothing scheduled for the next 30 days",
+      "emptyText": "Recurring transactions and installment purchases show up here once they are recorded.",
+      "a11y": "30-day balance forecast: starts at {{start}} and ends at {{end}}. Lowest balance of {{min}} on {{minDate}}.",
+      "keyboardHint": "Balance forecast chart. Use the arrow keys to move between days."
+    },
+    "netWorth": {
+      "title": "Net worth",
+      "link": "Investments",
+      "since_one": "over the last month",
+      "since_other": "over {{count}} months",
+      "accounts": "Accounts",
+      "investments": "Investments",
+      "note": "Investments count at their last recorded value.",
+      "a11y": "Net worth over the last {{count}} months: from {{start}} to {{end}}.",
+      "keyboardHint": "Net worth trend. Use the arrow keys to move between months."
+    },
+    "alerts": {
+      "title": "Alerts",
+      "allGood": "All clear",
+      "allGoodText": "No budgets over the limit and no negative balances.",
+      "showAll": "Show all ({{count}})",
+      "showLess": "Show less"
+    },
+    "budgets": {
+      "title": "Budgets this month",
+      "total": "{{spent}} of {{limit}} in total",
+      "manage": "Manage",
+      "of": "{{spent}} of {{limit}}",
+      "left": "{{value}} left",
+      "over": "{{value}} over the limit",
+      "emptyTitle": "No budgets this month",
+      "emptyText": "Set a limit per category to keep track of your spending.",
+      "emptyAction": "Set a budget"
+    },
+    "recent": {
+      "title": "Recent transactions",
+      "viewAll": "View all",
+      "uncategorized": "Uncategorized",
+      "transfer": "Transfer",
+      "installment": "Installment {{current}} of {{total}}",
+      "emptyTitle": "No transactions this month",
+      "emptyText": "Import a statement or add a transaction to see it here.",
+      "emptyAction": "Import statement"
+    },
+    "onboarding": {
+      "title": "Get started",
+      "text": "The dashboard fills in as you add accounts and transactions. It takes three short steps.",
+      "progress": "{{done}} of {{total}} done",
+      "done": "Done",
+      "account": {
+        "title": "Add an account",
+        "text": "Enter the bank and the current balance. It drives the total balance and the forecast.",
+        "action": "Add account"
+      },
+      "import": {
+        "title": "Import a statement",
+        "text": "Upload the PDF, OFX or CSV from your bank. Transactions are categorized automatically.",
+        "action": "Import statement"
+      },
+      "budget": {
+        "title": "Set a budget",
+        "text": "Choose a monthly limit per category and see how much you can still spend.",
+        "action": "Set a budget"
+      },
+      "preview": "What shows up here later",
+      "previews": {
+        "monthly": {
+          "title": "Monthly trend",
+          "text": "Income and spending over the last six months, month by month."
+        },
+        "cashflow": {
+          "title": "Balance forecast",
+          "text": "The expected balance for the next 30 days, including recurring payments and installments."
+        },
+        "summary": {
+          "title": "Monthly summary",
+          "text": "A short AI-generated paragraph on the figures that mattered most this month."
+        }
+      }
+    },
+    "error": {
+      "title": "The dashboard could not be loaded",
+      "text": "Check your connection and try again. Your data is still saved.",
+      "retry": "Try again"
+    },
+    "actions": {
+      "import": "Import statement",
+      "newTransaction": "New transaction"
+    }
   }
 }

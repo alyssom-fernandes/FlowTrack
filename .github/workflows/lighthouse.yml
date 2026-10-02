@@ -26,12 +26,7 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: frontend
-        env:
-          VITE_API_URL: https://placeholder.railway.app
-          VITE_SUPABASE_URL: https://placeholder.supabase.co
-          VITE_SUPABASE_ANON_KEY: placeholder
-          VITE_DEMO_EMAIL: demo@flowtrack.app
-          VITE_DEMO_PASSWORD: placeholder
+        # Sem variáveis do Supabase o build roda só em demonstração (ADR 0006)
 
       - name: Run Lighthouse CI
         uses: treosh/lighthouse-ci-action@v12

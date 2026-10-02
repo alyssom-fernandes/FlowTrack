@@ -256,10 +256,23 @@ export function Badge({ children, variant = 'default', size = 'sm', dot, icon, s
 export interface TabItem<T extends string> { value: T; label: ReactNode; count?: number; icon?: IconName }
 
 export function Tabs<T extends string>({ items, value, onChange, block, label }: { items: TabItem<T>[]; value: T; onChange: (v: T) => void; block?: boolean; label?: string }) {
+  // Setas, Home e End trocam de aba (padrão de abas acessíveis)
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const idx = items.findIndex(i => i.value === value)
+    let next = -1
+    if (e.key === 'ArrowRight') next = (idx + 1) % items.length
+    else if (e.key === 'ArrowLeft') next = (idx - 1 + items.length) % items.length
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = items.length - 1
+    if (next < 0) return
+    e.preventDefault()
+    onChange(items[next].value)
+    requestAnimationFrame(() => (e.currentTarget?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next])?.focus())
+  }
   return (
-    <div role="tablist" aria-label={label} className={`ft-tabs${block ? ' ft-tabs--block' : ''}`}>
+    <div role="tablist" aria-label={label} className={`ft-tabs${block ? ' ft-tabs--block' : ''}`} onKeyDown={onKeyDown}>
       {items.map(item => (
-        <button key={item.value} type="button" role="tab" aria-selected={item.value === value} className="ft-tab" onClick={() => onChange(item.value)}>
+        <button key={item.value} type="button" role="tab" aria-selected={item.value === value} tabIndex={item.value === value ? 0 : -1} className="ft-tab" onClick={() => onChange(item.value)}>
           {item.icon && <Icon name={item.icon} size={14} />}
           {item.label}
           {item.count !== undefined && <span className="ft-tab__count">{item.count}</span>}
@@ -284,11 +297,12 @@ export function EmptyState({ icon = 'inbox', title, description, action, compact
 // ── Progresso ─────────────────────────────────────────────
 // tone "spending": verde até 80%, âmbar até 100%, vermelho acima
 export function ProgressBar({ value, tone = 'accent', height = 6, label }: { value: number; tone?: 'spending' | 'accent' | 'green' | 'neutral'; height?: number; label?: string }) {
+  // Vermelho só depois de passar do limite (em 100% exato ainda é "no limite")
   const color = tone === 'spending'
-    ? value >= 100 ? 'var(--red)' : value >= 80 ? 'var(--amber)' : 'var(--green)'
+    ? value > 100 ? 'var(--red)' : value >= 80 ? 'var(--amber)' : 'var(--green)'
     : tone === 'green' ? 'var(--green)' : tone === 'neutral' ? 'var(--chart-neutral)' : 'var(--accent-text)'
   return (
-    <div className="ft-progress" style={{ height }} role="progressbar" aria-valuenow={Math.round(value)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+    <div className="ft-progress" style={{ height }} role="progressbar" aria-valuenow={Math.min(100, Math.max(0, Math.round(value)))} aria-valuetext={`${Math.round(value)}%`} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
       <div className="ft-progress__bar" style={{ width: `${Math.max(0, Math.min(value, 100))}%`, background: color }} />
     </div>
   )

@@ -1,28 +1,192 @@
 {
   "reports": {
     "title": "Reports",
-    "periodMonth": "This month",
-    "period3m": "Last 3 months",
-    "period6m": "Last 6 months",
-    "periodYear": "This year",
-    "periodCustom": "Custom",
-    "periodLabelMonth": "Month",
-    "periodLabel3m": "3 months",
-    "periodLabel6m": "6 months",
-    "periodLabelYear": "Year",
-    "periodLabelCustom": "Custom",
-    "previousPeriod": "Previous period",
-    "compareToggle": "Compare with previous period",
-    "noData": "No transactions in the selected period.",
-    "income": "Income",
-    "expenses": "Expenses",
-    "balance": "Balance",
-    "byCategory": "Expenses by category",
-    "top5": "Top 5 categories",
-    "projection": "Projection — next 3 months",
-    "projectionConfidence": "confidence",
-    "exportPdf": "Export PDF",
-    "exportingPdf": "Generating PDF...",
-    "vsLabel": "vs previous"
+    "view": {
+      "label": "Display",
+      "chart": "Chart",
+      "table": "Table"
+    },
+    "export": {
+      "button": "Export",
+      "pdf": "PDF",
+      "pdfHint": "Full report, ready to share",
+      "xlsx": "Excel",
+      "xlsxHint": "Summary, categories, months and transactions",
+      "csv": "CSV",
+      "csvHint": "Transactions in the period",
+      "print": "Print",
+      "printHint": "Clean A4 version, no menus",
+      "empty": "There are no transactions to export in this period",
+      "done_pdf": "PDF ready",
+      "done_xlsx": "Spreadsheet ready",
+      "done_csv": "CSV ready",
+      "fail": "Couldn't create the file. Please try again.",
+      "fileBase": "report"
+    },
+    "period": {
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
+      "3m": "3 months",
+      "6m": "6 months",
+      "12m": "12 months",
+      "year": "This year",
+      "custom": "Custom",
+      "label": "Period",
+      "from": "From",
+      "to": "To",
+      "missing": "Choose a start and an end date.",
+      "invalid": "Must be after the start date.",
+      "chooseTitle": "Set the period",
+      "chooseText": "The figures appear as soon as both dates are valid."
+    },
+    "compare": {
+      "toggle": "Compare with previous period",
+      "with": "Compared with {{range}}",
+      "noData": "There are no transactions for {{range}} to compare with."
+    },
+    "kpi": {
+      "label": "Period summary",
+      "income": "Income",
+      "expense": "Expenses",
+      "balance": "Net balance",
+      "savings": "Savings rate",
+      "noPrev": "No earlier data",
+      "noBase": "No basis for comparison",
+      "noIncome": "No income in this period",
+      "vsPrevShort": "vs previous period",
+      "pp": "{{value}} pp",
+      "transfersNote": "Transfers between your own accounts are left out of the totals."
+    },
+    "delta": {
+      "up": "{{value}} higher than the previous period",
+      "down": "{{value}} lower than the previous period",
+      "same": "Same as the previous period"
+    },
+    "legend": {
+      "income": "Income",
+      "expense": "Expenses",
+      "balance": "Balance",
+      "previous": "Previous period",
+      "previousShort": "Previous period",
+      "previousFaded": "Previous period (muted)"
+    },
+    "flow": {
+      "titleMonth": "Income and expenses by month",
+      "titleWeek": "Income and expenses by week",
+      "sub_one": "{{count}} transaction in the period",
+      "sub_other": "{{count}} transactions in the period",
+      "compareSub": "Muted bars: {{range}}"
+    },
+    "table": {
+      "week": "Week",
+      "month": "Month",
+      "income": "Income",
+      "expense": "Expenses",
+      "balance": "Balance",
+      "savings": "Savings",
+      "prevIncome": "Prev. income",
+      "prevExpense": "Prev. expenses",
+      "total": "Total",
+      "category": "Category",
+      "count": "Transactions",
+      "value": "Amount",
+      "share": "% of total",
+      "previous": "Previous",
+      "change": "Change",
+      "kind": "Type",
+      "description": "Description",
+      "date": "Date",
+      "account": "Account",
+      "type": "Type",
+      "typeIncome": "Income",
+      "typeExpense": "Expense",
+      "typeTransfer": "Transfer",
+      "byMonth": "By month",
+      "byWeek": "By week"
+    },
+    "categories": {
+      "title": "Expenses by category",
+      "summary_one": "{{total}} across {{count}} category",
+      "summary_other": "{{total}} across {{count}} categories",
+      "others_one": "{{count}} more category",
+      "others_other": "{{count}} more categories",
+      "new": "new",
+      "total": "Total",
+      "emptyTitle": "No expenses in this period",
+      "emptyText": "Only income was recorded on these dates."
+    },
+    "top": {
+      "title": "Largest expenses",
+      "subtitle": "Grouped by description",
+      "count_one": "{{count}} transaction",
+      "count_other": "{{count}} transactions",
+      "share": "{{value}} of expenses"
+    },
+    "projection": {
+      "title": "Forecast for the next 3 months",
+      "subtitle_one": "Based on the last month · independent of the selected period",
+      "subtitle_other": "Based on the last {{count}} months · independent of the selected period",
+      "confidence": {
+        "high": "High confidence",
+        "medium": "Medium confidence",
+        "low": "Low confidence"
+      },
+      "explain": {
+        "high_one": "The dashed line follows the recent trend and the historical average. The shaded band shows the typical swing of past months: the actual figure should land inside it most of the time.",
+        "high_other": "The dashed line follows the recent trend and the average of the last {{count}} months. The shaded band shows how much those months typically varied: the actual figure should land inside it most of the time.",
+        "medium_one": "Forecast built from {{count}} month of history. The shaded band shows the typical swing; with 6 or more months the estimate gets firmer.",
+        "medium_other": "Forecast built from {{count}} months of history. The shaded band shows how much those months typically varied; with 6 or more months the estimate gets firmer.",
+        "low_one": "There is only {{count}} month of history so far. Treat these figures as a first reference: with 6 months of transactions the forecast becomes reliable.",
+        "low_other": "There are only {{count}} months of history so far. Treat these figures as a first reference: with 6 months of transactions the forecast becomes reliable."
+      },
+      "zone": "Forecast",
+      "range": "Likely range",
+      "dashed": "Forecast",
+      "projected": "Forecast",
+      "history": "History",
+      "avgIncome": "Average monthly income",
+      "avgExpense": "Average monthly expenses",
+      "projectedBalance": "Expected balance over 3 months"
+    },
+    "aria": {
+      "flow": "Bar chart of income and expenses for {{range}}: income of {{income}} and expenses of {{expense}}. The values for each period are in the table view.",
+      "categories": "Donut chart of expenses by category: {{list}}.",
+      "projection": "Line chart with history and the forecast for the next 3 months: income of about {{income}} and expenses of about {{expense}} per month."
+    },
+    "empty": {
+      "title": "No data for reports yet",
+      "text": "Import a statement or add your first transactions. Income, spending by category and forecasts will show up here.",
+      "action": "Add transactions"
+    },
+    "noPeriod": {
+      "title": "No transactions in this period",
+      "text": "Nothing was recorded for {{range}}. Try another period.",
+      "action": "Show last 12 months"
+    },
+    "error": {
+      "title": "Couldn't load the report",
+      "text": "Check your connection and try again.",
+      "retry": "Try again"
+    },
+    "print": {
+      "title": "Financial report",
+      "generated": "Generated on {{date}}"
+    },
+    "pdf": {
+      "docTitle": "Financial report",
+      "page": "Page {{current}} of {{total}}",
+      "vsPrev": "vs previous"
+    },
+    "xlsx": {
+      "summary": "Summary",
+      "period": "Period",
+      "start": "Start",
+      "end": "End",
+      "current": "Current period",
+      "previous": "Previous period",
+      "transactions": "Transactions",
+      "transfersNote": "transfers between your own accounts are left out of the balance",
+      "netTotal": "Balance (excluding transfers)"
+    }
   }
 }
