@@ -1,12 +1,13 @@
 import axios from 'axios'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type Session } from '@supabase/supabase-js'
+import { demo, demoAdapter } from './demo'
 import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate, Investment, InvestmentCreate, ParsedTransaction, Category, CategoryCreate, CategoryUpdate, Alert, Budget, BudgetCreate, InsightResponse, CashflowProjection, NetWorth, ProjectionData, AuditLogEntry } from './types'
 
-// ── Supabase ──────────────────────────────────────────────
+// ── Supabase (opcional: sem as variáveis o app roda só em demonstração) ──
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-if (!supabaseUrl || !supabaseAnonKey) throw new Error('Missing Supabase environment variables')
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null
+export const realAuthAvailable = !!supabase
 
 // ── Axios client ──────────────────────────────────────────
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -17,49 +18,91 @@ export const api = axios.create({
 })
 
 api.interceptors.request.use(async (config) => {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session?.access_token) config.headers.Authorization = `Bearer ${session.access_token}`
+  if (demo.isActive()) {
+    config.adapter = demoAdapter
+    return config
+  }
+  if (supabase) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) config.headers.Authorization = `Bearer ${session.access_token}`
+  }
   return config
 })
 
 api.interceptors.response.use(
   (r) => r,
   async (error) => {
-    if (error.response?.status === 401) { await supabase.auth.signOut(); window.location.href = '/login' }
+    if (error.response?.status === 401 && !demo.isActive()) { await supabase?.auth.signOut(); window.location.href = '/login' }
     return Promise.reject(error)
   }
 )
 
 // ── Auth ──────────────────────────────────────────────────
+type AuthListener = (session: unknown, event: string) => void
+const demoListeners = new Set<AuthListener>()
+const emitDemo = (session: unknown, event: string) => demoListeners.forEach(cb => cb(session, event))
+
+function requireSupabase() {
+  if (!supabase) throw Object.assign(new Error('auth-unavailable'), { code: 'auth-unavailable' })
+  return supabase
+}
+
 export const authService = {
   async signIn(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await requireSupabase().auth.signInWithPassword({ email, password })
     if (error) throw error
     return data
   },
   async signOut() {
-    const { error } = await supabase.auth.signOut()
+    if (demo.isActive()) {
+      demo.stop()
+      emitDemo(null, 'SIGNED_OUT')
+      return
+    }
+    const { error } = await requireSupabase().auth.signOut()
     if (error) throw error
   },
   async getSession() {
+    if (demo.isActive()) return demo.session() as unknown as Session
+    if (!supabase) return null
     const { data: { session } } = await supabase.auth.getSession()
     return session
   },
+  // Demonstração local: sem servidor, sem cadastro, dados fictícios só nesta aba
   async signInDemo() {
-    return authService.signIn(
-      import.meta.env.VITE_DEMO_EMAIL || 'demo@flowtrack.app',
-      import.meta.env.VITE_DEMO_PASSWORD || 'demo123456'
-    )
+    demo.start()
+    const session = demo.session()
+    emitDemo(session, 'SIGNED_IN')
+    return { session }
   },
-  onAuthStateChange(callback: (session: unknown, event: string) => void) {
-    return supabase.auth.onAuthStateChange((event, session) => callback(session, event))
+  isDemo() {
+    return demo.isActive()
+  },
+  onAuthStateChange(callback: AuthListener) {
+    demoListeners.add(callback)
+    const sub = supabase?.auth.onAuthStateChange((event, session) => {
+      if (demo.isActive()) return
+      callback(session, event)
+    })
+    if (demo.isActive()) queueMicrotask(() => callback(demo.session(), 'INITIAL_SESSION'))
+    else if (!supabase) queueMicrotask(() => callback(null, 'INITIAL_SESSION'))
+    return {
+      data: {
+        subscription: {
+          unsubscribe() {
+            demoListeners.delete(callback)
+            sub?.data.subscription.unsubscribe()
+          },
+        },
+      },
+    }
   },
   async updatePassword(newPassword: string) {
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    const { error } = await requireSupabase().auth.updateUser({ password: newPassword })
     if (error) throw error
   },
   async sendPasswordReset(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    const { error } = await requireSupabase().auth.resetPasswordForEmail(email)
     if (error) throw error
   },
 }

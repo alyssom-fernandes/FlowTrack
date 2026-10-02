@@ -1,0 +1,40 @@
+{
+  "investments": {
+    "title": "Investments",
+    "totalInvested": "Total invested",
+    "currentValue": "Current value",
+    "totalReturn": "Total return",
+    "newInvestment": "New investment",
+    "editInvestment": "Edit investment",
+    "none": "No investments added.",
+    "createFirst": "Add first investment",
+    "editAriaLabel": "Edit investment",
+    "deleteAriaLabel": "Delete investment",
+    "investedAt": "Invested",
+    "currentVal": "Current",
+    "profitability": "Return",
+    "since": "since {{date}}",
+    "nameLabel": "Name *",
+    "namePlaceholder": "e.g. Treasury Bond 2029",
+    "typeLabel": "Type *",
+    "investedLabel": "Invested amount *",
+    "currentLabel": "Current value *",
+    "startDateLabel": "Start date *",
+    "notesLabel": "Notes",
+    "errorSave": "Error saving investment. Please try again.",
+    "toastCreated": "Investment added!",
+    "toastUpdated": "Investment updated!",
+    "toastDeleted": "Investment deleted.",
+    "types": {
+      "renda_fixa": "Fixed Income",
+      "renda_variavel": "Variable Income",
+      "fundo_imobiliario": "Real Estate Fund",
+      "tesouro_direto": "Government Bonds",
+      "cdb": "CDB",
+      "lci_lca": "LCI / LCA",
+      "acoes": "Stocks",
+      "criptomoeda": "Cryptocurrency",
+      "outro": "Other"
+    }
+  }
+}

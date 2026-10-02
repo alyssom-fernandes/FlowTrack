@@ -1,0 +1,40 @@
+{
+  "investments": {
+    "title": "Investimentos",
+    "totalInvested": "Total investido",
+    "currentValue": "Valor atual",
+    "totalReturn": "Retorno total",
+    "newInvestment": "Novo investimento",
+    "editInvestment": "Editar investimento",
+    "none": "Nenhum investimento cadastrado.",
+    "createFirst": "Adicionar primeiro investimento",
+    "editAriaLabel": "Editar investimento",
+    "deleteAriaLabel": "Excluir investimento",
+    "investedAt": "Aplicado",
+    "currentVal": "Atual",
+    "profitability": "Rentabilidade",
+    "since": "desde {{date}}",
+    "nameLabel": "Nome *",
+    "namePlaceholder": "Ex: Tesouro IPCA+ 2029",
+    "typeLabel": "Tipo *",
+    "investedLabel": "Valor investido (R$) *",
+    "currentLabel": "Valor atual (R$) *",
+    "startDateLabel": "Data de início *",
+    "notesLabel": "Notas",
+    "errorSave": "Erro ao salvar investimento. Tente novamente.",
+    "toastCreated": "Investimento adicionado!",
+    "toastUpdated": "Investimento atualizado!",
+    "toastDeleted": "Investimento excluído.",
+    "types": {
+      "renda_fixa": "Renda Fixa",
+      "renda_variavel": "Renda Variável",
+      "fundo_imobiliario": "Fundo Imobiliário",
+      "tesouro_direto": "Tesouro Direto",
+      "cdb": "CDB",
+      "lci_lca": "LCI / LCA",
+      "acoes": "Ações",
+      "criptomoeda": "Criptomoeda",
+      "outro": "Outro"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "transactions": "Transações",
+    "investments": "Investimentos",
+    "goals": "Metas",
+    "reports": "Relatórios",
+    "profile": "Perfil",
+    "home": "Início",
+    "invest": "Investir",
+    "signOut": "Sair",
+    "alerts": "Alertas",
+    "noAlerts": "Nenhum alerta no momento.",
+    "syncing": "Sincronizando dados…",
+    "offline": "Sem conexão. As alterações serão enviadas quando a conexão voltar.",
+    "menu": "Menu principal",
+    "demoUser": "Visitante",
+    "demoUserSub": "Demonstração",
+    "demoBanner": "Demonstração: os dados são fictícios e ficam só nesta aba. Nada é enviado.",
+    "demoBannerShort": "Demonstração · dados fictícios",
+    "demoRestore": "Restaurar dados",
+    "demoExit": "Sair",
+    "skipToContent": "Pular para o conteúdo"
+  }
+}

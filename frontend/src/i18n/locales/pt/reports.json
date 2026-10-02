@@ -1,0 +1,28 @@
+{
+  "reports": {
+    "title": "Relatórios",
+    "periodMonth": "Este mês",
+    "period3m": "Últimos 3 meses",
+    "period6m": "Últimos 6 meses",
+    "periodYear": "Este ano",
+    "periodCustom": "Personalizado",
+    "periodLabelMonth": "Mês",
+    "periodLabel3m": "3 meses",
+    "periodLabel6m": "6 meses",
+    "periodLabelYear": "Ano",
+    "periodLabelCustom": "Personalizado",
+    "previousPeriod": "Período anterior",
+    "compareToggle": "Comparar com período anterior",
+    "noData": "Nenhuma transação no período selecionado.",
+    "income": "Receitas",
+    "expenses": "Gastos",
+    "balance": "Saldo",
+    "byCategory": "Gastos por categoria",
+    "top5": "Top 5 categorias",
+    "projection": "Projeção — próximos 3 meses",
+    "projectionConfidence": "confiança",
+    "exportPdf": "Exportar PDF",
+    "exportingPdf": "Gerando PDF...",
+    "vsLabel": "vs anterior"
+  }
+}

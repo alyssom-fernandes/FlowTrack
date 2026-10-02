@@ -1,0 +1,20 @@
+{
+  "login": {
+    "tagline": "Smart personal finance",
+    "passwordReset": "Password reset",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password",
+    "signIn": "Sign in",
+    "wrongCredentials": "Incorrect email or password.",
+    "demoMode": "Access demo mode",
+    "demoHint": "No sign-up · Data resets weekly",
+    "resetEmailLabel": "Enter your email and we'll send you a password reset link.",
+    "sendLink": "Send link",
+    "resetSentTitle": "Link sent to",
+    "resetSentBody": "Check your inbox and follow the instructions.",
+    "backToLogin": "Back to login",
+    "resetSendError": "Could not send email. Check the address and try again.",
+    "demoUnavailable": "Demo mode temporarily unavailable."
+  }
+}

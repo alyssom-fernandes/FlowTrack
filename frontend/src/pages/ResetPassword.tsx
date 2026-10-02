@@ -12,6 +12,7 @@ export function ResetPassword() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!supabase) { setStatus('invalid'); return }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setStatus('ready')
     })

@@ -1,0 +1,28 @@
+{
+  "reports": {
+    "title": "Reports",
+    "periodMonth": "This month",
+    "period3m": "Last 3 months",
+    "period6m": "Last 6 months",
+    "periodYear": "This year",
+    "periodCustom": "Custom",
+    "periodLabelMonth": "Month",
+    "periodLabel3m": "3 months",
+    "periodLabel6m": "6 months",
+    "periodLabelYear": "Year",
+    "periodLabelCustom": "Custom",
+    "previousPeriod": "Previous period",
+    "compareToggle": "Compare with previous period",
+    "noData": "No transactions in the selected period.",
+    "income": "Income",
+    "expenses": "Expenses",
+    "balance": "Balance",
+    "byCategory": "Expenses by category",
+    "top5": "Top 5 categories",
+    "projection": "Projection — next 3 months",
+    "projectionConfidence": "confidence",
+    "exportPdf": "Export PDF",
+    "exportingPdf": "Generating PDF...",
+    "vsLabel": "vs previous"
+  }
+}

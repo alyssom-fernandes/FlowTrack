@@ -1,205 +1,220 @@
 import { useState, useEffect, type ReactNode } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore, useAlertsStore } from '../store'
 import { authService } from '../services'
+import { demo } from '../demo'
 import { useOnlineStatus } from '../utils'
+import { Icon, type IconName } from './icons'
+import { IconButton, Logo, Modal, Spinner } from './ui'
+import type { Alert } from '../types'
+import './layout.css'
 
-const NAV_ICONS = [
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>,
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>,
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>,
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+const NAV: { path: string; key: string; mobileKey: string; icon: IconName }[] = [
+  { path: '/dashboard',    key: 'dashboard',    mobileKey: 'home',         icon: 'dashboard' },
+  { path: '/transactions', key: 'transactions', mobileKey: 'transactions', icon: 'list' },
+  { path: '/investments',  key: 'investments',  mobileKey: 'invest',       icon: 'trendUp' },
+  { path: '/goals',        key: 'goals',        mobileKey: 'goals',        icon: 'target' },
+  { path: '/reports',      key: 'reports',      mobileKey: 'reports',      icon: 'pie' },
+  { path: '/profile',      key: 'profile',      mobileKey: 'profile',      icon: 'user' },
 ]
 
-const NAV_PATHS = ['/dashboard', '/transactions', '/investments', '/goals', '/reports', '/profile']
-const NAV_KEYS  = ['dashboard', 'transactions', 'investments', 'goals', 'reports', 'profile'] as const
-const NAV_MOBILE_KEYS = ['home', 'transactions', 'invest', 'goals', 'reports', 'profile'] as const
+const ALERT_LOOK: Record<Alert['type'], { icon: IconName; color: string }> = {
+  danger:  { icon: 'alertCircle', color: 'var(--red)' },
+  warning: { icon: 'alert',       color: 'var(--amber)' },
+  info:    { icon: 'info',        color: 'var(--blue)' },
+}
 
-// ── AlertsPanel ───────────────────────────────────────────
-function AlertsPanel({ onClose }: { onClose: () => void }) {
+// ── Lista de alertas (popover no computador, folha no celular) ──
+function AlertsList() {
   const { t } = useTranslation()
   const { alerts, loading } = useAlertsStore()
-
-  const colorMap: Record<string, { color: string; bg: string }> = {
-    danger:  { color: 'var(--red)',    bg: 'var(--red-soft)' },
-    warning: { color: 'var(--accent)', bg: 'var(--accent-soft)' },
-    info:    { color: 'var(--text-muted)', bg: 'var(--bg-elevated)' },
-  }
-
-  return (
-    <>
-      <div
-        style={{ position: 'fixed', inset: 0, zIndex: 199 }}
-        onClick={onClose}
-      />
-      <div style={{
-        position: 'absolute', left: 'calc(100% + 0.5rem)', top: 0, zIndex: 200,
-        width: '22rem', maxHeight: '28rem', overflowY: 'auto',
-        background: 'var(--bg-card)', border: '0.5px solid var(--border)',
-        borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
-        display: 'flex', flexDirection: 'column',
-      }}>
-        <div style={{ padding: '0.75rem 1rem', borderBottom: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 'var(--font-size-md)', fontWeight: '600', color: 'var(--text-primary)' }}>{t('nav.alerts')}</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-hint)', fontSize: '1rem' }}>✕</button>
-        </div>
-        <div style={{ padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-          {loading && (
-            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-hint)', fontSize: 'var(--font-size-sm)' }}>{t('common.loading')}</div>
-          )}
-          {!loading && alerts.length === 0 && (
-            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-hint)', fontSize: 'var(--font-size-sm)' }}>{t('nav.noAlerts')}</div>
-          )}
-          {alerts.map((a, i) => {
-            const c = colorMap[a.type] ?? colorMap.info
-            return (
-              <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', padding: '0.5rem 0.625rem', borderRadius: 'var(--radius-md)', background: c.bg }}>
-                <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: c.color, flexShrink: 0, marginTop: '0.3rem' }} />
-                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{a.message}</span>
-              </div>
-            )
-          })}
-        </div>
+  if (loading) return <div style={{ padding: '1.25rem', display: 'flex', justifyContent: 'center' }}><Spinner size={18} /></div>
+  if (!alerts.length) {
+    return (
+      <div style={{ padding: '1.5rem 1rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+        <Icon name="checkCircle" size={20} style={{ color: 'var(--green)' }} />
+        <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>{t('nav.noAlerts')}</span>
       </div>
-    </>
+    )
+  }
+  return (
+    <div style={{ padding: '0.25rem' }}>
+      {alerts.map((a, i) => {
+        const look = ALERT_LOOK[a.type] ?? ALERT_LOOK.info
+        return (
+          <div key={i} className="ft-alert-item">
+            <Icon name={look.icon} size={16} style={{ color: look.color, marginTop: '0.0625rem' }} />
+            <span className="ft-alert-item__text">{a.message}</span>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
-// ── Sidebar ───────────────────────────────────────────────
+function BellButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation()
+  const { count } = useAlertsStore()
+  return (
+    <span className="ft-bell">
+      <IconButton icon="bell" label={count ? `${t('nav.alerts')} (${count})` : t('nav.alerts')} onClick={onClick} size="md" />
+      {count > 0 && <span className="ft-bell__count">{count > 9 ? '9+' : count}</span>}
+    </span>
+  )
+}
+
+function useDisplayName() {
+  const { t } = useTranslation()
+  const { user, isDemo } = useAuthStore()
+  const name = isDemo ? t('nav.demoUser') : (user?.email?.split('@')[0] || '')
+  const sub = isDemo ? t('nav.demoUserSub') : (user?.email || '')
+  return { name, sub, initial: (name || '?').charAt(0).toUpperCase() }
+}
+
+// ── Sidebar (computador) ──────────────────────────────────
 export function Sidebar() {
   const { t } = useTranslation()
   const location = useLocation()
-  const { user, isDemo } = useAuthStore()
-  const { count, load } = useAlertsStore()
+  const { load } = useAlertsStore()
   const [showAlerts, setShowAlerts] = useState(false)
-  const displayName = isDemo ? 'Demo' : (user?.email?.split('@')[0] || '')
+  const { name, sub, initial } = useDisplayName()
 
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const NAV = NAV_PATHS.map((path, i) => ({
-    path,
-    label: t(`nav.${NAV_KEYS[i]}`),
-    mLabel: t(`nav.${NAV_MOBILE_KEYS[i]}`),
-    icon: NAV_ICONS[i],
-  }))
+  useEffect(() => { load() }, [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <aside style={{ width: 'var(--sidebar-width)', flexShrink: 0, background: 'var(--bg-sidebar)', borderRight: '0.5px solid var(--border)', display: 'flex', flexDirection: 'column', height: '100dvh', position: 'sticky', top: 0 }}>
-      {/* Logo */}
-      <div style={{ padding: '1rem 0.875rem', borderBottom: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <img src="/logo.png" alt="FlowTrack" className="ft-logo" style={{ height: '1.875rem', width: 'auto' }} />
-        {/* Bell icon with alert badge */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowAlerts(v => !v)}
-            title={t('nav.alerts')}
-            aria-label={t('nav.alerts')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: count > 0 ? 'var(--accent)' : 'var(--text-hint)', padding: '0.25rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', transition: 'color var(--transition)' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
-            onMouseLeave={e => (e.currentTarget.style.color = count > 0 ? 'var(--accent)' : 'var(--text-hint)')}
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-            </svg>
-          </button>
-          {count > 0 && (
-            <span style={{
-              position: 'absolute', top: '-2px', right: '-2px',
-              minWidth: '1rem', height: '1rem', borderRadius: '9999px',
-              background: 'var(--accent)', color: '#fff',
-              fontSize: '0.5625rem', fontWeight: '700',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '0 0.2rem', lineHeight: 1,
-            }}>{count > 9 ? '9+' : count}</span>
-          )}
-          {showAlerts && <AlertsPanel onClose={() => setShowAlerts(false)} />}
+    <aside className="ft-sidebar" aria-label={t('nav.menu')}>
+      <div className="ft-sidebar__inner">
+        <div className="ft-sidebar__top">
+          <Link to="/dashboard" aria-label="FlowTrack"><Logo height={24} /></Link>
+          <div style={{ position: 'relative' }}>
+            <BellButton onClick={() => setShowAlerts(v => !v)} />
+            {showAlerts && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setShowAlerts(false)} />
+                <div className="ft-alerts-pop" role="dialog" aria-label={t('nav.alerts')}>
+                  <div className="ft-alerts-pop__head">
+                    <span style={{ fontSize: 'var(--font-size-md)', fontWeight: 600 }}>{t('nav.alerts')}</span>
+                    <IconButton icon="close" label={t('common.close')} onClick={() => setShowAlerts(false)} />
+                  </div>
+                  <AlertsList />
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: '0.625rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-        {NAV.map((item) => {
-          const isActive = location.pathname === item.path
-          return (
-            <Link key={item.path} to={item.path} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-base)', fontWeight: isActive ? '600' : '400', color: isActive ? 'var(--text-primary)' : 'var(--text-hint)', background: isActive ? 'var(--accent-soft)' : 'transparent', textDecoration: 'none', transition: 'all var(--transition)' }}>
-              <span style={{ color: isActive ? 'var(--accent)' : 'inherit', flexShrink: 0 }}>{item.icon}</span>
-              {item.label}
+        <nav className="ft-sidebar__nav">
+          {NAV.map(item => (
+            <Link key={item.path} to={item.path} className="ft-nav-link" aria-current={location.pathname === item.path ? 'page' : undefined}>
+              <Icon name={item.icon} size={18} />
+              {t(`nav.${item.key}`)}
             </Link>
-          )
-        })}
-      </nav>
+          ))}
+        </nav>
 
-      {/* Footer: user · Sair */}
-      <div style={{ padding: '0.625rem 0.875rem', borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem' }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-hint)" strokeWidth="1.5" strokeLinecap="square"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: '500' }}>{displayName}</span>
-        <span style={{ color: 'var(--text-hint)', fontSize: 'var(--font-size-sm)' }}>·</span>
-        <button onClick={() => authService.signOut()} style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-hint)', cursor: 'pointer', background: 'none', border: 'none', padding: 0, fontFamily: 'var(--font)', transition: 'color var(--transition)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--red)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-hint)')}>{t('nav.signOut')}</button>
+        <div className="ft-sidebar__user">
+          <span className="ft-avatar" aria-hidden>{initial}</span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="ft-sidebar__user-name">{name}</div>
+            <div className="ft-sidebar__user-sub">{sub}</div>
+          </div>
+          <IconButton icon="logout" label={t('nav.signOut')} onClick={() => authService.signOut()} />
+        </div>
       </div>
     </aside>
   )
 }
 
-// ── BottomNavbar ──────────────────────────────────────────
+// ── Barra superior (celular) ──────────────────────────────
+function MobileTopBar() {
+  const { t } = useTranslation()
+  const location = useLocation()
+  const { load } = useAlertsStore()
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => { load() }, [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <header className="ft-mobile-top">
+      <Link to="/dashboard" aria-label="FlowTrack"><Logo height={20} /></Link>
+      <BellButton onClick={() => setOpen(true)} />
+      <Modal open={open} onClose={() => setOpen(false)} title={t('nav.alerts')}>
+        <AlertsList />
+      </Modal>
+    </header>
+  )
+}
+
+// ── Navegação de baixo (celular) ──────────────────────────
 export function BottomNavbar() {
   const { t } = useTranslation()
   const location = useLocation()
-  const MOBILE_NAV = NAV_PATHS.map((path, i) => ({
-    path,
-    mLabel: t(`nav.${NAV_MOBILE_KEYS[i]}`),
-    icon: NAV_ICONS[i],
-  }))
   return (
-    <nav style={{ width: '100%', background: 'var(--bg-sidebar)', borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'stretch', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {MOBILE_NAV.map((item) => {
-        const isActive = location.pathname === item.path
-        return (
-          <Link key={item.path} to={item.path} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.1875rem', padding: '0.5rem 0.25rem', color: isActive ? 'var(--accent)' : 'var(--text-hint)', textDecoration: 'none', transition: 'color var(--transition)', minHeight: '3.25rem' }}>
-            <span style={{ width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', strokeWidth: isActive ? '2' : '1.5' }}>{item.icon}</span>
-            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: isActive ? '600' : '400', letterSpacing: '0.02em' }}>{item.mLabel}</span>
-          </Link>
-        )
-      })}
+    <nav className="ft-bottom" aria-label={t('nav.menu')}>
+      {NAV.map(item => (
+        <Link key={item.path} to={item.path} className="ft-bottom__link" aria-current={location.pathname === item.path ? 'page' : undefined}>
+          <Icon name={item.icon} size={20} strokeWidth={location.pathname === item.path ? 2 : 1.75} />
+          <span>{t(`nav.${item.mobileKey}`)}</span>
+        </Link>
+      ))}
     </nav>
   )
 }
 
-// ── PageFooter ────────────────────────────────────────────
-export function PageFooter() {
+// ── Aviso de demonstração ─────────────────────────────────
+function DemoBanner() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { isDemo } = useAuthStore()
+  if (!isDemo) return null
+  const restore = () => { demo.restart(); window.location.reload() }
+  const exit = async () => { await authService.signOut(); navigate('/login', { replace: true }) }
   return (
-    <footer style={{ borderTop: '0.5px solid var(--border)', padding: '0.5rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: 'auto' }}>
-      {/* AFN SYSTEMS — left */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize: '0.625rem', letterSpacing: '2px', color: 'var(--brand-afn)' }}>AFN</span>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize: '0.625rem', letterSpacing: '1.5px', color: 'var(--brand-secondary)' }}>SYSTEMS</span>
+    <div className="ft-demo-banner" role="note">
+      <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+        <span className="ft-demo-banner__dot" />
+        <span className="ft-demo-banner__long">{t('nav.demoBanner')}</span>
+        <span className="ft-demo-banner__short">{t('nav.demoBannerShort')}</span>
+      </span>
+      <span className="ft-demo-banner__actions">
+        <button type="button" className="ft-link-btn" onClick={restore}>{t('nav.demoRestore')}</button>
+        <button type="button" className="ft-link-btn" onClick={exit}>{t('nav.demoExit')}</button>
+      </span>
+    </div>
+  )
+}
+
+// ── Rodapé da marca (guia AFN) ────────────────────────────
+function BrandFooter() {
+  return (
+    <footer className="ft-page-footer">
+      <div style={{ display: 'flex', alignItems: 'baseline' }}>
+        <span className="pf-afn" style={{ fontSize: '10px' }}>AFN</span>
+        <span className="pf-gap" />
+        <span className="pf-sys" style={{ fontSize: '10px' }}>SYSTEMS</span>
       </div>
-      {/* pipe */}
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem', color: 'var(--brand-secondary)' }}>|</span>
-      {/* FlowTrack — right */}
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: '700', fontSize: '0.6875rem', letterSpacing: '0.3px', color: 'var(--brand-secondary)' }}>FlowTrack</span>
+      <span className="pf-pipe" style={{ fontSize: '13px' }}>|</span>
+      <span className="pf-info" style={{ fontSize: '11px' }}>FlowTrack</span>
     </footer>
   )
 }
 
-// ── OfflineBanner ─────────────────────────────────────────
+// O rodapé agora vem do AppShell; mantido só para as telas que ainda o importam.
+export function PageFooter() { return null }
+
+// ── Sem conexão ───────────────────────────────────────────
 function OfflineBanner() {
   const { t } = useTranslation()
   const { isOnline, isSyncing } = useOnlineStatus()
   if (isOnline && !isSyncing) return null
   return (
-    <div style={{
-      position: 'sticky', top: 0, zIndex: 50, flexShrink: 0,
-      padding: '0.375rem 1rem', textAlign: 'center',
-      background: isSyncing ? 'var(--accent-soft)' : 'var(--red-soft)',
-      borderBottom: `0.5px solid ${isSyncing ? 'var(--accent)' : 'var(--red)'}`,
-      fontSize: 'var(--font-size-sm)',
-      color: isSyncing ? 'var(--accent)' : 'var(--red)',
+    <div className="ft-offline" role="status" style={{
+      background: isSyncing ? 'var(--blue-soft)' : 'var(--amber-soft)',
+      color: isSyncing ? 'var(--blue)' : 'var(--amber)',
+      borderBottom: '1px solid var(--border)',
     }}>
+      <Icon name={isSyncing ? 'refresh' : 'alert'} size={14} />
       {isSyncing ? t('nav.syncing') : t('nav.offline')}
     </div>
   )
@@ -207,26 +222,21 @@ function OfflineBanner() {
 
 // ── AppShell ──────────────────────────────────────────────
 export function AppShell({ children }: { children: ReactNode }) {
+  const { t } = useTranslation()
+  const location = useLocation()
+  useEffect(() => { window.scrollTo(0, 0) }, [location.pathname])
   return (
-    <>
-      <style>{`
-        .ft-sidebar { display: none; }
-        .ft-bottom { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; }
-        .ft-main { padding-bottom: calc(3.5rem + env(safe-area-inset-bottom)); overflow-x: hidden; }
-        @media (min-width: 768px) {
-          .ft-sidebar { display: flex !important; }
-          .ft-bottom  { display: none !important; }
-          .ft-main    { padding-bottom: 0 !important; }
-        }
-      `}</style>
-      <div style={{ display: 'flex', minHeight: '100dvh', background: 'var(--bg)' }}>
-        <div className="ft-sidebar"><Sidebar /></div>
-        <main className="ft-main" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <OfflineBanner />
-          {children}
-        </main>
-        <div className="ft-bottom"><BottomNavbar /></div>
+    <div className="ft-shell">
+      <a href="#conteudo" className="ft-skip">{t('nav.skipToContent')}</a>
+      <Sidebar />
+      <div className="ft-main-col">
+        <MobileTopBar />
+        <DemoBanner />
+        <OfflineBanner />
+        <main id="conteudo" className="ft-main">{children}</main>
+        <BrandFooter />
       </div>
-    </>
+      <BottomNavbar />
+    </div>
   )
 }

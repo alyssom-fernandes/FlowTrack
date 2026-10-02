@@ -1,0 +1,25 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "transactions": "Transactions",
+    "investments": "Investments",
+    "goals": "Goals",
+    "reports": "Reports",
+    "profile": "Profile",
+    "home": "Home",
+    "invest": "Invest",
+    "signOut": "Sign out",
+    "alerts": "Alerts",
+    "noAlerts": "No alerts at the moment.",
+    "syncing": "Syncing data…",
+    "offline": "You're offline. Changes will be sent when the connection is back.",
+    "menu": "Main menu",
+    "demoUser": "Guest",
+    "demoUserSub": "Demo",
+    "demoBanner": "Demo: the data is fictional and stays in this tab only. Nothing is sent.",
+    "demoBannerShort": "Demo · fictional data",
+    "demoRestore": "Reset data",
+    "demoExit": "Exit",
+    "skipToContent": "Skip to content"
+  }
+}
