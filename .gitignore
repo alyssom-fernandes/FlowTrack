@@ -56,3 +56,6 @@ ROADMAP.md
 # Relatórios do Playwright
 test-results/
 playwright-report/
+
+# Configuração local do Claude Code
+.claude/
