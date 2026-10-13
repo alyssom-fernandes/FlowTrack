@@ -14,7 +14,10 @@ from app.models import (
     TransactionCreate, TransactionUpdate, TransactionResponse, TransactionListResponse,
     BulkTransactionCreate, TransferCreate,
 )
-from app.api.v1._helpers import normalize_desc, dedup_hash, _adjust_account_balance, _write_audit, _serialize
+from app.api.v1._helpers import (
+    normalize_desc, dedup_hash, _adjust_account_balance, _write_audit, _serialize,
+    _first, _require_account, _require_category,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -50,21 +53,24 @@ async def list_transactions(
 @router.post("/transactions", response_model=TransactionResponse, status_code=201, tags=["Transactions"])
 async def create_transaction(body: TransactionCreate, user_id: str = Depends(get_current_user_id)):
     try:
+        sb = get_supabase()
+        _require_account(sb, user_id, body.account_id)
+        _require_category(sb, user_id, body.category_id)
         desc_norm = normalize_desc(body.description)
         data = body.model_dump()
         data.update({"user_id": user_id, "description_normalized": desc_norm, "sync_status": "synced",
                      "dedup_hash": dedup_hash(body.account_id, body.transaction_date, body.amount, desc_norm),
                      "transaction_date": str(body.transaction_date)})
-        sb = get_supabase()
         result = sb.table("transactions").insert(data).execute()
         txn = result.data[0]
-        _adjust_account_balance(sb, body.account_id, body.amount)
+        _adjust_account_balance(sb, user_id, body.account_id, body.amount)
         _write_audit(sb, user_id, "transaction", txn["id"], "create", None, {k: _serialize(v) for k, v in txn.items()})
         if not body.category_id:
             is_demo = sb.table("demo_users").select("user_id").eq("user_id", user_id).limit(1).execute()
             if not is_demo.data:
                 sb.table("categorization_queue").insert({"user_id": user_id, "transaction_id": txn["id"], "status": "pending"}).execute()
         return txn
+    except HTTPException: raise
     except Exception as e:
         if "dedup_hash" in str(e) or "unique" in str(e).lower(): raise HTTPException(409, "Duplicate transaction")
         logger.error("create_transaction failed", error=str(e))
@@ -79,22 +85,24 @@ async def update_transaction(transaction_id: str, body: TransactionUpdate, user_
         if "category_id" in data and "categorized_by" not in data:
             data["categorized_by"] = "manual"; data["confidence_score"] = 1.0
         sb = get_supabase()
-        old_res = sb.table("transactions").select("*").eq("id", transaction_id).eq("user_id", user_id).single().execute()
+        old = _first(sb.table("transactions").select("*").eq("id", transaction_id).eq("user_id", user_id).limit(1).execute().data)
+        if not old: raise HTTPException(404, "Transaction not found")
+        if "account_id" in data: _require_account(sb, user_id, data["account_id"])
+        if "category_id" in data: _require_category(sb, user_id, data["category_id"])
         result = sb.table("transactions").update(data).eq("id", transaction_id).eq("user_id", user_id).execute()
         if not result.data: raise HTTPException(404, "Transaction not found")
-        if old_res.data:
-            old_amount = old_res.data["amount"]
-            old_acc = old_res.data["account_id"]
-            new_amount = data.get("amount", old_amount)
-            new_acc = data.get("account_id", old_acc)
-            if old_acc == new_acc:
-                _adjust_account_balance(sb, old_acc, new_amount - old_amount)
-            else:
-                _adjust_account_balance(sb, old_acc, -old_amount)
-                _adjust_account_balance(sb, new_acc, new_amount)
-            _write_audit(sb, user_id, "transaction", transaction_id, "update",
-                {k: _serialize(v) for k, v in old_res.data.items()},
-                {k: _serialize(v) for k, v in data.items()})
+        old_amount = old["amount"]
+        old_acc = old["account_id"]
+        new_amount = data.get("amount", old_amount)
+        new_acc = data.get("account_id", old_acc)
+        if old_acc == new_acc:
+            _adjust_account_balance(sb, user_id, old_acc, new_amount - old_amount)
+        else:
+            _adjust_account_balance(sb, user_id, old_acc, -old_amount)
+            _adjust_account_balance(sb, user_id, new_acc, new_amount)
+        _write_audit(sb, user_id, "transaction", transaction_id, "update",
+            {k: _serialize(v) for k, v in old.items()},
+            {k: _serialize(v) for k, v in data.items()})
         return result.data[0]
     except HTTPException: raise
     except Exception as e:
@@ -106,13 +114,13 @@ async def update_transaction(transaction_id: str, body: TransactionUpdate, user_
 async def delete_transaction(transaction_id: str, user_id: str = Depends(get_current_user_id)):
     try:
         sb = get_supabase()
-        old_res = sb.table("transactions").select("*").eq("id", transaction_id).eq("user_id", user_id).single().execute()
+        old = _first(sb.table("transactions").select("*").eq("id", transaction_id).eq("user_id", user_id).limit(1).execute().data)
+        if not old: raise HTTPException(404, "Transaction not found")
         result = sb.table("transactions").delete().eq("id", transaction_id).eq("user_id", user_id).execute()
         if not result.data: raise HTTPException(404, "Transaction not found")
-        if old_res.data:
-            _adjust_account_balance(sb, old_res.data["account_id"], -old_res.data["amount"])
-            _write_audit(sb, user_id, "transaction", transaction_id, "delete",
-                {k: _serialize(v) for k, v in old_res.data.items()}, None)
+        _adjust_account_balance(sb, user_id, old["account_id"], -old["amount"])
+        _write_audit(sb, user_id, "transaction", transaction_id, "delete",
+            {k: _serialize(v) for k, v in old.items()}, None)
     except HTTPException: raise
     except Exception as e:
         logger.error("delete_transaction failed", error=str(e))
@@ -121,7 +129,8 @@ async def delete_transaction(transaction_id: str, user_id: str = Depends(get_cur
 
 @router.post("/transfers", status_code=201, tags=["Transactions"])
 async def create_transfer(body: TransferCreate, user_id: str = Depends(get_current_user_id)):
-    """Creates two linked transactions (debit + credit) atomically and adjusts both balances."""
+    """Creates two linked transactions (debit + credit) in one insert, linked by import_batch_id,
+    and adjusts both balances (the balance updates are separate writes, not one database transaction)."""
     try:
         sb = get_supabase()
         if body.from_account_id == body.to_account_id:
@@ -153,8 +162,8 @@ async def create_transfer(body: TransferCreate, user_id: str = Depends(get_curre
              "dedup_hash": dedup_hash(body.to_account_id, body.transaction_date, abs(body.amount), credit_norm)},
         ]
         result = sb.table("transactions").insert(rows).execute()
-        _adjust_account_balance(sb, body.from_account_id, -abs(body.amount))
-        _adjust_account_balance(sb, body.to_account_id, abs(body.amount))
+        _adjust_account_balance(sb, user_id, body.from_account_id, -abs(body.amount))
+        _adjust_account_balance(sb, user_id, body.to_account_id, abs(body.amount))
         return {"transactions": result.data, "batch_id": batch_id}
     except HTTPException: raise
     except Exception as e:
@@ -166,6 +175,7 @@ async def create_transfer(body: TransferCreate, user_id: str = Depends(get_curre
 async def bulk_create_transactions(payload: BulkTransactionCreate, user_id: str = Depends(get_current_user_id)):
     """Save a batch of transactions (used after PDF/CSV preview confirmation)."""
     sb = get_supabase()
+    _require_account(sb, user_id, payload.account_id)
     is_demo = sb.table('demo_users').select('user_id').eq('user_id', user_id).limit(1).execute()
     imported = skipped = 0
     balance_delta = 0.0
@@ -195,7 +205,7 @@ async def bulk_create_transactions(payload: BulkTransactionCreate, user_id: str 
             if 'dedup_hash' not in str(e) and 'unique' not in str(e).lower():
                 logger.warning("bulk_import_row_failed", error=str(e))
     if imported > 0:
-        _adjust_account_balance(sb, payload.account_id, balance_delta)
+        _adjust_account_balance(sb, user_id, payload.account_id, balance_delta)
     return {'imported': imported, 'skipped': skipped, 'total': len(payload.transactions)}
 
 

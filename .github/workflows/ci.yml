@@ -23,7 +23,7 @@ jobs:
         run: cd frontend && npm ci
 
       - name: Type check
-        run: cd frontend && npx tsc --noEmit
+        run: cd frontend && npx tsc --noEmit -p tsconfig.app.json
 
       - name: Build
         run: cd frontend && npm run build
@@ -39,13 +39,4 @@ jobs:
           python-version: '3.11'
 
       - name: Syntax check
-        run: |
-          python -m py_compile backend/app/main.py \
-            backend/app/models.py \
-            backend/app/api/v1/routers.py \
-            backend/app/core/config.py \
-            backend/app/core/database.py \
-            backend/app/core/security.py \
-            backend/app/integrations/claude_api.py \
-            backend/demo_seed.py
-          echo "All Python files OK"
+        run: python -m compileall -q backend/app backend/demo_seed.py

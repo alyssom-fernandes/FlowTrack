@@ -4,7 +4,7 @@ from app.core.security import get_current_user_id
 from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.models import GoalCreate, GoalUpdate, GoalResponse, GoalListResponse
-from app.api.v1._helpers import calc_progress, _calc_goal_current
+from app.api.v1._helpers import calc_progress, _calc_goal_current, _require_category
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -27,12 +27,15 @@ async def list_goals(user_id: str = Depends(get_current_user_id)):
 @router.post("/goals", response_model=GoalResponse, status_code=201, tags=["Goals"])
 async def create_goal(body: GoalCreate, user_id: str = Depends(get_current_user_id)):
     try:
+        sb = get_supabase()
+        _require_category(sb, user_id, body.category_id)
         data = body.model_dump(); data["user_id"] = user_id
         data["start_date"] = str(body.start_date)
         if body.end_date: data["end_date"] = str(body.end_date)
-        result = get_supabase().table("goals").insert(data).execute()
+        result = sb.table("goals").insert(data).execute()
         goal = result.data[0]; goal["progress_percent"] = 0.0
         return goal
+    except HTTPException: raise
     except Exception as e:
         logger.error("create_goal failed", error=str(e)); raise HTTPException(500, "Failed to create goal")
 

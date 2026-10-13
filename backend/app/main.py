@@ -3,13 +3,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import get_settings
 from app.core.logging import setup_logging, correlation_id_middleware, get_logger
+from app.core.rate_limit import limiter, MAX_UPLOAD_BYTES
 from app.api.v1.routers import router, internal_router
 
 settings = get_settings()
@@ -24,7 +24,6 @@ if settings.sentry_dsn:
         traces_sample_rate=0.1,
     )
 
-limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
@@ -46,6 +45,17 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
+
+async def body_size_limit(request: Request, call_next):
+    """Recusa corpos maiores que o teto de upload antes de ler (folga de 1 MB para o multipart)."""
+    size = request.headers.get("content-length")
+    if size and size.isdigit() and int(size) > MAX_UPLOAD_BYTES + 1024 * 1024:
+        return JSONResponse(status_code=413, content={"detail": "O arquivo passa de 10 MB."})
+    return await call_next(request)
+
+
+app.add_middleware(BaseHTTPMiddleware, dispatch=body_size_limit)
 app.add_middleware(BaseHTTPMiddleware, dispatch=correlation_id_middleware)
 app.add_middleware(
     CORSMiddleware,
@@ -61,4 +71,4 @@ app.include_router(internal_router, prefix="/internal")
 
 @app.get("/health", tags=["Health"])
 async def health_check():
-    return {"status": "ok", "version": settings.app_version, "env": settings.app_env}
+    return {"status": "ok"}

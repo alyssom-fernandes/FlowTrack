@@ -78,7 +78,7 @@ class TestTransactions:
         # balance adjust mock
         bal_q = MagicMock()
         bal_q.eq.return_value = bal_q
-        bal_q.single.return_value = bal_q
+        bal_q.single.return_value = bal_q; bal_q.limit.return_value = bal_q
         bal_q.execute.return_value = MagicMock(data={"balance": 1000.0})
         sb.table.return_value.select.return_value = bal_q
         upd_q = MagicMock()
@@ -129,7 +129,7 @@ class TestTransactions:
         q.execute.side_effect = Exception("dedup_hash unique constraint")
         sb.table.return_value.insert.return_value = q
         bal_q = MagicMock()
-        bal_q.eq.return_value = bal_q; bal_q.single.return_value = bal_q
+        bal_q.eq.return_value = bal_q; bal_q.single.return_value = bal_q; bal_q.limit.return_value = bal_q
         bal_q.execute.return_value = MagicMock(data={"balance": 1000.0})
         sb.table.return_value.select.return_value = bal_q
         payload = {
@@ -145,7 +145,7 @@ class TestTransactions:
         upd_txn = self._txn(amount=-200.0)
 
         sel_q = MagicMock()
-        sel_q.eq.return_value = sel_q; sel_q.single.return_value = sel_q
+        sel_q.eq.return_value = sel_q; sel_q.single.return_value = sel_q; sel_q.limit.return_value = sel_q
         sel_q.execute.return_value = MagicMock(data=old_txn)
         sb.table.return_value.select.return_value = sel_q
 
@@ -164,13 +164,13 @@ class TestTransactions:
 
         # Wire select to return the transaction data
         sel_q = MagicMock()
-        sel_q.eq.return_value = sel_q; sel_q.single.return_value = sel_q
+        sel_q.eq.return_value = sel_q; sel_q.single.return_value = sel_q; sel_q.limit.return_value = sel_q
         sel_q.execute.return_value = MagicMock(data=txn)
         sb.table.return_value.select.return_value = sel_q
 
         # Wire balance read inside _adjust_account_balance
         bal_q = MagicMock()
-        bal_q.eq.return_value = bal_q; bal_q.single.return_value = bal_q
+        bal_q.eq.return_value = bal_q; bal_q.single.return_value = bal_q; bal_q.limit.return_value = bal_q
         bal_q.execute.return_value = MagicMock(data={"balance": 1000.0})
 
         del_q = MagicMock()

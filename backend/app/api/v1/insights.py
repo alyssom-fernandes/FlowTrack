@@ -1,19 +1,36 @@
+from collections import OrderedDict
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.core.security import get_current_user_id
 from app.core.database import get_supabase
 from app.core.logging import get_logger
+from app.core.rate_limit import limiter
 from app.models import InsightPeriod, InsightResponse
 
 router = APIRouter()
 logger = get_logger(__name__)
-limiter = Limiter(key_func=get_remote_address)
 
-_insights_cache: dict[str, dict] = {}
+# Cache em memória com validade de 24 h e teto de entradas (as mais antigas saem primeiro)
+_CACHE_TTL_S = 86400
+_CACHE_MAX = 500
+_insights_cache: "OrderedDict[str, dict]" = OrderedDict()
+
+
+def _cache_get(key: str) -> dict | None:
+    item = _insights_cache.get(key)
+    if item and (datetime.now() - item["ts"]).total_seconds() < _CACHE_TTL_S:
+        return item
+    _insights_cache.pop(key, None)
+    return None
+
+
+def _cache_put(key: str, text: str, ts: datetime) -> None:
+    _insights_cache[key] = {"text": text, "ts": ts}
+    _insights_cache.move_to_end(key)
+    while len(_insights_cache) > _CACHE_MAX:
+        _insights_cache.popitem(last=False)
 
 
 @router.post("/insights", response_model=InsightResponse, tags=["Insights"])
@@ -21,8 +38,8 @@ _insights_cache: dict[str, dict] = {}
 async def generate_insight(request: Request, period: InsightPeriod, user_id: str = Depends(get_current_user_id)):
     """Generate an AI-powered financial insight for a given period, cached for 24h."""
     cache_key = f"{user_id}:{period.start_date}:{period.end_date}"
-    cached = _insights_cache.get(cache_key)
-    if cached and (datetime.now() - cached["ts"]).total_seconds() < 86400:
+    cached = _cache_get(cache_key)
+    if cached:
         return InsightResponse(text=cached["text"], generated_at=cached["ts"].isoformat(), cached=True)
 
     try:
@@ -30,7 +47,7 @@ async def generate_insight(request: Request, period: InsightPeriod, user_id: str
         txns = sb.table("transactions").select("amount,category_id,description,is_recurring,type").eq("user_id", user_id).gte("transaction_date", period.start_date).lte("transaction_date", period.end_date).execute().data or []
         txns = [t for t in txns if t.get("type") != "transfer"]
         goals = sb.table("goals").select("name,type,target_amount,is_active").eq("user_id", user_id).eq("is_active", True).execute().data or []
-        cats = sb.table("categories").select("id,name").execute().data or []
+        cats = sb.table("categories").select("id,name").or_(f"is_default.eq.true,user_id.eq.{user_id}").execute().data or []
         cat_map = {c["id"]: c["name"] for c in cats}
 
         expenses = [t for t in txns if (t.get("amount") or 0) < 0]
@@ -75,7 +92,7 @@ async def generate_insight(request: Request, period: InsightPeriod, user_id: str
             text = resp.content[0].text.strip()
 
         ts = datetime.now()
-        _insights_cache[cache_key] = {"text": text, "ts": ts}
+        _cache_put(cache_key, text, ts)
         return InsightResponse(text=text, generated_at=ts.isoformat(), cached=False)
     except Exception as e:
         logger.error("generate_insight failed", error=str(e))

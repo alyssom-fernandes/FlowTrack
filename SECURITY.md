@@ -4,7 +4,8 @@
 
 | Version | Supported |
 |---------|-----------|
-| 1.x     | ✅         |
+| 2.x     | ✅         |
+| 1.x     | ❌         |
 
 ## Reporting a Vulnerability
 
@@ -22,15 +23,21 @@ You will receive a response within 48 hours. Once confirmed, a fix will be relea
 
 ## Security Measures
 
-- **Authentication**: Supabase Auth with PKCE flow, JWT (ES256/HS256) validated server-side via JWKS
-- **Authorization**: Row Level Security (RLS) enforced at the database layer for all user data
-- **API security**: Bearer token required on all endpoints; internal endpoints protected by a separate secret token
-- **Rate limiting**: Applied on AI and import endpoints (slowapi)
-- **Secrets management**: All credentials via environment variables; never committed to the repository
-- **Error handling**: Generic error messages in production to avoid information leakage
-- **Transport**: HTTPS enforced on all production services (Vercel + Railway)
+- **Authentication**: Supabase Auth with PKCE flow. The API validates the JWT itself: a fixed list of algorithms (ES256/RS256 from the project's JWKS, HS256 with the project secret), audience `authenticated`, and required `exp` and `sub`. The token never chooses its own algorithm.
+- **Authorization**: the API talks to the database with the `service_role` key, which bypasses Row Level Security. Every route therefore filters by the user taken from the token, and every account or category id that arrives in a request is checked for ownership before anything is written (`backend/app/api/v1/_helpers.py`). Tests with two users cover this (`backend/tests/test_security.py`).
+- **Row Level Security**: enabled on every table for direct access with the public anon key. The change history (`audit_log`) is read-only for users; only the API writes it. Global rows of the merchant cache can only be written by the API.
+- **Internal endpoints**: protected by a separate secret, compared in constant time.
+- **Input limits**: uploads above 10 MB are refused (413); rate limits on AI and import endpoints (slowapi), with the client IP taken from the platform proxy.
+- **Web app headers**: Content-Security-Policy without inline scripts, `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy` and `Permissions-Policy` (see `vercel.json`). Fonts are served from the app itself.
+- **Secrets management**: all credentials via environment variables; never committed to the repository.
+- **Dependencies**: Dependabot for npm, pip and GitHub Actions (`.github/dependabot.yml`).
+- **Error handling**: generic error messages; `/health` returns only `{"status": "ok"}`.
+
+## Past incident
+
+In May 2026 a `backend/.env` file with a Supabase service key was pushed by mistake (commit `ec866f6`). The history was rewritten and the Supabase project that key belonged to has since been deleted, so the key no longer grants access to anything. Any new project uses new keys.
 
 ## Known Limitations
 
-- This is a single-user personal finance app. Multi-tenancy hardening is out of scope for v1.
+- Balance updates are a read followed by a write, not a single database transaction. Two writes to the same account at the same instant can lose one update.
 - PDF parsers rely on bank-specific output formats and may break if banks change their PDF generators.

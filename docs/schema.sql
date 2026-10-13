@@ -290,12 +290,13 @@ create policy "categories: delete own" on categories
   for delete using (auth.uid() = user_id);
 
 -- MERCHANT CACHE (globais visíveis para todos, personalizadas só do próprio usuário)
+-- Linhas globais (user_id nulo) só são gravadas pela API (service_role).
 create policy "merchant_cache: select global or own" on merchant_cache
   for select using (user_id is null or auth.uid() = user_id);
 create policy "merchant_cache: insert own" on merchant_cache
-  for insert with check (auth.uid() = user_id or user_id is null);
+  for insert with check (auth.uid() = user_id);
 create policy "merchant_cache: update own" on merchant_cache
-  for update using (auth.uid() = user_id or user_id is null);
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- CATEGORIZATION QUEUE
 create policy "queue: select own" on categorization_queue
@@ -390,13 +391,11 @@ create table if not exists audit_log (
 
 create index idx_audit_log_user on audit_log(user_id, created_at desc);
 
+-- Só leitura para o usuário: quem grava o histórico é a API (service_role).
+-- Se o usuário pudesse inserir, forjaria um registro para o "desfazer" restaurar.
 alter table audit_log enable row level security;
 create policy "audit_log: select own" on audit_log
   for select using (auth.uid() = user_id);
-create policy "audit_log: insert own" on audit_log
-  for insert with check (auth.uid() = user_id);
-create policy "audit_log: update own" on audit_log
-  for update using (auth.uid() = user_id);
 
 -- ============================================================
 -- NET WORTH SNAPSHOTS (histórico de patrimônio líquido)
@@ -443,3 +442,6 @@ grant select, insert, update, delete on all tables    in schema public to authen
 grant usage on all sequences                          in schema public to authenticated;
 
 grant select on categories, merchant_cache            to anon;
+
+-- Histórico de alterações: só leitura para o usuário
+revoke insert, update, delete on audit_log from authenticated;

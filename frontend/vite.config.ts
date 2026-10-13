@@ -1,6 +1,18 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+
+// Os headers de segurança da Vercel (vercel.json) também valem no `vite preview`,
+// onde rodam o E2E e as fotos do build: uma violação de CSP aparece antes do deploy.
+// (Sem upgrade-insecure-requests: o preview é http://localhost.)
+const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')) as {
+  headers: { source: string; headers: { key: string; value: string }[] }[]
+}
+const previewHeaders = Object.fromEntries(
+  (vercel.headers.find(h => h.source === '/(.*)')?.headers ?? [])
+    .map(h => [h.key, h.value.replace('; upgrade-insecure-requests', '')]),
+)
 
 export default defineConfig({
   plugins: [
@@ -12,20 +24,10 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
       },
     }),
   ],
+  preview: { headers: previewHeaders },
   build: {
     chunkSizeWarningLimit: 700,
     rollupOptions: {

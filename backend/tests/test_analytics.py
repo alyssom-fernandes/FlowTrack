@@ -408,7 +408,7 @@ class TestAuditLog:
         c, sb = client
         entry = self._make_entry(undone=True)
         q = MagicMock()
-        q.eq.return_value = q; q.single.return_value = q; q.select.return_value = q
+        q.eq.return_value = q; q.single.return_value = q; q.limit.return_value = q; q.select.return_value = q
         q.execute.return_value = MagicMock(data=entry)
         sb.table.return_value = q
 
@@ -418,7 +418,7 @@ class TestAuditLog:
     def test_undo_not_found_returns_404(self, client):
         c, sb = client
         q = MagicMock()
-        q.eq.return_value = q; q.single.return_value = q; q.select.return_value = q
+        q.eq.return_value = q; q.single.return_value = q; q.limit.return_value = q; q.select.return_value = q
         q.execute.return_value = MagicMock(data=None)
         sb.table.return_value = q
 
@@ -429,7 +429,7 @@ class TestAuditLog:
         c, sb = client
         entry = self._make_entry(entity_type="goal", undone=False)
         q = MagicMock()
-        q.eq.return_value = q; q.single.return_value = q; q.select.return_value = q
+        q.eq.return_value = q; q.single.return_value = q; q.limit.return_value = q; q.select.return_value = q
         q.execute.return_value = MagicMock(data=entry)
         sb.table.return_value = q
 

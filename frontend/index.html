@@ -2,35 +2,9 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      /* Registro de erros do navegador: JS, promessas rejeitadas, console.error,
-         recursos que não carregaram e falhas capturadas pelo ErrorBoundary.
-         Consulte no console com errosRegistrados(). Nada aqui pode lançar erro. */
-      (function () {
-        var lista = [];
-        function anotar(tipo, msg) {
-          try { lista.push({ tipo: tipo, mensagem: String(msg).slice(0, 500), quando: new Date().toISOString(), pagina: location.pathname }); if (lista.length > 200) lista.shift(); } catch (e) {}
-        }
-        window.addEventListener('error', function (ev) {
-          try {
-            var alvo = ev.target;
-            if (alvo && alvo !== window && (alvo.src || alvo.href)) anotar('recurso', (alvo.src || alvo.href));
-            else anotar('js', (ev.message || 'erro') + (ev.filename ? ' @ ' + ev.filename + ':' + ev.lineno : ''));
-          } catch (e) {}
-        }, true);
-        window.addEventListener('unhandledrejection', function (ev) {
-          try { var r = ev.reason; anotar('promessa', (r && (r.stack || r.message)) || r); } catch (e) {}
-        });
-        var original = console.error;
-        console.error = function () {
-          try { anotar('console', Array.prototype.map.call(arguments, function (a) { return a && a.stack ? a.stack : (typeof a === 'object' ? JSON.stringify(a) : String(a)); }).join(' ')); } catch (e) {}
-          return original.apply(console, arguments);
-        };
-        window.__anotarErro = anotar;
-        window.errosRegistrados = function () { return lista.slice(); };
-        window.limparErros = function () { lista.length = 0; };
-      })();
-    </script>
+    <!-- Registro de erros do navegador: consulte com errosRegistrados() no console -->
+    <script src="/erros.js"></script>
+    <script src="/tema.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0b0c" />
     <meta name="description" content="FlowTrack: do extrato do banco ao relatório do mês. Importa PDF, OFX e CSV, categoriza gastos com IA e mostra orçamentos, metas e investimentos." />
@@ -44,11 +18,6 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 
     <!-- Prévia de link -->
     <meta property="og:type" content="website" />
@@ -65,7 +34,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>try{var t=localStorage.getItem('ft-theme');if(t==='light')document.documentElement.dataset.theme='light';}catch(e){}</script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

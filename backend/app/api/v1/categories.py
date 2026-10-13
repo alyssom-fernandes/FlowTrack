@@ -4,6 +4,7 @@ from app.core.security import get_current_user_id
 from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.models import CategoryCreate, CategoryUpdate, CategoryResponse, CategoryListResponse
+from app.api.v1._helpers import _first
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -36,13 +37,13 @@ async def create_category(body: CategoryCreate, user_id: str = Depends(get_curre
 async def update_category(category_id: str, body: CategoryUpdate, user_id: str = Depends(get_current_user_id)):
     try:
         sb = get_supabase()
-        existing = sb.table("categories").select("id,is_default,user_id").eq("id", category_id).single().execute()
-        if not existing.data: raise HTTPException(404, "Category not found")
-        if existing.data.get("is_default") or existing.data.get("user_id") != user_id:
+        existing = _first(sb.table("categories").select("id,is_default,user_id").eq("id", category_id).limit(1).execute().data)
+        if not existing: raise HTTPException(404, "Category not found")
+        if existing.get("is_default") or existing.get("user_id") != user_id:
             raise HTTPException(403, "Cannot edit default categories")
         data = {k: v for k, v in body.model_dump().items() if v is not None}
         if not data: raise HTTPException(400, "No fields to update")
-        result = sb.table("categories").update(data).eq("id", category_id).execute()
+        result = sb.table("categories").update(data).eq("id", category_id).eq("user_id", user_id).execute()
         return result.data[0]
     except HTTPException: raise
     except Exception as e:
@@ -54,11 +55,11 @@ async def update_category(category_id: str, body: CategoryUpdate, user_id: str =
 async def delete_category(category_id: str, user_id: str = Depends(get_current_user_id)):
     try:
         sb = get_supabase()
-        existing = sb.table("categories").select("id,is_default,user_id").eq("id", category_id).single().execute()
-        if not existing.data: raise HTTPException(404, "Category not found")
-        if existing.data.get("is_default") or existing.data.get("user_id") != user_id:
+        existing = _first(sb.table("categories").select("id,is_default,user_id").eq("id", category_id).limit(1).execute().data)
+        if not existing: raise HTTPException(404, "Category not found")
+        if existing.get("is_default") or existing.get("user_id") != user_id:
             raise HTTPException(403, "Cannot delete default categories")
-        sb.table("categories").delete().eq("id", category_id).execute()
+        sb.table("categories").delete().eq("id", category_id).eq("user_id", user_id).execute()
     except HTTPException: raise
     except Exception as e:
         logger.error("delete_category failed", error=str(e))

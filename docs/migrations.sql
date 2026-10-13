@@ -40,8 +40,6 @@ create table if not exists audit_log (
 create index if not exists idx_audit_log_user on audit_log(user_id, created_at desc);
 alter table audit_log enable row level security;
 create policy "audit_log: select own" on audit_log for select using (auth.uid() = user_id);
-create policy "audit_log: insert own" on audit_log for insert with check (auth.uid() = user_id);
-create policy "audit_log: update own" on audit_log for update using (auth.uid() = user_id);
 
 -- v1.4 — snapshots de patrimônio líquido
 create table if not exists net_worth_snapshots (
@@ -63,5 +61,19 @@ create policy "nws: update own" on net_worth_snapshots for update using (auth.ui
 -- grants para as novas tabelas
 grant all on budgets, audit_log, net_worth_snapshots to service_role;
 grant select, insert, update, delete on budgets to authenticated;
-grant select, insert, update on audit_log to authenticated;
+grant select on audit_log to authenticated;
 grant select, insert, update on net_worth_snapshots to authenticated;
+
+-- v2.0 — regras de acesso revistas (para bancos criados antes de outubro de 2026)
+-- Cache global de categorias: só a API grava linhas sem dono
+drop policy if exists "merchant_cache: insert own" on merchant_cache;
+drop policy if exists "merchant_cache: update own" on merchant_cache;
+create policy "merchant_cache: insert own" on merchant_cache for insert with check (auth.uid() = user_id);
+create policy "merchant_cache: update own" on merchant_cache for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- Histórico: só leitura para o usuário
+drop policy if exists "audit_log: insert own" on audit_log;
+drop policy if exists "audit_log: update own" on audit_log;
+drop policy if exists "Users can manage own audit log" on audit_log;
+drop policy if exists "audit_log: select own" on audit_log;
+create policy "audit_log: select own" on audit_log for select using (auth.uid() = user_id);
+revoke insert, update, delete on audit_log from authenticated;

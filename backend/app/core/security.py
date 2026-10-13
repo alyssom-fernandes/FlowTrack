@@ -1,8 +1,9 @@
+import hmac
 import time
 import httpx
+import jwt
 from fastapi import HTTPException, Security, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import jwt, jwk as jose_jwk, JWTError
 from app.core.config import get_settings
 from app.core.logging import get_logger
 
@@ -12,6 +13,12 @@ security = HTTPBearer()
 _jwks_cache: dict | None = None
 _jwks_cache_time: float = 0
 _JWKS_TTL = 3600
+
+# Tokens do Supabase Auth: chaves assimétricas publicadas no JWKS ou o segredo HS256 do projeto.
+# O algoritmo nunca é escolhido pelo token: só estes são aceitos, cada um com o seu tipo de chave.
+_JWKS_ALGS = {"ES256": "EC", "RS256": "RSA"}
+_AUDIENCE = "authenticated"
+_REQUIRED_CLAIMS = ["exp", "sub", "aud"]
 
 
 def _get_jwks() -> dict:
@@ -28,42 +35,44 @@ def _get_jwks() -> dict:
     return _jwks_cache
 
 
-def _decode_with_jwks(token: str, jwks: dict) -> dict:
-    header = jwt.get_unverified_header(token)
-    kid = header.get("kid")
-    alg = header.get("alg", "ES256")
+def _decode_with_jwks(token: str, alg: str, kid: str | None, jwks: dict) -> dict:
     for key_data in jwks.get("keys", []):
-        if key_data.get("kid") == kid:
-            public_key = jose_jwk.construct(key_data, algorithm=alg)
-            return jwt.decode(token, public_key, algorithms=[alg], options={"verify_aud": False})
-    raise JWTError(f"No matching JWKS key for kid={kid}")
+        if key_data.get("kid") != kid:
+            continue
+        if key_data.get("kty") != _JWKS_ALGS[alg] or key_data.get("alg", alg) != alg:
+            raise jwt.InvalidTokenError("Key type does not match the token algorithm")
+        key = jwt.PyJWK(key_data, algorithm=alg).key
+        return jwt.decode(token, key, algorithms=[alg], audience=_AUDIENCE, options={"require": _REQUIRED_CLAIMS})
+    raise jwt.InvalidTokenError(f"No matching JWKS key for kid={kid}")
+
+
+def decode_token(token: str) -> dict:
+    """Valida o token e devolve as claims. Erros viram jwt.InvalidTokenError."""
+    header = jwt.get_unverified_header(token)
+    alg = header.get("alg")
+    if alg == "HS256":
+        return jwt.decode(
+            token, get_settings().supabase_jwt_secret, algorithms=["HS256"],
+            audience=_AUDIENCE, options={"require": _REQUIRED_CLAIMS},
+        )
+    if alg in _JWKS_ALGS:
+        return _decode_with_jwks(token, alg, header.get("kid"), _get_jwks())
+    raise jwt.InvalidTokenError(f"Algorithm not accepted: {alg}")
 
 
 def get_current_user_id(
     credentials: HTTPAuthorizationCredentials = Security(security),
 ) -> str:
-    settings = get_settings()
-    token = credentials.credentials
-
     try:
-        alg = jwt.get_unverified_header(token).get("alg", "HS256")
-
-        if alg == "HS256":
-            payload = jwt.decode(
-                token,
-                settings.supabase_jwt_secret,
-                algorithms=["HS256"],
-                options={"verify_aud": False},
-            )
-        else:
-            payload = _decode_with_jwks(token, _get_jwks())
-
+        payload = decode_token(credentials.credentials)
         user_id: str = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token: missing sub")
         return user_id
 
-    except JWTError as e:
+    except HTTPException:
+        raise
+    except jwt.InvalidTokenError as e:
         logger.warning("JWT validation failed", error=str(e))
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     except Exception as e:
@@ -72,8 +81,9 @@ def get_current_user_id(
 
 
 def verify_internal_token(x_internal_secret: str = Header(...)) -> bool:
-    settings = get_settings()
-    if x_internal_secret != settings.internal_api_token:
+    expected = get_settings().internal_api_token
+    # Comparação em tempo constante; segredo vazio nunca libera
+    if not expected or not hmac.compare_digest(x_internal_secret.encode(), expected.encode()):
         logger.warning("Invalid internal token attempt")
         raise HTTPException(status_code=403, detail="Forbidden")
     return True

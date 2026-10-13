@@ -76,7 +76,7 @@ def generate_recurring():
         }
         try:
             sb.table("transactions").insert(new_tx).execute()
-            _adjust_account_balance(sb, tx["account_id"], tx["amount"])
+            _adjust_account_balance(sb, tx["user_id"], tx["account_id"], tx["amount"])
             created += 1
         except Exception as e:
             skipped += 1

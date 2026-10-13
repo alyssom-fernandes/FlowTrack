@@ -6,6 +6,7 @@ from app.core.security import get_current_user_id
 from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.models import BudgetCreate, BudgetUpdate
+from app.api.v1._helpers import _require_category
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -17,7 +18,7 @@ async def list_budgets(month: str = Query(..., pattern=r"^\d{4}-\d{2}$"), user_i
     try:
         sb = get_supabase()
         budgets = sb.table("budgets").select("*").eq("user_id", user_id).eq("month", month).execute().data or []
-        cats = sb.table("categories").select("id,name,color").execute().data or []
+        cats = sb.table("categories").select("id,name,color").or_(f"is_default.eq.true,user_id.eq.{user_id}").execute().data or []
         cat_map = {c["id"]: c for c in cats}
 
         year, mon = int(month.split("-")[0]), int(month.split("-")[1])
@@ -46,9 +47,12 @@ async def list_budgets(month: str = Query(..., pattern=r"^\d{4}-\d{2}$"), user_i
 @router.post("/budgets", status_code=201, tags=["Budgets"])
 async def create_budget(body: BudgetCreate, user_id: str = Depends(get_current_user_id)):
     try:
+        sb = get_supabase()
+        _require_category(sb, user_id, body.category_id)
         data = body.model_dump(); data["user_id"] = user_id
-        result = get_supabase().table("budgets").insert(data).execute()
+        result = sb.table("budgets").insert(data).execute()
         return result.data[0]
+    except HTTPException: raise
     except Exception as e:
         if "unique" in str(e).lower():
             raise HTTPException(409, "Já existe um orçamento para esta categoria neste mês.")

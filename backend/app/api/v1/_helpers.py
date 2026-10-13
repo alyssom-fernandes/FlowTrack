@@ -3,9 +3,41 @@ import re
 import calendar as cal
 from datetime import date, timedelta
 
+from fastapi import HTTPException
+
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+# ── Posse dos dados ───────────────────────────────────────────
+# A API acessa o banco com a chave service_role, que ignora o RLS.
+# Todo id que chega na requisição (conta, categoria) é conferido aqui.
+
+def _first(data):
+    """Primeira linha de uma resposta do Supabase (lista) ou a própria linha (single)."""
+    if isinstance(data, list):
+        return data[0] if data else None
+    return data or None
+
+
+def _require_account(sb, user_id: str, account_id: str) -> dict:
+    """Conta do próprio usuário, ou 404."""
+    res = sb.table("accounts").select("id,name").eq("id", account_id).eq("user_id", user_id).limit(1).execute()
+    row = _first(res.data)
+    if not row:
+        raise HTTPException(404, "Conta não encontrada.")
+    return row
+
+
+def _require_category(sb, user_id: str, category_id: str | None) -> None:
+    """Categoria padrão ou do próprio usuário, ou 404. Sem categoria passa."""
+    if not category_id:
+        return
+    res = sb.table("categories").select("id,user_id,is_default").eq("id", category_id).limit(1).execute()
+    row = _first(res.data)
+    if not row or not (row.get("is_default") or row.get("user_id") == user_id):
+        raise HTTPException(404, "Categoria não encontrada.")
 
 
 def normalize_desc(description: str) -> str:
@@ -48,15 +80,15 @@ def calc_progress(current: float, target: float) -> float:
     return round(min((current / target) * 100, 100), 2) if target > 0 else 0.0
 
 
-def _adjust_account_balance(sb, account_id: str, delta: float) -> None:
-    """Non-atomic balance adjustment. Sufficient for single-user personal finance."""
+def _adjust_account_balance(sb, user_id: str, account_id: str, delta: float) -> None:
+    """Ajusta o saldo lendo e gravando em seguida (não é atômico). Só mexe em conta do próprio usuário."""
     if delta == 0:
         return
     try:
-        acc = sb.table("accounts").select("balance").eq("id", account_id).single().execute()
-        if acc.data:
-            new_bal = round((acc.data["balance"] or 0) + delta, 2)
-            sb.table("accounts").update({"balance": new_bal}).eq("id", account_id).execute()
+        acc = _first(sb.table("accounts").select("balance").eq("id", account_id).eq("user_id", user_id).limit(1).execute().data)
+        if acc:
+            new_bal = round((acc["balance"] or 0) + delta, 2)
+            sb.table("accounts").update({"balance": new_bal}).eq("id", account_id).eq("user_id", user_id).execute()
     except Exception as e:
         logger.warning("balance_adjust_failed", account_id=account_id, delta=delta, error=str(e))
 
@@ -147,5 +179,15 @@ def _parse_ofx(content: bytes) -> list[dict]:
 
 
 def _serialize(v):
-    """Coerce non-primitive values to string for audit log storage."""
-    return v if isinstance(v, (int, float, bool, type(None))) else str(v)
+    """Coerce non-primitive values to string for audit log storage (listas, como tags, ficam como lista)."""
+    if isinstance(v, list):
+        return [_serialize(x) for x in v]
+    return v if isinstance(v, (int, float, bool, str, type(None))) else str(v)
+
+
+# Campos que o "desfazer" pode devolver a uma transação. user_id nunca vem do histórico.
+RESTORABLE_FIELDS = (
+    "account_id", "category_id", "description", "description_normalized", "amount", "currency",
+    "transaction_date", "type", "is_recurring", "installment_current", "installment_total",
+    "categorized_by", "confidence_score", "notes", "tags", "import_batch_id", "dedup_hash",
+)

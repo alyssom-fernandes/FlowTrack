@@ -25,7 +25,7 @@ jobs:
         working-directory: backend
         run: pip install -r requirements.txt
 
-      - name: Run unit tests
+      - name: Run all backend tests
         working-directory: backend
         env:
           SUPABASE_URL: https://placeholder.supabase.co
@@ -35,19 +35,7 @@ jobs:
           INTERNAL_API_TOKEN: placeholder_internal_token
           ANTHROPIC_API_KEY: ""
           APP_ENV: test
-        run: pytest tests/test_helpers.py -v --tb=short
-
-      - name: Run integration tests
-        working-directory: backend
-        env:
-          SUPABASE_URL: https://placeholder.supabase.co
-          SUPABASE_ANON_KEY: placeholder_anon_key
-          SUPABASE_SERVICE_ROLE_KEY: placeholder_service_key
-          SUPABASE_JWT_SECRET: placeholder_jwt_secret_32chars_min
-          INTERNAL_API_TOKEN: placeholder_internal_token
-          ANTHROPIC_API_KEY: ""
-          APP_ENV: test
-        run: pytest tests/test_integration.py -v --tb=short
+        run: pytest tests -v --tb=short
 
   frontend-typecheck:
     name: Frontend Type Check
@@ -69,8 +57,12 @@ jobs:
 
       - name: TypeScript check
         working-directory: frontend
-        run: npx tsc --noEmit
+        run: npx tsc --noEmit -p tsconfig.app.json
 
       - name: ESLint check
         working-directory: frontend
         run: npx eslint src --max-warnings=0
+
+      - name: Translation keys (pt/en)
+        working-directory: frontend
+        run: node scripts/checar-traducoes.mjs

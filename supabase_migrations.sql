@@ -64,8 +64,9 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_user_created ON audit_log (user_id, cre
 
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage own audit log"
-  ON audit_log FOR ALL
+-- Só leitura para o usuário: quem grava o histórico é a API (service_role)
+CREATE POLICY "Users can read own audit log"
+  ON audit_log FOR SELECT
   USING (auth.uid() = user_id);
 
 
