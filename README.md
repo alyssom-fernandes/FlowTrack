@@ -1,254 +1,185 @@
 # FlowTrack
 
-Personal finance app with AI-powered transaction categorization — built as a production-grade portfolio project targeting the European job market.
+![FlowTrack: the dashboard on a computer and on a phone](docs/telas/capa.png)
 
-**Live demo → [flowtrack-afn.vercel.app](https://flowtrack-afn.vercel.app)**
-_(Login: use the "Access demo mode" button — no sign-up required)_
+FlowTrack is a personal finance app. It reads bank statements (PDF, OFX or CSV), categorizes every expense with AI and turns the month into budgets, goals, a cash-flow projection and reports you can export. It has a FastAPI backend on Supabase, a React frontend, and a demo that runs entirely in the browser, so anyone can try it without signing up.
+
+[![Backend tests](https://github.com/alyssom-fernandes/FlowTrack/actions/workflows/test.yml/badge.svg)](https://github.com/alyssom-fernandes/FlowTrack/actions/workflows/test.yml)
+[![E2E tests](https://github.com/alyssom-fernandes/FlowTrack/actions/workflows/e2e.yml/badge.svg)](https://github.com/alyssom-fernandes/FlowTrack/actions/workflows/e2e.yml)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-Python_3.11-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Theme](https://img.shields.io/badge/theme-light_and_dark-9D2449?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
+
+**Live demo: [flowtrack-afn.vercel.app](https://flowtrack-afn.vercel.app)** · This README is also available in [Portuguese](README.pt-br.md).
+
+## In 30 seconds
+
+1. Open the [live demo](https://flowtrack-afn.vercel.app) and click **Try the demo**. No account, no server: the data is fictitious and stays in your browser tab.
+2. On the **Dashboard**, follow the month's money: what came in, which categories it went to and what was left. Below it, **How much I can still spend** compares this month's spending with the pace of your budgets (fixed bills count on the day they are due).
+3. In **Transactions**, click **Import** and drop any PDF: the demo answers with a sample Nubank statement. Once imported, each line is categorized automatically and shows how, with a badge such as *AI · 94%*.
+4. In **Reports**, pick a period, then **Export** as a PDF, an Excel workbook or a CSV.
+5. In **Profile**, switch the language to Portuguese or the theme to light.
+
+## Screens
+
+Captured from the demo, in English.
+
+| Dashboard, dark theme | Transactions, light theme |
+|---|---|
+| ![Dashboard in the dark theme: monthly metrics, income and spending chart, balance projection](docs/telas/en/dashboard-dark.png) | ![Transactions in the light theme, grouped by day, with AI categorization badges](docs/telas/en/transactions-light.png) |
+| **Reports, light theme** | **Importing a statement, dark theme** |
+| ![Reports in the light theme: income and spending by month, spending by category, projection](docs/telas/en/reports-light.png) | ![Import preview of a PDF statement, each line categorized](docs/telas/en/import-dark.png) |
+| **Budgets, dark theme** | **Sign in, with the demo first** |
+| ![Monthly budgets by category with progress bars](docs/telas/en/budgets-dark.png) | ![Sign-in screen with a live preview of the product](docs/telas/en/login-dark.png) |
+
+| On a phone, light theme | On a phone, dark theme | The report as a PDF |
+|---|---|---|
+| <img src="docs/telas/en/phone-light.png" alt="Dashboard on a phone, light theme" width="240"> | <img src="docs/telas/en/phone-dark.png" alt="Transactions on a phone, dark theme" width="240"> | <img src="docs/telas/en/report-pdf.png" alt="First page of the exported PDF report" width="300"> |
 
 ---
 
-## Screenshots
+## Features
 
-| | |
-|---|---|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Transactions](docs/screenshots/transactions.png) |
-| Dashboard — metrics, cashflow, AI insight | Transactions — filters, category badges, installments |
-| ![Reports](docs/screenshots/reports.png) | ![Goals](docs/screenshots/goals.png) |
-| Reports — donut chart, bar chart, projections | Goals — progress bars, spending & savings targets |
-| ![Import](docs/screenshots/import.png) | ![Login](docs/screenshots/login.png) |
-| Import modal — PDF / OFX / CSV | Login — demo access, no sign-up required |
-
-<details>
-<summary>Mobile view</summary>
-
-![Mobile](docs/screenshots/mobile.png)
-
-</details>
+- **Statement import.** PDF statements from Nubank, Sicredi, Mercado Pago and Will Bank, plus OFX from any bank and CSV with column mapping. Every import is previewed before it is saved, and duplicates are skipped.
+- **AI categorization in three layers.** Fixed rules for known merchants first, then the user's merchant cache, then Claude Haiku for what is left. Each transaction shows how it was categorized and with what confidence.
+- **Dashboard.** The month's money flow (income split into spending categories and what was left), compared with the same days of last month; how much can still be spent at the pace of the budgets; a 30-day balance projection from recurring payments and installments; net worth over 12 months; the budgets that need attention first; grouped alerts; and a short monthly summary written by AI. Amounts can be hidden with one click.
+- **Transactions.** Month by month, grouped by day with daily totals, filters (search, account, category, type, period, tag), installments ("5/10"), recurring payments, tags, transfers between accounts and inline categorization. Each category keeps the same color on every screen and in the exports.
+- **Budgets and goals.** Monthly budgets per category, measured against the pace of the month (on pace, over pace, over budget) with alerts at 80% and 100%, and goals for spending limits or savings, tracked automatically from transactions.
+- **Investments.** A manual portfolio with returns per asset and allocation by type.
+- **Reports.** Any period, compared with the previous one: income and spending by month, spending by category, largest expenses and a three-month projection. Each chart has a table view. Exports to a vector PDF, a multi-sheet Excel workbook and a CSV; prints as a clean A4 page.
+- **History with undo.** Every change to a transaction is logged and can be undone.
+- **Two languages, two themes.** Portuguese and English, light and dark, built for phones from the start.
+- **Installable and offline-tolerant.** A PWA; transactions created offline are queued and sent when the connection returns.
 
 ---
 
-## What it does
+## How it is built
 
-FlowTrack is a full-featured personal finance tracker with a FastAPI backend, React frontend, and Claude Haiku for intelligent transaction categorization.
+```mermaid
+graph LR
+  subgraph Browser
+    UI[React 19 + TypeScript]
+    Demo[In-browser demo API]
+    Queue[(IndexedDB queue)]
+  end
+  subgraph API[FastAPI · Python 3.11]
+    Routes[REST /api/v1]
+    Worker[Categorization worker]
+  end
+  DB[(Supabase · PostgreSQL + RLS)]
+  AI[Claude Haiku]
+  UI -- Axios + JWT --> Routes
+  UI -. demo mode .-> Demo
+  UI --> Queue
+  Routes --> DB
+  Worker --> DB
+  Worker --> AI
+```
 
-### Core features
+- **The demo needs no server.** In demo mode the Axios client swaps its transport for an in-memory implementation of the same API, with the same rules (balances, goals, budgets, alerts, projections, undo). The public demo can never go down because a free database fell asleep. See [ADR 0006](docs/adr/0006-in-browser-demo.md).
+- **No UI framework.** The design system is plain CSS tokens and a small set of components (`frontend/src/components`), with every chart drawn as SVG by hand and colors checked for color-vision deficiency.
+- **Security.** The API validates Supabase JWTs itself (fixed algorithms, audience and expiry) and checks the owner of every account and category before writing; Row Level Security keeps direct database access read-only; the web app ships a Content-Security-Policy without inline scripts; rate limits count per user. Details in [SECURITY.md](SECURITY.md).
+- **Exports without heavy dependencies.** The Excel writer is about 200 lines (real `.xlsx`, with formats, frozen header and filters); the PDF is drawn with jsPDF and only loaded when someone exports.
 
-| Area | Features |
-|---|---|
-| **Dashboard** | Monthly metrics (balance, income, expenses), 6-month net-balance sparkline, budget alerts, AI insight card |
-| **Transactions** | CRUD with filters (debounced search, collapsible on mobile), pagination, inline category edit, installment badge ("3/6"), recurring tag |
-| **Import** | PDF statements from 4 banks (Nubank, Sicredi, Mercado Pago, Will Bank), OFX, CSV — preview before confirming bulk import |
-| **Transfers** | Atomic double-entry transfers between accounts with shared `import_batch_id` |
-| **Budgets** | Monthly budget per category; automatic alerts at 80% and 100% consumption |
-| **Tags** | Free-form labels on transactions, filterable in the list |
-| **Goals** | Spending limits and savings targets with progress bars; auto-tracked from transactions |
-| **Reports** | Donut chart by category, monthly bar chart, top 5 expenses, period comparison, PDF export |
-| **Cashflow** | 12-month projected cashflow based on recurring transactions |
-| **Net worth** | Historical snapshots with sparkline; liabilities subtracted from investment totals |
-| **Investments** | Manual portfolio grouped by asset type with profitability metrics |
-| **Audit log** | Every destructive action is logged and reversible (undo) |
-| **AI insights** | On-demand financial insights via Claude Haiku |
-| **Offline** | Transactions created offline sync on reconnect via IndexedDB queue + health-check ping |
-| **PWA** | Installable on iOS, Android, and desktop |
-| **Demo mode** | Pre-seeded account, weekly auto-reset via GitHub Actions |
-
-### AI categorization — 3-layer pipeline
-
-1. **Deterministic rules** — pattern matching for known payees (zero API cost)
-2. **Merchant cache** — reuses prior Haiku decisions for the same merchant
-3. **Claude Haiku** — fallback for unknown merchants (~90% call reduction vs. naive approach)
-
-The worker is non-blocking with exponential backoff retry (1 min → 3 min → 9 min). Prompt caching on the system prompt reduces token cost per call.
+Architecture decisions are recorded in [`docs/adr`](docs/adr) and the trade-offs in [`docs/architecture.md`](docs/architecture.md).
 
 ---
 
-## Tech Stack
+## Getting started
 
-### Frontend
-| | |
-|---|---|
-| React 19 + TypeScript | UI framework |
-| Vite 8 | Build tool |
-| Zustand | Global state (auth + toasts) |
-| Axios | HTTP client with JWT interceptor |
-| Dexie.js | IndexedDB offline queue |
-| @supabase/supabase-js | Auth + direct DB queries |
-
-### Backend
-| | |
-|---|---|
-| FastAPI + Python 3.11 | REST API |
-| Supabase PostgreSQL | Database with Row Level Security |
-| Supabase Auth | JWT authentication (ES256 / HS256 fallback, JWKS with 1h cache) |
-| Claude Haiku | AI categorization with prompt caching |
-| Structlog | Structured JSON logging |
-| Sentry | Error monitoring |
-
-### Infrastructure
-| | |
-|---|---|
-| Vercel | Frontend hosting + auto-deploy |
-| Railway | Backend hosting + auto-deploy |
-| Supabase | PostgreSQL + auth (São Paulo region) |
-| GitHub Actions | CI (typecheck + build) + weekly demo reset |
-| cron-job.org | Triggers AI worker every 5 minutes |
-
----
-
-## Architecture highlights
-
-- **Security**: JWKS key lookup by `kid` header, ES256 + HS256 fallback, RLS as a second defense layer, service role isolated to backend. BOM-stripping on env vars prevents silent auth failures on Windows hosts.
-- **Offline sync**: uses `window.addEventListener('online')` + health-check ping before processing the queue — no Background Sync API (Safari iOS doesn't support it).
-- **No Tailwind / Shadcn**: custom design system in `tokens.css` with full dark/light support, typographic scale, responsive grid, and custom scrollbars. Deliberate choice documented in `docs/architecture.md`.
-- **83 integration tests**: cover accounts CRUD, transactions CRUD, transfers (same-account guard), OFX parse, summary, cashflow, net worth, budget alerts, analytics, insights, audit log, budgets, and tags.
-
----
-
-## Getting Started
-
-### Prerequisites
-- Node.js 20+
-- Python 3.11+
-- A [Supabase](https://supabase.com) project
-
-### 1. Clone & install
+### The demo, locally (no backend)
 
 ```bash
 git clone https://github.com/alyssom-fernandes/FlowTrack.git
 cd FlowTrack
-npm install          # installs concurrently at root
-cd frontend && npm install
+npm install --prefix frontend
+npm --prefix frontend run dev
 ```
 
-### 2. Configure environment
+Open `http://localhost:5173` and click **Try the demo**. Without Supabase variables the app runs in demo-only mode.
 
-```bash
-# Frontend
-cp frontend/.env.example frontend/.env.local
+### The full stack
 
-# Backend
-cp backend/.env.example backend/.env
-```
+Requirements: Node.js 20+, Python 3.11+ and a [Supabase](https://supabase.com) project.
 
-Fill in the values from your Supabase project dashboard and create a Python virtual environment:
+1. Run `docs/schema.sql` in the Supabase SQL editor.
+2. Copy the environment files and fill them in:
+   ```bash
+   cp frontend/.env.example frontend/.env.local
+   cp backend/.env.example backend/.env
+   ```
+3. Install the backend:
+   ```bash
+   cd backend
+   python -m venv .venv
+   .venv\Scripts\activate          # Windows
+   # source .venv/bin/activate     # macOS / Linux
+   pip install -r requirements.txt
+   ```
+4. From the repository root, start both: `npm install` and then `npm run dev`. Frontend on `http://localhost:5173`, API on `http://localhost:8000` (docs at `/docs`).
 
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # macOS/Linux
-pip install -r requirements.txt
-```
-
-### 3. Create the database schema
-
-Run `docs/schema.sql` in the Supabase SQL Editor.
-
-### 4. Seed demo data (optional)
-
-```bash
-cd backend
-python demo_seed.py --full
-```
-
-### 5. Run
-
-```bash
-# From the repo root (with venv activated)
-npm run dev
-```
-
-Frontend → `http://localhost:5173`  
-Backend → `http://localhost:8000`  
-API docs → `http://localhost:8000/docs`
-
----
-
-## Environment Variables
-
-### Frontend (`frontend/.env.local`)
-
-| Variable | Description |
+| Frontend (`frontend/.env.local`) | |
 |---|---|
-| `VITE_API_URL` | Backend URL (e.g. `http://localhost:8000`) |
-| `VITE_SUPABASE_URL` | Your Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key |
-| `VITE_DEMO_EMAIL` | Demo account email |
-| `VITE_DEMO_PASSWORD` | Demo account password |
+| `VITE_API_URL` | Backend URL |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Supabase project (leave empty for demo-only) |
 
-### Backend (`backend/.env`)
-
-| Variable | Description |
+| Backend (`backend/.env`) | |
 |---|---|
-| `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_ANON_KEY` | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (bypasses RLS) |
-| `SUPABASE_JWT_SECRET` | JWT secret from Supabase dashboard |
-| `ANTHROPIC_API_KEY` | Claude API key (optional — AI disabled if absent) |
-| `INTERNAL_API_TOKEN` | Secret token for `/internal/*` endpoints |
-| `CORS_ORIGINS` | Comma-separated allowed origins |
-| `APP_ENV` | `development` or `production` |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET` | Supabase project |
+| `ANTHROPIC_API_KEY` | Claude API key (optional: without it, insights fall back to plain numbers) |
+| `INTERNAL_API_TOKEN` | Secret for the `/internal/*` worker endpoints |
+| `CORS_ORIGINS`, `APP_ENV` | Allowed origins and environment |
+
+### Tests
+
+```bash
+# Backend: 136 tests (pytest)
+cd backend && .venv\Scripts\python -m pytest tests -q
+
+# End to end: 20 scenarios on a desktop and a phone viewport (Playwright, against a local build of the demo)
+npm install && npx playwright install chromium && npm run e2e
+```
+
+Both run on GitHub Actions on every push to `main` and on pull requests. There is also a screenshot script, `frontend/scripts/fotos/rodar.mjs`, that captures every screen, modal and empty state at 1366 and 375 pixels in both themes, and fails if the browser logged any error.
 
 ---
 
-## Deploy
+## Tech stack
 
-Both platforms auto-deploy on push to `main`.
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, React Router, Zustand, Axios, Dexie (IndexedDB), i18next, jsPDF |
+| Backend | FastAPI, Python 3.11, Supabase (PostgreSQL + Auth), slowapi, structlog, Sentry |
+| AI | Claude Haiku, behind rules and a merchant cache |
+| Testing | pytest, Playwright |
+| Hosting | Vercel (frontend and the in-browser demo). The API and the database are set up for Railway and Supabase; the public site runs only the demo. |
 
-**Frontend (Vercel)**
-- Root directory: `frontend/`
-- Configuration: `frontend/vercel.json` (SPA rewrite rule)
-- Set all `VITE_*` environment variables in Vercel dashboard
-
-**Backend (Railway)**
-- Root directory: `backend/`
-- Configuration: `backend/railway.toml` + `backend/Procfile`
-- Set all backend environment variables in Railway dashboard
-
-**AI Categorization worker**
-- Set up a POST cron at [cron-job.org](https://cron-job.org) every 5 minutes:
-  - URL: `<RAILWAY_URL>/internal/process-queue`
-  - Header: `X-Internal-Secret: <INTERNAL_API_TOKEN>`
-
----
-
-## Project Structure
+## Project structure
 
 ```
 FlowTrack/
-├── frontend/               React + TypeScript + Vite
+├── frontend/
 │   ├── src/
-│   │   ├── pages/          Dashboard, Transactions, Goals, Investments, Reports, Profile
-│   │   ├── components/     AppShell, Sidebar, UI primitives (ui.tsx, layout.tsx)
-│   │   ├── services.ts     Supabase client + Axios API services
-│   │   ├── store.ts        Zustand stores + Dexie offline queue
-│   │   ├── utils.ts        Formatters, normalizers, useOnlineStatus
-│   │   └── tokens.css      Design system tokens (dark/light, typography, grid)
-│   └── vercel.json
-├── backend/                FastAPI + Python 3.11
-│   ├── app/
-│   │   ├── api/v1/         All REST endpoints (routers.py)
-│   │   ├── core/           Config, DB client, JWT security, logging
-│   │   └── integrations/   Claude Haiku categorization worker
-│   ├── tests/              83 integration tests (pytest)
-│   ├── demo_seed.py        Demo data seeder with smart reset
-│   └── railway.toml
-├── docs/
-│   ├── adr/                Architecture Decision Records
-│   ├── schema.sql          Full Supabase PostgreSQL schema
-│   ├── architecture.md     Design decisions and trade-offs
-│   └── parsers.md          PDF bank parser documentation
-├── e2e/                    Playwright end-to-end tests
-└── .github/workflows/
-    ├── ci.yml              Typecheck + build on every push
-    ├── test.yml            Integration tests (pytest)
-    ├── lighthouse.yml      Lighthouse CI on every PR
-    └── demo-reset.yml      Weekly demo data reset (Monday 06:00 UTC)
+│   │   ├── pages/        One folder per screen (dashboard, transactions, reports, goals, investments, profile, login)
+│   │   ├── components/   Design system: tokens, UI components, icons, app shell
+│   │   ├── demo/         In-browser API and fictitious data for the demo
+│   │   ├── lib/          Excel and CSV writers, category colors, budget pace, theme
+│   │   └── i18n/         Portuguese and English, one file per screen
+│   └── scripts/fotos/    Screenshot script for every screen and state
+├── backend/
+│   ├── app/api/v1/       REST endpoints by domain
+│   ├── app/integrations/ Categorization worker (rules, cache, Claude) and PDF readers
+│   └── tests/            pytest suite
+├── e2e/                  Playwright tests
+└── docs/                 ADRs, architecture, schema, bank parsers
 ```
 
 ---
 
 ## Author
 
-**Alyssom Fernandes** — AFN SYSTEMS  
-[github.com/alyssom-fernandes](https://github.com/alyssom-fernandes)
+**Alyssom Fernandes** · AFN SYSTEMS · [github.com/alyssom-fernandes](https://github.com/alyssom-fernandes)
+
+Released under the [MIT License](LICENSE).

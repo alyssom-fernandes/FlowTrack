@@ -85,11 +85,11 @@ Transactions go through three layers before hitting the Claude API:
 2. **`merchant_cache` lookup** — normalized description → category, per-user + global rules
 3. **Claude Haiku with Prompt Caching** — only for unresolved cases; system prompt cached via `cache_control: ephemeral`
 
-This reduces API calls by ~90% after initial warmup. The merchant cache is populated from AI decisions and manual corrections, self-improving over time.
+Layers 1 and 2 cost nothing, so the model is only called for merchants it has not seen. The number of calls saved was not measured. The merchant cache is filled from AI decisions, so it grows with use.
 
 ### Non-Blocking Categorization
 
-Transactions are saved immediately. A background worker processes the `categorization_queue` table every 5 minutes via cron-job.org → `POST /internal/process-queue`. The frontend receives updates via Supabase Realtime subscription.
+Transactions are saved immediately. A background worker processes the `categorization_queue` table every 5 minutes via cron-job.org → `POST /internal/process-queue`. The frontend shows the transaction without a category until then and picks up the category on the next load.
 
 ### Offline-First PWA
 

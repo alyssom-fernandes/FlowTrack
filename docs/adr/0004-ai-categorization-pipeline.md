@@ -21,7 +21,8 @@ The pipeline runs asynchronously in a background worker triggered by `cron-job.o
 
 - **Cost**: Layer 1 and 2 have zero API cost. Layer 3 uses Claude Haiku (cheapest model) with prompt caching on the system prompt.
 - **Latency**: Import is instant — the user sees transactions immediately with a "pending" categorization badge. Categorization arrives within minutes.
-- **Hit rate**: In practice, ~90% of transactions match layers 1 or 2 after a few weeks of use, as the merchant cache grows.
+- **Hit rate**: the share of transactions resolved by layers 1 and 2 is expected to grow as the merchant cache fills. It has not been measured.
+- **Isolation**: each queue item only reads its owner's transaction and only offers the default categories and that user's own, so one user's category names never reach another user's prompt.
 
 ## Consequences
 

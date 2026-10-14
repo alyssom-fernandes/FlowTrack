@@ -1,6 +1,63 @@
 # Changelog
 
-All notable changes to FlowTrack are documented here.
+All notable changes to FlowTrack are documented here. Dates follow the commits where each set of changes landed.
+
+## [2.0.0] — 2026-10-14
+
+A finishing pass over every screen, modal, export and state, in both themes and on phones.
+
+### Added
+- **In-browser demo** — the demo runs entirely in the browser, with fictitious data relative to today; it no longer depends on a live database ([ADR 0006](docs/adr/0006-in-browser-demo.md))
+- **Budgets screen** — create, edit, delete and copy monthly budgets per category (the API existed, the screen did not)
+- **Excel export** — real `.xlsx` workbooks for transactions and reports, written without a new dependency
+- **Vector PDF report** — selectable text, tables and charts drawn with jsPDF, plus a print stylesheet for A4
+- **AI categorization badge** — each transaction shows whether it was categorized by a rule, the merchant cache or AI, with confidence
+- **English everywhere** — every screen, date and amount follows the chosen language
+- **Error log** — `errosRegistrados()` in the browser console lists JS errors, rejected promises, `console.error`, missing resources and missing translations
+- **Screenshot script** — captures every screen, modal and empty state at 1366 and 375 pixels in both themes, and fails on any logged error
+- **Month flow on the Dashboard** — income split into spending categories and what was left, drawn as a flow; click a category to see its transactions
+- **How much I can still spend** — spending this month against the pace of the budgets; fixed bills (last month's recurring expenses) count on the day they are due
+- **Budgets by pace** — each budget shows where spending should be today and whether it is on pace, over pace or over budget
+- **Stable category colors** — each default category keeps one color, validated for color-vision deficiency, on every screen, in the PDF and in Excel
+- **Rules layer in the categorization worker** — fixed rules for known merchants run before the merchant cache and Claude Haiku (before this release the rules only existed in the demo)
+- **Hide amounts** — one click blurs every amount, for use in public and in screenshots
+- **404 page**, per-screen tab titles, and the browser language picked on the first visit
+
+### Changed
+- New design system: tokens for light and dark, shared components, icon set, AFN SYSTEMS brand per the brand guide
+- Sign-in screen split in two, with a live product preview and the demo as the main action
+- Dashboard, Transactions, Reports, Goals, Investments and Profile redesigned
+- Chart palette validated for color-vision deficiency
+- Motion system: one entrance per screen, charts that draw once, a sliding tab indicator; everything respects reduced motion
+- Navigation grouped by intent on the computer; five items and the profile behind the avatar on phones
+- Transactions open on the current month, with month-by-month navigation and a one-line summary
+- Reports: the period's surplus is the main number; spending by category as a stacked bar and a ranked list instead of a donut; spending drawn in neutral gray
+- Comparisons for the current month use the same days of the previous month
+- The demo month is partial, like a real one, instead of squeezing the whole month into the first days
+- "Income" and "Expenses" (Receitas and Gastos) used everywhere, including exports
+- Fonts served by the app itself (no Google Fonts)
+- End-to-end tests run against a local build of the demo (40 tests, desktop and phone)
+
+### Security
+- The API checks the owner of every account and category before writing; undo takes the owner from the token, never from the history
+- JWT validation with fixed algorithms, audience and required expiry (python-jose replaced by PyJWT)
+- The categorization worker only reads the queue owner's transaction and only offers that user's own and the default categories
+- Direct database access is read-only for users; a user can never create a "default" category
+- Content-Security-Policy without inline scripts, frame-ancestors, nosniff, Referrer-Policy and Permissions-Policy
+- Upload and bulk limits, per-user rate limits, constant-time comparison of the internal secret, strong secrets required in production
+- Dependencies updated with no known advisories (npm audit and OSV); Dependabot configured
+- 49 new backend tests, including two-user authorization tests on an in-memory database
+
+### Fixed
+- Recurring payments are no longer reported as missing before the day they usually arrive
+- Transfers between your own accounts no longer appear as income and spending in the cash-flow projection
+- The three-month projection uses 12 months of history
+- On phones, toasts no longer cover the confirm button of a bottom sheet
+- Transfers between your own accounts no longer count as income and spending
+- The cash-flow projection no longer repeats installments of the same purchase
+- Projections no longer use the current, incomplete month for averages
+- AI summaries no longer show raw markdown
+- Amounts formatted as "R$ 16.4k" and dates as "11-01" replaced by locale-aware formats
 
 ## [1.4.0] — 2026-06-03
 
@@ -9,7 +66,7 @@ All notable changes to FlowTrack are documented here.
 - **Cashflow projections** — 12-month forward projection based on recurring transactions
 - **Audit log with undo** — every destructive action is logged and reversible
 - **Budget progress card** — dashboard card showing budget consumption with 80%/100% threshold alerts
-- **Integration tests** — 57 tests covering all critical backend paths (accounts, transactions, transfers, OFX parse, summary, cashflow, net worth, budget alerts)
+- **Backend tests** — 57 tests (38 for helpers, 19 API tests with a mocked Supabase) covering the critical backend paths (accounts, transactions, transfers, OFX parse, summary, cashflow, net worth, budget alerts)
 
 ## [1.3.0] — 2026-06-02
 
@@ -23,10 +80,10 @@ All notable changes to FlowTrack are documented here.
 - **PDF export** — export full financial reports as PDF
 - **Alerts panel** — dashboard panel surfacing budget alerts and unusual spending patterns
 
-## [1.2.0] — 2026-05-25
+## [1.2.0] — 2026-06-02
 
 ### Added
-- **Transfers** — atomic double-entry transfers between accounts (shared `import_batch_id`)
+- **Transfers** — double-entry transfers between accounts, the two sides linked by a shared `import_batch_id`
 - **Installment payments** — split transactions into N installments with badge display ("3/6")
 - **Recurring transactions** — mark transactions as recurring; auto-generated monthly via cron
 - **PDF bank statement import** — parse statements from Nubank, Sicredi, Mercado Pago, Will Bank
@@ -40,10 +97,10 @@ All notable changes to FlowTrack are documented here.
 - Offline banner wired to AppShell; health-check ping before processing sync queue
 - Strip UTF-8 BOM from env vars on Windows (avoids silent Supabase auth failures)
 
-## [1.1.0] — 2026-05-15
+## [1.1.0] — 2026-06-01
 
 ### Added
-- **AI categorization worker** — non-blocking 3-layer pipeline: deterministic rules → merchant cache → Claude Haiku; ~90% API call reduction via caching and prompt caching
+- **AI categorization worker** — non-blocking pipeline: merchant cache, then Claude Haiku with prompt caching
 - **Investments** — manual portfolio tracking grouped by asset type with profitability metrics
 - **Reports** — donut chart by category, monthly bar chart, top 5 expenses, custom date range
 - **Password reset** — forgot password flow with PKCE-safe recovery redirect
@@ -55,7 +112,7 @@ All notable changes to FlowTrack are documented here.
 - Dashboard 6-month sparkline aligned to correct months
 - Supabase PKCE recovery token race condition on password reset
 
-## [1.0.0] — 2026-05-01
+## [1.0.0] — 2026-05-29
 
 ### Added
 - **Dashboard** — monthly metrics (balance, income, expenses) + 6-month net-balance sparkline

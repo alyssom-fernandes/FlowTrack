@@ -1,17 +1,16 @@
 # FlowTrack — Statement Parsers
 
-## Supported Formats (Phase 1)
+## Supported formats
 
-| Parser | Bank | Format | Type |
-|---|---|---|---|
-| `sicredi_account` | Sicredi | PDF (text) | Checking account |
-| `nubank_account` | Nubank | CSV | Checking account |
-| `nubank_card` | Nubank | PDF (text) | Credit card statement |
-| `willbank_card` | Will Bank | PDF (text) | Credit card statement |
-| `mercadopago_account` | Mercado Pago | PDF (text) | Account statement |
-| `mercadopago_card` | Mercado Pago | PDF (text) | Credit card statement |
+| Format | Where it is parsed | Banks / variants |
+|---|---|---|
+| PDF (text) | Backend, `backend/app/integrations/pdf_parser.py` (`parse_pdf`) | Nubank (account statement and card bill), Sicredi (account and card), Mercado Pago (account and card), Will Bank (card) |
+| OFX / QFX | Backend, `_parse_ofx` in `backend/app/api/v1/_helpers.py` | Any bank that exports OFX |
+| CSV | Browser, `frontend/src/pages/transactions/csv.ts`, with column mapping | Any bank; separator and decimal format detected |
 
-> PDF parsing is Phase 2. Phase 1 supports OFX and CSV formats only.
+`parse_pdf` first detects the bank and document type from the text (`detect_bank`), then runs the matching
+reader. The detected variants are `nubank_extrato`, `nubank_fatura`, `sicredi_extrato`, `sicredi_fatura`,
+`mercadopago_extrato`, `mercadopago_fatura` and `will_fatura`. Every import is shown as a preview before it is saved.
 
 ## Field Mapping
 
@@ -47,19 +46,16 @@
 - Known encoding issues (garbled characters) — requires cleanup
 - Structure: payment + items per card
 
-## Parser Interface
+## Reader interface
 
-All parsers implement the base interface defined in `backend/app/parsers/base.py`:
+Each PDF reader in `pdf_parser.py` is a function that takes the file bytes and returns a list of dictionaries with
+`description`, `amount` (negative for expenses), `transaction_date` (ISO) and `type` (`debit` or `credit`):
 
 ```python
-class BaseParser:
-    parser_version: str
-    
-    def parse(self, file_content: str) -> list[ParsedTransaction]:
-        raise NotImplementedError
-    
-    def validate(self, file_content: str) -> bool:
-        raise NotImplementedError
+def parse_pdf(pdf_bytes: bytes) -> tuple[str, list[dict]]:
+    bank = detect_bank(sample)        # first 3 pages; e.g. "nubank_fatura" or "unknown"
+    txns = _PARSERS[bank](pdf_bytes)  # one reader per bank and document type
+    # duplicates inside the same PDF (date, description, amount) are dropped
 ```
 
 ## Deduplication
