@@ -18,8 +18,8 @@ interface Props {
   now: Date
 }
 
-const H = 132
-const PAD = { top: 14, right: 8, bottom: 20, left: 8 }
+const H = 172
+const PAD = { top: 16, right: 8, bottom: 20, left: 8 }
 
 export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }: Props) {
   const { t } = useTranslation()
@@ -77,11 +77,17 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
   const { dim, day, limit, spent, actual, ideal, status, diff } = data
   const left = limit - spent
   const lastDay = new Intl.DateTimeFormat(currentLocale(), { day: 'numeric', month: 'short' }).format(new Date(now.getFullYear(), now.getMonth(), dim))
-  const top = Math.max(limit, spent) * 1.08 || 1
+  const top = Math.max(limit, spent) * 1.15 || 1
   const w = Math.max(0, width)
   const x = (d: number) => PAD.left + ((d - 0.5) / dim) * (w - PAD.left - PAD.right)
   const y = (v: number) => PAD.top + (1 - v / top) * (H - PAD.top - PAD.bottom)
   const path = (vals: number[]) => vals.map((v, i) => `${i ? 'L' : 'M'}${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+  // Área entre o gasto e o ritmo até hoje, na cor do estado: mostra a diferença que a frase anuncia
+  const gap = actual.length > 1
+    ? `${path(actual)} ${ideal.slice(0, actual.length).map((v, i) => [i, v] as const).reverse().map(([i, v]) => `L${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join(' ')} Z`
+    : ''
+  const todayX = day > 0 ? x(day) : 0
+  const todayY = actual.length ? y(actual[actual.length - 1]) : 0
   const color = PACE_COLOR[status]
   const statusText = status === 'over'
     ? t('dashboard.pace.over', { value: formatCurrency(spent - limit) })
@@ -96,10 +102,6 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
           <Money value={Math.max(0, left)} size="kpi" className="ft-pace__value" style={left < 0 ? { color: 'var(--red)' } : undefined} />
           <span className="ft-pace__until">{left >= 0 ? t('dashboard.pace.freeUntil', { date: lastDay }) : t('dashboard.pace.overTotal')}</span>
         </div>
-        <span className={`ft-pace__status ft-pace__status--${status}`}>
-          <Icon name={status === 'ok' ? 'checkCircle' : status === 'warn' ? 'alert' : 'alertCircle'} size={14} />
-          {statusText}
-        </span>
       </div>
       <div ref={wrap} className="ft-pace__chart" data-chart="ritmo">
         {w > 0 && (
@@ -109,6 +111,7 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
             <text x={w - PAD.right} y={y(limit) - 5} textAnchor="end" className="ft-pace__label">{t('dashboard.pace.ceiling', { value: formatCurrency(limit) })}</text>
             {/* Ritmo esperado (tracejado) */}
             <path d={path(ideal)} fill="none" stroke="var(--text-hint)" strokeWidth={1.5} strokeDasharray="4 4" />
+            {gap && <path d={gap} fill={color} opacity={0.15} />}
             {/* Gasto real até hoje */}
             {actual.length > 0 && <path d={path(actual)} fill="none" stroke={color} strokeWidth={2.25} strokeLinejoin="round" strokeLinecap="round" pathLength={1} className="ft-pace__line" />}
             {day > 0 && actual.length > 0 && (
@@ -121,6 +124,14 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
             {day > 0 && <text x={x(day)} y={H - 4} textAnchor="middle" className="ft-pace__label ft-pace__label--today">{t('dashboard.pace.today')}</text>}
             <text x={w - PAD.right} y={H - 4} textAnchor="end" className="ft-pace__label">{dim}</text>
           </svg>
+        )}
+        {/* Diferença ancorada no ponto de hoje (texto e ícone, nunca só a cor) */}
+        {w > 0 && day > 0 && actual.length > 0 && (
+          <span className={`ft-pace__status ft-pace__status--${status} ft-pace__tag`}
+            style={{ left: Math.min(Math.max(todayX, 105), w - 105), top: Math.max(0, todayY - 40) }}>
+            <Icon name={status === 'ok' ? 'checkCircle' : status === 'warn' ? 'alert' : 'alertCircle'} size={14} />
+            {statusText}
+          </span>
         )}
       </div>
       <div className="ft-pace__legend">

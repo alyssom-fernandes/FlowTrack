@@ -56,6 +56,8 @@
 
   /* Gráficos — validados com o validador da skill dataviz (faixa de luminosidade,
      croma, separação para daltonismo e contraste). Ordem fixa, nunca reciclada.
+     Sem verde nas séries: verde é estado ("no ritmo", entrada). Out/2026: aqua e verde
+     trocados por ciano e ocre; pior par vizinho para daltonismo ΔE 16,3 (claro) e 9,7 (escuro).
      --chart-8 é o cinza de "Outros", não uma cor de série. Texto usa os tokens de texto. */
   --chart-income:   #39ad79;
   --chart-expense:  #bd2d3e;
@@ -64,10 +66,10 @@
   --chart-axis:     var(--text-hint);
   --chart-1: #3987e5;
   --chart-2: #d95926;
-  --chart-3: #199e70;
+  --chart-3: #1c9cc4;
   --chart-4: #c98500;
   --chart-5: #d55181;
-  --chart-6: #008300;
+  --chart-6: #b7782a;
   --chart-7: #9085e9;
   --chart-8: #8b8b96;
 
@@ -76,13 +78,15 @@
      (o vermelho fica com Vestuário, a menos frequente). Ver src/lib/categoryColor.ts */
   --cat-1: #3987e5;  /* Moradia */
   --cat-2: #d95926;  /* Alimentação */
-  --cat-3: #199e70;  /* Lazer */
+  --cat-3: #1c9cc4;  /* Lazer */
   --cat-4: #c98500;  /* Transporte */
   --cat-5: #d55181;  /* Saúde */
-  --cat-6: #008300;  /* Educação */
+  --cat-6: #b7782a;  /* Educação */
   --cat-7: #9085e9;  /* Assinaturas */
   --cat-8: #e66767;  /* Vestuário */
   --cat-other: #8b8b96;
+  /* "Outras N categorias" (grupo) em textura, para não confundir com a categoria "Outros" (cinza liso) */
+  --cat-group: repeating-linear-gradient(135deg, var(--cat-other) 0 2px, color-mix(in srgb, var(--cat-other) 30%, transparent) 2px 5px);
 
   /* Tipografia */
   --font:        'Outfit Variable', 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -154,7 +158,7 @@
   --pace-warn: var(--amber-fill);  /* barras e linhas: no claro, --amber (texto) puxa para marrom */
   --pace-over: var(--red);
   --chart-spend: #6b6b78;         /* gasto em neutro (3:1 sobre o cartão): a cor fica para o que importa */
-  --flow-band-opacity: 0.38;
+  --flow-band-opacity: 0.3;
 }
 
 /* ── MODO CLARO ── */
@@ -190,12 +194,12 @@
   --brand-secondary:  #505050;
   --brand-by:         #505050;
 
-  --green:      #13844f;
+  --green:      #0e7243;   /* texto em pílula com fundo suave: 4,5:1 ou mais (medido, checar-contraste.mjs) */
   --green-soft: rgba(19, 132, 79, 0.09);
   --red:        #c62f45;
   --red-soft:   rgba(198, 47, 69, 0.08);
   --red-solid:  #c62f45;
-  --amber:      #a8650f;
+  --amber:      #8a5208;   /* idem: o âmbar anterior ficava em 4,1:1 nas pílulas */
   --amber-fill: #e0960c;
   --amber-soft: rgba(168, 101, 15, 0.1);
   --blue:       #2c6bc4;
@@ -207,19 +211,19 @@
   --chart-grid:    rgba(17, 17, 19, 0.07);
   --chart-1: #2a78d6;
   --chart-2: #eb6834;
-  --chart-3: #1baf7a;
+  --chart-3: #0f8fb3;
   --chart-4: #eda100;
   --chart-5: #e87ba4;
-  --chart-6: #008300;
+  --chart-6: #a86a1c;
   --chart-7: #4a3aa7;
   --chart-8: #8e8e99;
 
   --cat-1: #2a78d6;
   --cat-2: #eb6834;
-  --cat-3: #1baf7a;
+  --cat-3: #0f8fb3;
   --cat-4: #eda100;
   --cat-5: #e87ba4;
-  --cat-6: #008300;
+  --cat-6: #a86a1c;
   --cat-7: #4a3aa7;
   --cat-8: #e34948;
   --cat-other: #8e8e99;
@@ -414,10 +418,10 @@ html[data-hide-values='true'] .ft-money, html[data-hide-values='true'] .ft-hidea
     color-scheme: light;
     --chart-neutral: #8e8e99; --chart-axis: #6f6f78;
     --chart-income: #2ca470; --chart-expense: #9a2929; --chart-spend: #8e8e99;
-    --chart-1: #2a78d6; --chart-2: #eb6834; --chart-3: #1baf7a; --chart-4: #eda100;
-    --chart-5: #e87ba4; --chart-6: #008300; --chart-7: #4a3aa7; --chart-8: #8e8e99;
-    --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100;
-    --cat-5: #e87ba4; --cat-6: #008300; --cat-7: #4a3aa7; --cat-8: #e34948; --cat-other: #8e8e99;
+    --chart-1: #2a78d6; --chart-2: #eb6834; --chart-3: #0f8fb3; --chart-4: #eda100;
+    --chart-5: #e87ba4; --chart-6: #a86a1c; --chart-7: #4a3aa7; --chart-8: #8e8e99;
+    --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #0f8fb3; --cat-4: #eda100;
+    --cat-5: #e87ba4; --cat-6: #a86a1c; --cat-7: #4a3aa7; --cat-8: #e34948; --cat-other: #8e8e99;
     --accent-soft: rgba(157, 36, 73, 0.08); --bg-input: #ffffff;
     --green-soft: rgba(19, 132, 79, 0.09); --red-soft: rgba(198, 47, 69, 0.08); --amber-soft: rgba(168, 101, 15, 0.1);
     --bg: #ffffff; --bg-card: #ffffff; --bg-card-hover: #ffffff; --bg-elevated: #ffffff; --bg-subtle: #f6f6f7;

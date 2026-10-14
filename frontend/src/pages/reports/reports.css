@@ -65,6 +65,10 @@
 .rp-legend__line { width: 1.125rem; height: 0; border-top: 2px solid currentColor; }
 .rp-legend__line--dashed { border-top-style: dashed; }
 .rp-legend__line--band { height: 0.625rem; border: 0; border-radius: 2px; background: currentColor; opacity: 0.18; }
+.rp-legend__text { font-size: 11px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+/* Sobra do mês acima da barra (texto em tinta de texto; vermelho só quando faltou) */
+.rp-net { font-size: 11px; font-weight: 600; fill: var(--text-secondary); font-variant-numeric: tabular-nums; font-family: var(--font); }
+.rp-net--neg { fill: var(--red); }
 
 .rp-chart { position: relative; width: 100%; }
 .rp-svg { display: block; overflow: visible; touch-action: pan-y; }
@@ -187,9 +191,11 @@
   .rp-filters { gap: 0.5rem; }
   .rp-switch { min-height: 2.75rem; font-size: var(--font-size-base); }
   .rp-custom { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
-  .rp-menu-wrap { width: 100%; }
-  .rp-menu-wrap > .ft-btn { width: 100%; height: 2.75rem; }
-  .rp-menu { left: 0; right: 0; width: auto; }
+  /* "Exportar" compacto ao lado do título, não uma faixa de largura total */
+  .rp-root .ft-page-header { flex-wrap: nowrap; }
+  .rp-root .ft-page-header__actions { width: auto; flex-shrink: 0; }
+  .rp-menu-wrap > .ft-btn { height: 2.5rem; padding: 0 0.75rem; }
+  .rp-menu { left: auto; right: 0; width: min(19rem, calc(100vw - 2rem)); }
   .rp-menu__item { min-height: 3.25rem; }
   .rp-kpis { gap: 0.625rem; }
   .rp-kpi { gap: 0.25rem; }
@@ -218,8 +224,8 @@
   :root, [data-theme='light'], [data-theme='dark'] {
     color-scheme: light;
     --chart-income: #2ca470; --chart-expense: #9a2929; --chart-spend: #8e8e99;
-    --chart-1: #2a78d6; --chart-2: #eb6834; --chart-3: #1baf7a; --chart-4: #eda100;
-    --chart-5: #e87ba4; --chart-6: #008300; --chart-7: #4a3aa7; --chart-8: #8e8e99;
+    --chart-1: #2a78d6; --chart-2: #eb6834; --chart-3: #0f8fb3; --chart-4: #eda100;
+    --chart-5: #e87ba4; --chart-6: #a86a1c; --chart-7: #4a3aa7; --chart-8: #8e8e99;
     --chart-axis: #6f6f78; --chart-grid: rgba(0, 0, 0, 0.08); --bg-subtle: #f6f6f7;
   }
   html, body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

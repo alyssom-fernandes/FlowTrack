@@ -104,7 +104,8 @@ function DesktopRow({ txn, account, category, categories, onEdit, onDelete, onCa
   return (
     <li className="tx-row tx-cols" onClick={e => { if (!fromControl(e)) onEdit() }}>
       <CategoryGlyph category={category} transfer={txn.type === 'transfer'} />
-      <div style={{ minWidth: 0 }}>
+      {/* Descrição e selos numa linha só: toda linha tem a mesma altura (56px) */}
+      <div className="tx-row__main">
         <Description txn={txn} onEdit={onEdit} />
         <RowMeta txn={txn} />
       </div>

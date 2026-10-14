@@ -35,10 +35,6 @@
       "result": "Resultado",
       "actions": "Ações"
     },
-    "actions": {
-      "edit": "Editar {{name}}",
-      "delete": "Excluir {{name}}"
-    },
     "empty": {
       "title": "Nenhum investimento cadastrado",
       "text": "Registre aplicações como Tesouro, CDB ou ações para ver o total da carteira, a distribuição por tipo e o resultado de cada ativo.",
@@ -88,10 +84,10 @@
     },
     "otherFolded": "Outros",
     "hero": {
-      "result": "{{value}} ({{pct}}) sobre o investido",
+      "result": "{{value}} ({{pct}}) de rendimento sobre o que você aplicou",
       "positions": "Posições",
       "types": "Tipos",
-      "inPeriod": "{{value}} no período",
+      "inPeriod": "{{value}} no período, somando aportes e rendimento",
       "range": "Período do gráfico",
       "a11y": "Evolução dos investimentos em {{count}} meses: de {{from}} para {{to}}.",
       "ranges": {

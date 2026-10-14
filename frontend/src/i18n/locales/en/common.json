@@ -72,6 +72,9 @@
       "summaryWarn_one": "{{count}} of {{total}} over pace",
       "summaryWarn_other": "{{count}} of {{total}} over pace",
       "summaryOk": "All on pace"
-    }
+    },
+    "editName": "Edit {{name}}",
+    "deleteName": "Delete {{name}}",
+    "actionsFor": "Actions for {{name}}"
   }
 }

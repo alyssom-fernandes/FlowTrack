@@ -18,8 +18,8 @@ const SLOT: Record<string, string> = {
 
 // Valores do tema claro, para o que não lê CSS (PDF e Excel)
 export const CATEGORY_PRINT_HEX: Record<string, string> = {
-  Moradia: '#2a78d6', Alimentação: '#eb6834', Lazer: '#1baf7a', Transporte: '#eda100', Saúde: '#e87ba4',
-  Educação: '#008300', Assinaturas: '#4a3aa7', Vestuário: '#e34948', Outros: '#8e8e99',
+  Moradia: '#2a78d6', Alimentação: '#eb6834', Lazer: '#0f8fb3', Transporte: '#eda100', Saúde: '#e87ba4',
+  Educação: '#a86a1c', Assinaturas: '#4a3aa7', Vestuário: '#e34948', Outros: '#8e8e99',
   Receita: '#2ca470', Investimentos: '#9D2449', Transferência: '#8e8e99',
 }
 

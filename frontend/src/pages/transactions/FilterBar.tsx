@@ -1,5 +1,5 @@
 // Busca e filtros: em linha no computador, recolhíveis no celular
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, IconButton, Input, Select } from '../../components/ui'
 import { Icon } from '../../components/icons'
@@ -11,7 +11,7 @@ const PERIOD_KEY: Record<Period, string> = {
   '': 'allTime', this_month: 'thisMonth', last_month: 'lastMonth', last_3: 'last3', this_year: 'thisYear', custom: 'custom',
 }
 
-function SearchBox({ value, onChange, showLabel, placeholder }: { value: string; onChange: (v: string) => void; showLabel?: boolean; placeholder: string }) {
+function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   const { t } = useTranslation()
   const [text, setText] = useState(value)
   const latest = useRef(onChange)
@@ -28,10 +28,30 @@ function SearchBox({ value, onChange, showLabel, placeholder }: { value: string;
   }, [text])
   const clear = () => { setText(''); sent.current = ''; latest.current('') }
   return (
-    <Input type="search" label={showLabel ? t('transactions.filters.search') : undefined} aria-label={showLabel ? undefined : t('transactions.filters.search')}
+    <Input type="search" aria-label={t('transactions.filters.search')}
       placeholder={placeholder} value={text} onChange={e => setText(e.target.value)} className="tx-search" enterKeyHint="search"
       leading={<Icon name="search" size={16} />}
       trailing={text ? <IconButton icon="close" label={t('transactions.filters.clearSearch')} onClick={clear} /> : undefined} />
+  )
+}
+
+// Filtro em chip (computador): o seletor nativo fica invisível por cima, então teclado, leitor de tela
+// e o menu do sistema continuam funcionando. Ativo, o chip mostra o valor e ganha um "×".
+function FilterChip({ label, value, display, active, onChange, onClear, children }: {
+  label: string; value: string; display: string; active: boolean; onChange: (v: string) => void; onClear: () => void; children: ReactNode
+}) {
+  const { t } = useTranslation()
+  return (
+    <span className={`tx-chip${active ? ' is-active' : ''}`}>
+      <span className="tx-chip__text">{active ? display : label}</span>
+      <Icon name="chevronDown" size={13} className="tx-chip__chev" />
+      <select className="tx-chip__select" aria-label={label} value={value} onChange={e => onChange(e.target.value)}>{children}</select>
+      {active && (
+        <button type="button" className="tx-chip__clear" aria-label={t('transactions.filters.clearOne', { name: label })} onClick={onClear}>
+          <Icon name="close" size={12} />
+        </button>
+      )}
+    </span>
   )
 }
 
@@ -115,21 +135,51 @@ export function FilterBar({ filters, onChange, onClear, accounts, categories, ta
     )
   }
 
+  // Computador: busca larga e chips; o mês fica no seletor em pílula logo abaixo
   const active = count + (filters.search.trim() ? 1 : 0)
-  const columns = `minmax(12rem, 1.5fr) minmax(9.5rem, 1.1fr) repeat(${tags.length ? 4 : 3}, minmax(0, 1fr))`
+  const accName = accounts.find(a => a.id === filters.account_id)?.name ?? ''
+  const catName = filters.category_id === NO_CATEGORY ? t('transactions.filters.uncategorized')
+    : categoryLabel(categories.find(c => c.id === filters.category_id)) || ''
+  const typeName = filters.type ? t(`transactions.filters.${filters.type}`) : ''
   return (
     <Card padding="none" className="tx-filters" role="search">
-      <div className="tx-filters__grid" style={{ gridTemplateColumns: columns }}>
-        <SearchBox showLabel value={filters.search} onChange={search => set({ search })} placeholder={t('transactions.filters.searchPlaceholder')} />
-        {selects}
+      <div className="tx-filters__row">
+        <SearchBox value={filters.search} onChange={search => set({ search })} placeholder={t('transactions.filters.searchPlaceholder')} />
+        <div className="tx-chips" role="group" aria-label={t('transactions.filters.label')}>
+          <FilterChip label={t('transactions.filters.account')} value={filters.account_id} display={accName} active={!!filters.account_id}
+            onChange={v => set({ account_id: v })} onClear={() => set({ account_id: '' })}>
+            <option value="">{t('transactions.filters.allAccounts')}</option>
+            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </FilterChip>
+          <FilterChip label={t('transactions.filters.category')} value={filters.category_id} display={catName} active={!!filters.category_id}
+            onChange={v => set({ category_id: v })} onClear={() => set({ category_id: '' })}>
+            <option value="">{t('transactions.filters.allCategories')}</option>
+            <option value={NO_CATEGORY}>{t('transactions.filters.uncategorized')}</option>
+            {sortedCats.map(c => <option key={c.id} value={c.id}>{categoryLabel(c)}</option>)}
+          </FilterChip>
+          <FilterChip label={t('transactions.filters.type')} value={filters.type} display={typeName} active={!!filters.type}
+            onChange={v => set({ type: v })} onClear={() => set({ type: '' })}>
+            <option value="">{t('transactions.filters.allTypes')}</option>
+            <option value="debit">{t('transactions.filters.debit')}</option>
+            <option value="credit">{t('transactions.filters.credit')}</option>
+            <option value="transfer">{t('transactions.filters.transfer')}</option>
+          </FilterChip>
+          {tags.length > 0 && (
+            <FilterChip label={t('transactions.filters.tag')} value={filters.tag} display={`#${filters.tag}`} active={!!filters.tag}
+              onChange={v => set({ tag: v })} onClear={() => set({ tag: '' })}>
+              <option value="">{t('transactions.filters.allTags')}</option>
+              {tags.map(tag => <option key={tag} value={tag}>#{tag}</option>)}
+            </FilterChip>
+          )}
+          {/* Outros períodos (o mês corrente é o padrão e não conta como filtro) */}
+          <FilterChip label={t('transactions.filters.period')} value={filters.period} display={t(`transactions.filters.${PERIOD_KEY[filters.period]}`)}
+            active={filters.period !== 'this_month'} onChange={v => setPeriod(v as Period)} onClear={() => setPeriod('this_month')}>
+            {PERIODS.map(p => <option key={p} value={p}>{t(`transactions.filters.${PERIOD_KEY[p]}`)}</option>)}
+          </FilterChip>
+        </div>
+        {active > 0 && <Button variant="ghost" size="sm" icon="close" className="tx-filters__clear" onClick={onClear}>{t('transactions.filters.clearShort')}</Button>}
       </div>
       {range}
-      {active > 0 && (
-        <div className="tx-filters__foot">
-          <span className="tx-filters__count"><Icon name="filter" size={13} />{t('transactions.filters.active', { count: active })}</span>
-          <Button variant="ghost" size="sm" icon="close" onClick={onClear}>{t('transactions.filters.clear')}</Button>
-        </div>
-      )}
     </Card>
   )
 }

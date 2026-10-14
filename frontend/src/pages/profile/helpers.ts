@@ -1,9 +1,10 @@
 // ── Apoio do Perfil: paleta, contraste e leitura de valores ──
 
-// Paleta para contas e categorias: tons médios que funcionam nos dois temas
+// Paleta para contas e categorias: o vinho, as oito cores das categorias padrão (validadas para
+// daltonismo e contraste, ver tokens.css) e o cinza. Sem verde: verde é cor de estado.
 export const PALETTE = [
-  '#9D2449', '#e06c75', '#e09c4c', '#e5c07b', '#98c379', '#4caf7d',
-  '#56b6c2', '#61afef', '#6c7ee1', '#c678dd', '#b07a5a', '#8b8b96',
+  '#9D2449', '#2a78d6', '#0f8fb3', '#4a3aa7', '#e87ba4', '#e34948',
+  '#eb6834', '#eda100', '#a86a1c', '#8e8e99',
 ]
 
 export const DEFAULT_COLOR = PALETTE[0]

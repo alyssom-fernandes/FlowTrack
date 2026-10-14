@@ -151,6 +151,11 @@
       "paceBelow": "{{value}} under pace",
       "paceAbove": "{{value}} over pace",
       "paceOver": "Over budget"
+    },
+    "saved": "Saved so far",
+    "invite": {
+      "title": "New savings goal",
+      "text": "Set how much you want to save and by when. Progress is calculated from your income."
     }
   }
 }

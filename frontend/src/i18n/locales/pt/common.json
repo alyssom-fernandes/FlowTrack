@@ -72,6 +72,9 @@
       "summaryWarn_one": "{{count}} de {{total}} acima do ritmo",
       "summaryWarn_other": "{{count}} de {{total}} acima do ritmo",
       "summaryOk": "Todas no ritmo"
-    }
+    },
+    "editName": "Editar {{name}}",
+    "deleteName": "Excluir {{name}}",
+    "actionsFor": "Ações de {{name}}"
   }
 }

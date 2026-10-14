@@ -37,7 +37,8 @@ export function MonthNav({ filters, onChange }: { filters: Filters; onChange: (p
       </button>
       <span className="tx-month__side" aria-hidden>{fmt(prev)}</span>
       <span className="tx-month__current" aria-live="polite">{fmt(month)}</span>
-      <span className="tx-month__side" aria-hidden>{future ? '' : fmt(next)}</span>
+      {/* O mês seguinte aparece sempre (mesmo no futuro, esmaecido): o seletor fica simétrico */}
+      <span className={`tx-month__side${future ? ' is-future' : ''}`} aria-hidden>{fmt(next)}</span>
       <button type="button" className="tx-month__arrow" onClick={() => go(1)} disabled={future} aria-label={t('transactions.month.next', { month: fmt(next) })}>
         <Icon name="chevronRight" size={16} />
       </button>

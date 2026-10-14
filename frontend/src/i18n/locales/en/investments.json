@@ -35,10 +35,6 @@
       "result": "Return",
       "actions": "Actions"
     },
-    "actions": {
-      "edit": "Edit {{name}}",
-      "delete": "Delete {{name}}"
-    },
     "empty": {
       "title": "No investments yet",
       "text": "Add holdings such as treasury bonds, bank deposits or stocks to see your portfolio total, allocation by type and the return on each one.",
@@ -88,10 +84,10 @@
     },
     "otherFolded": "Other",
     "hero": {
-      "result": "{{value}} ({{pct}}) over the amount invested",
+      "result": "{{value}} ({{pct}}) return on what you put in",
       "positions": "Positions",
       "types": "Types",
-      "inPeriod": "{{value}} in the period",
+      "inPeriod": "{{value}} in this period, deposits plus returns",
       "range": "Chart period",
       "a11y": "Investments over {{count}} months: from {{from}} to {{to}}.",
       "ranges": {

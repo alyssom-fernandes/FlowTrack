@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, CardHeader, ConfirmDialog, EmptyState, IconButton, Money, Page, PageHeader, Skeleton } from '../components/ui'
+import { Button, Card, CardHeader, ConfirmDialog, EmptyState, Money, Page, PageHeader, RowActions, Skeleton } from '../components/ui'
+import { Icon } from '../components/icons'
 import { investmentsService } from '../services'
 import { useToastStore } from '../store'
 import { formatPercent } from '../utils'
@@ -121,7 +122,6 @@ export function Investments() {
               </thead>
               <tbody>
                 {list.map(inv => {
-                  const tone = inv.profitability > 0 ? 'gl-pos' : inv.profitability < 0 ? 'gl-neg' : ''
                   const typeLabel = t(`investments.types.${inv.type}`)
                   return (
                     <tr key={inv.id}>
@@ -146,15 +146,16 @@ export function Investments() {
                       </td>
                       <td className="inv-num inv-col-result">
                         <span className="inv-cell-label">{t('investments.assets.result')}</span>
-                        <span className={`inv-result ft-num ${tone}`}>
+                        {/* Resultado em pílula: valor e porcentagem, com seta (nunca só a cor) */}
+                        <span className={`inv-result ft-num inv-result--${inv.profitability > 0 ? 'up' : inv.profitability < 0 ? 'down' : 'flat'}`}>
+                          {inv.profitability !== 0 && <Icon name={inv.profitability > 0 ? 'arrowUpRight' : 'arrowDownRight'} size={12} strokeWidth={2.25} />}
                           <Money value={inv.profitability} signed className="inv-result__value" />
-                          <span className="inv-result__pct">{formatPercent(inv.profitability_percent, 1, true)}</span>
+                          <span className="inv-result__pct">· {formatPercent(inv.profitability_percent, 1, true)}</span>
                         </span>
                       </td>
                       <td className="inv-col-actions">
                         <span className="inv-actions">
-                          <IconButton icon="edit" label={t('investments.actions.edit', { name: inv.name })} onClick={() => { setEditing(inv); setCreating(false) }} />
-                          <IconButton icon="trash" label={t('investments.actions.delete', { name: inv.name })} onClick={() => setRemoving(inv)} />
+                          <RowActions name={inv.name} onEdit={() => { setEditing(inv); setCreating(false) }} onDelete={() => setRemoving(inv)} />
                         </span>
                       </td>
                     </tr>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { Button, Card, ConfirmDialog, EmptyState, IconButton, Money, ProgressBar, Skeleton } from '../../components/ui'
+import { Button, Card, ConfirmDialog, EmptyState, IconButton, Money, ProgressBar, RowActions, Skeleton } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { budgetsService, categoriesService, transactionsService } from '../../services'
 import { categoryColor } from '../../lib/categoryColor'
@@ -79,10 +79,7 @@ function BudgetRow({ paced, category, future, onEdit, onDelete }: { paced: Paced
       </span>
       {future ? <span className="gl-brow__pct ft-num">{formatPercent(pct, 0, false)}</span>
         : <span className={`gl-brow__state ft-budget__status ft-budget__status--${status}`}>{statusText}</span>}
-      <span className="gl-brow__actions">
-        <IconButton icon="edit" label={t('goals.actions.edit', { name })} onClick={onEdit} />
-        <IconButton icon="trash" label={t('goals.actions.delete', { name })} onClick={onDelete} />
-      </span>
+      <span className="gl-brow__actions"><RowActions name={name} onEdit={onEdit} onDelete={onDelete} /></span>
     </li>
   )
 }

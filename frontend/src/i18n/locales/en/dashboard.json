@@ -178,7 +178,9 @@
       "hideValues": "Hide amounts",
       "showMore_one": "See the other category",
       "showMore_other": "See the other {{count}}",
-      "showLess": "See less"
+      "showLess": "See less",
+      "ofDays_one": "of {{count}}",
+      "ofDays_other": "of {{count}}"
     },
     "pace": {
       "title": "How much I can still spend",
@@ -194,7 +196,7 @@
       "legendSpent": "Spent so far",
       "legendPace": "Expected pace",
       "howTitle": "How we calculate it",
-      "howText": "We add up this month's budgets. Fixed bills (last month's recurring expenses) count on the day they are due, and the rest of the limit is spread across the days. The dashed line is where your spending should be each day.",
+      "howText": "We add up this month's budgets. Fixed bills (last month's recurring expenses) count on the day they're due, and the rest of each limit is spread across the days, so rent on the 6th doesn't put the whole month “over pace”. The dashed line is where spending should be each day; the shaded area is the gap up to today. A category that is almost all fixed bills, already paid and within its limit, shows as “fixed · paid” and raises no alert.",
       "a11y": "{{spent}} spent so far, against {{expected}} expected by the pace and {{limit}} budgeted this month.",
       "emptyTitle": "See your monthly pace",
       "emptyText": "Create budgets by category to know how much you can still spend until the end of the month.",

@@ -80,7 +80,7 @@ function buildNodes(transactions: Transaction[], categories: Category[], t: (k: 
 // ── Geometria ─────────────────────────────────────────────
 const NODE_W = 6
 const LEAD_W = 22    // espaço do fio entre o nó e o rótulo
-const GAP = 4
+const GAP = 9       // espaço entre os destinos (as faixas não viram uma barra empilhada esticada)
 const LABEL_H = 38   // altura reservada para cada rótulo à direita
 const MIN_H = 3
 
@@ -203,9 +203,10 @@ export function FlowHero({ transactions, categories, balance, balanceDelta, acco
     <section className="flow" aria-labelledby="flow-title">
       <div className="flow__head" ref={head}>
         <div>
-          <h2 id="flow-title" className="flow__title">{t('dashboard.flow.title', { month: monthName, day })}</h2>
-          {/* Quanto do mês já passou: lembra que os números ainda vão crescer */}
-          <div className="flow__month" aria-hidden><span style={{ width: `${(day / daysInMonth) * 100}%` }} /></div>
+          {/* Título simples (o traço de progresso embaixo parecia uma aba sozinha); o "dia X de Y" lembra
+              que os números ainda vão crescer */}
+          <h2 id="flow-title" className="flow__title">{t('dashboard.flow.title', { month: monthName, day })}
+            <span className="flow__days ft-num">{t('dashboard.flow.ofDays', { count: daysInMonth })}</span></h2>
         </div>
         <div className="flow__balance">
           <span className="flow__balance-label">

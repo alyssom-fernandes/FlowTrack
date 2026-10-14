@@ -18,6 +18,47 @@ export function SettingRow({ title, description, children }: { title: ReactNode;
 }
 
 // ── Controle segmentado (grupo de opções exclusivas) ──
+// Tema em prévias: um mini app desenhado com as cores de cada tema (não com as do tema atual),
+// para a escolha ser visual. Mesmo teclado do controle segmentado (setas trocam).
+export function ThemePicker<T extends string>({ value, onChange, options, label }: {
+  value: T; onChange: (v: T) => void; label: string
+  options: { value: T; label: string }[]
+}) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const move = (i: number) => {
+    const next = (i + options.length) % options.length
+    onChange(options[next].value)
+    refs.current[next]?.focus()
+  }
+  return (
+    <div role="radiogroup" aria-label={label} className="prf-themes">
+      {options.map((o, i) => {
+        const on = o.value === value
+        return (
+          <button key={o.value} ref={el => { refs.current[i] = el }} type="button" role="radio" aria-checked={on} tabIndex={on ? 0 : -1}
+            className={`prf-theme prf-theme--${o.value}`} onClick={() => onChange(o.value)}
+            onKeyDown={e => {
+              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); move(i + 1) }
+              if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); move(i - 1) }
+            }}>
+            <span className="prf-theme__shot" aria-hidden>
+              <span className="prf-theme__side"><i /><i /><i /></span>
+              <span className="prf-theme__main">
+                <span className="prf-theme__card"><b /><em /><span className="prf-theme__bar"><s /></span></span>
+                <span className="prf-theme__card prf-theme__card--sm"><b /><em /></span>
+              </span>
+            </span>
+            <span className="prf-theme__label">
+              <span className="prf-theme__radio" aria-hidden>{on && <Icon name="check" size={11} strokeWidth={3} />}</span>
+              {o.label}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Segmented<T extends string>({ value, onChange, options, label }: {
   value: T; onChange: (v: T) => void; label: string
   options: { value: T; label: ReactNode; icon?: IconName }[]

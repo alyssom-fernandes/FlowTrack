@@ -251,8 +251,7 @@
 .flow__head { display: flex; flex-direction: column; gap: 1.125rem; min-width: 0; }
 .flow__title { font-size: var(--font-size-base); font-weight: 500; color: var(--text-muted); }
 .flow__title::first-letter { text-transform: uppercase; }
-.flow__month { height: 2px; margin-top: 0.5rem; border-radius: var(--radius-full); background: var(--border); overflow: hidden; max-width: 12rem; }
-.flow__month span { display: block; height: 100%; background: var(--text-muted); border-radius: inherit; }
+.flow__days { margin-left: 0.375rem; color: var(--text-hint); font-weight: 400; }
 .flow__ribbon { transition: opacity 0.2s ease; }
 
 .flow__balance { display: flex; flex-direction: column; gap: 0.125rem; }
@@ -335,7 +334,12 @@ a.flow-label__link:hover, a.flow-label__link:focus-visible { background: var(--b
 .ft-pace__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .ft-pace__value { font-size: var(--font-size-3xl); font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; color: var(--text-primary); }
 .ft-pace__until { display: block; font-size: var(--font-size-sm); color: var(--text-muted); margin-top: 0.125rem; }
-.ft-pace__chart { width: 100%; min-height: 132px; }
+.ft-pace__chart { position: relative; width: 100%; min-height: 172px; }
+.ft-pace__tag { position: absolute; transform: translateX(-50%); box-shadow: 0 0 0 3px var(--bg-card); }
+@media (prefers-reduced-motion: no-preference) {
+  .ft-pace__tag { animation: ft-fade-in 0.16s var(--ease-out) calc(var(--dur-4) + 120ms) both; }
+}
+@keyframes ft-fade-in { from { opacity: 0; } }
 .ft-pace__label { font-size: 10.5px; fill: var(--text-hint); font-family: var(--font); font-variant-numeric: tabular-nums; }
 .ft-pace__label--today { fill: var(--text-secondary); font-weight: 600; }
 @media (prefers-reduced-motion: no-preference) {

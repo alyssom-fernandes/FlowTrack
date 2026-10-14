@@ -314,7 +314,7 @@ export function Reports() {
       <ReportTable caption={t(report.g === 'week' ? 'reports.flow.titleWeek' : 'reports.flow.titleMonth')} columns={flowCols} rows={flowRows} rowKey={b => b.key} totals={flowTotals} listBelow={showPrev ? 720 : 540} />
     )
 
-    const colorOf = (i: number) => report.categories.length <= 6 || i < 5 ? report.categories[i]?.color : 'var(--cat-other)'
+    const colorOf = (i: number) => report.categories.length <= 6 || i < 5 ? report.categories[i]?.color : 'var(--cat-group)'
     const catCols: Column<CategoryRow & { i: number }>[] = [
       { key: 'name', header: t('reports.table.category'), title: true, render: c => <span className="rp-cell-cat"><i style={{ background: colorOf(c.i) }} aria-hidden />{c.name}</span> },
       { key: 'count', header: t('reports.table.count'), align: 'right', hideMobile: true, render: c => c.count },
@@ -369,8 +369,9 @@ export function Reports() {
           {views.flow === 'chart' ? (
             <>
               <Legend items={[
-                { label: t('reports.legend.income'), color: 'var(--chart-income)' },
                 { label: t('reports.legend.expense'), color: 'var(--chart-spend)' },
+                { label: t('reports.legend.incomeTick'), color: 'var(--chart-income)', line: 'solid' },
+                { label: t('reports.legend.netAbove'), color: 'var(--text-muted)', line: 'text' },
                 ...(showPrev ? [{ label: t('reports.legend.previousFaded'), color: 'var(--chart-neutral)', faded: true }] : []),
               ]} />
               <FlowBars buckets={report.buckets} prev={showPrev ? report.prevBuckets : undefined} ariaLabel={flowLabel} />

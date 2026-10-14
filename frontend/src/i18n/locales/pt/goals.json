@@ -151,6 +151,11 @@
       "paceBelow": "{{value}} abaixo do ritmo",
       "paceAbove": "{{value}} acima do ritmo",
       "paceOver": "Orçamentos estourados"
+    },
+    "saved": "Guardado até agora",
+    "invite": {
+      "title": "Nova meta de economia",
+      "text": "Defina quanto quer guardar e até quando. O progresso é calculado pelas suas entradas."
     }
   }
 }

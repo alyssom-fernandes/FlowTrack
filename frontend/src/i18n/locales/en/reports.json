@@ -70,7 +70,9 @@
       "balance": "Balance",
       "previous": "Previous period",
       "previousShort": "Previous period",
-      "previousFaded": "Previous period (muted)"
+      "previousFaded": "Previous period (muted)",
+      "incomeTick": "Income (tick)",
+      "netAbove": "Monthly surplus, above the bar"
     },
     "flow": {
       "titleMonth": "Income and expenses by month",
@@ -148,7 +150,8 @@
       "history": "History",
       "avgIncome": "Average monthly income",
       "avgExpense": "Average monthly expenses",
-      "projectedBalance": "Expected balance over 3 months"
+      "projectedBalance": "Expected balance over 3 months",
+      "today": "today · projection →"
     },
     "aria": {
       "flow": "Bar chart of income and expenses for {{range}}: income of {{income}} and expenses of {{expense}}. The values for each period are in the table view.",

@@ -11,11 +11,12 @@
   min-height: 100dvh;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto auto auto 1fr auto;
+  /* Celular: o botão da demonstração logo depois do texto; a prévia (recortada) vem depois */
   grid-template-areas:
     'logo    bar'
     'hero    hero'
-    'preview preview'
     'content content'
+    'preview preview'
     'foot    foot';
   column-gap: 1rem;
 }
@@ -24,8 +25,10 @@
 .ent-logo { grid-area: logo; display: flex; align-items: center; min-height: 3.5rem; }
 .ent-bar { grid-area: bar; display: flex; align-items: center; justify-content: flex-end; min-height: 3.5rem; }
 .ent-hero { grid-area: hero; margin-top: 1.25rem; }
-.ent-preview { grid-area: preview; margin-top: 1.5rem; }
-.ent-content { grid-area: content; margin-top: 1.75rem; min-width: 0; }
+.ent-preview { grid-area: preview; margin-top: 2rem; }
+.ent-content { grid-area: content; margin-top: 1.5rem; min-width: 0; }
+/* Prévia recortada no celular: duas linhas e a barra do orçamento */
+@media (max-width: 959px) { .ent-prev__row:nth-child(4) { display: none; } }
 .ent-foot { grid-area: foot; display: flex; justify-content: center; padding: 2.5rem 0 1.75rem; }
 
 /* Telas secundárias no celular: sem o texto de apresentação */

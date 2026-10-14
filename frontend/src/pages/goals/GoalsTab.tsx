@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, ConfirmDialog, EmptyState, IconButton, Money, ProgressBar, SectionLabel, Skeleton } from '../../components/ui'
 import { Icon } from '../../components/icons'
@@ -50,9 +50,14 @@ function GoalCard({ goal, category, today, onEdit, onDelete }: {
   const color = category ? categoryColor(category) : 'var(--accent)'
   return (
     <Card className={`gl-card${isLimit ? '' : ' gl-card--savings'}`} style={{ '--c': color } as React.CSSProperties}>
+      {/* Meta de economia: faixa na cor da meta, glifo grande cortado pela borda e o valor guardado sobre ela */}
       {!isLimit && (
-        <div className="gl-card__band" aria-hidden>
-          <span className="gl-card__band-icon">{category ? <CategoryIcon name={category.icon} size={56} /> : <Icon name="piggy" size={56} />}</span>
+        <div className="gl-card__band">
+          <span className="gl-card__band-icon" aria-hidden>{category ? <CategoryIcon name={category.icon} size={96} /> : <Icon name="piggy" size={96} />}</span>
+          <span className="gl-card__band-fig">
+            <Money value={goal.current_amount} size="kpi" className="gl-card__value" />
+            <span className="gl-card__of ft-num">{t('goals.of', { value: formatCurrency(goal.target_amount) })}</span>
+          </span>
         </div>
       )}
       <div className="gl-card__top">
@@ -77,10 +82,12 @@ function GoalCard({ goal, category, today, onEdit, onDelete }: {
 
       <div className="gl-card__progress">
         <div className="gl-card__figures">
-          <span className="gl-card__amount">
-            <Money value={goal.current_amount} size={isLimit ? 'row' : 'kpi'} className={`gl-card__value${isLimit && v.pct > 100 ? ' gl-neg' : ''}`} />
-            <span className="gl-card__of ft-num">{t('goals.of', { value: formatCurrency(goal.target_amount) })}</span>
-          </span>
+          {isLimit ? (
+            <span className="gl-card__amount">
+              <Money value={goal.current_amount} className={`gl-card__value${v.pct > 100 ? ' gl-neg' : ''}`} />
+              <span className="gl-card__of ft-num">{t('goals.of', { value: formatCurrency(goal.target_amount) })}</span>
+            </span>
+          ) : <span className="gl-card__saved">{t('goals.saved')}</span>}
           <span className="gl-card__pct ft-num">{formatPercent(v.pct, 0, false)}</span>
         </div>
         <ProgressBar value={v.pct} color={STATUS_COLOR[v.status]} pace={showPace ? v.elapsed! * 100 : undefined}
@@ -163,7 +170,7 @@ export function GoalsTab({ creating, onCreatingChange }: { creating: boolean; on
   const limits = (goals || []).filter(g => g.type === 'spending_limit')
   const savings = (goals || []).filter(g => g.type === 'savings_target')
 
-  const section = (title: string, list: Goal[]) => list.length > 0 && (
+  const section = (title: string, list: Goal[], invite?: ReactNode) => (list.length > 0 || invite) && (
     <section className="gl-section" aria-label={title}>
       <SectionLabel><span>{title}<span className="gl-count ft-num">{list.length}</span></span></SectionLabel>
       <div className="gl-grid">
@@ -171,9 +178,18 @@ export function GoalsTab({ creating, onCreatingChange }: { creating: boolean; on
           <GoalCard key={g.id} goal={g} category={g.category_id ? catById.get(g.category_id) : undefined} today={today}
             onEdit={() => { setEditing(g); onCreatingChange(false) }} onDelete={() => setRemoving(g)} />
         ))}
+        {invite}
       </div>
     </section>
   )
+  // Com uma meta de economia (ou nenhuma), o espaço ao lado vira o convite para a próxima
+  const savingsInvite = savings.length === 0 || savings.length % 2 === 1 ? (
+    <button type="button" className="gl-invite" onClick={() => openNew('savings_target')}>
+      <span className="gl-invite__icon"><Icon name="plus" size={20} /></span>
+      <span className="gl-invite__title">{t('goals.invite.title')}</span>
+      <span className="gl-invite__text">{t('goals.invite.text')}</span>
+    </button>
+  ) : undefined
 
   return (
     <div className="gl-panel">
@@ -195,7 +211,7 @@ export function GoalsTab({ creating, onCreatingChange }: { creating: boolean; on
       ) : (
         <>
           {section(t('goals.sections.limits'), limits)}
-          {section(t('goals.sections.savings'), savings)}
+          {section(t('goals.sections.savings'), savings, savingsInvite)}
         </>
       )}
 

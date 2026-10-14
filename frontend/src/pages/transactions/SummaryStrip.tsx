@@ -27,8 +27,8 @@ export function SummaryStrip({ data, onShowPending }: { data: Transaction[] | nu
   const auto = data ? autoStats(data) : null
   return (
     <Card padding="none" className="tx-summary" role="group" aria-label={t('transactions.summary.label')} aria-busy={!data || undefined}>
-      <Stat label={t('transactions.summary.income')} dot="var(--chart-income)" value={flows && <Money value={flows.income} />} />
-      <Stat label={t('transactions.summary.expense')} dot="var(--chart-expense)" value={flows && <Money value={flows.expense} />} />
+      <Stat label={t('transactions.summary.income')} value={flows && <Money value={flows.income} />} />
+      <Stat label={t('transactions.summary.expense')} value={flows && <Money value={flows.expense} />} />
       <Stat label={t('transactions.summary.net')} hint={t('transactions.summary.netHint')} value={flows && <Money value={flows.net} signed />} />
       <Stat label={t('transactions.summary.auto')} hint={t('transactions.summary.autoHint')}
         value={auto && formatPercent(auto.pct, 0, false)}

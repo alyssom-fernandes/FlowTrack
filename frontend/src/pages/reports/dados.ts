@@ -263,15 +263,15 @@ export function niceTicks(max: number, count = 4): number[] {
 }
 
 // "R$ 2 mil" / "R$2K" — só para eixos
-export function axisMoney(v: number): string {
-  return new Intl.NumberFormat(currentLocale(), { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 }).format(v)
+export function axisMoney(v: number, signed = false): string {
+  return new Intl.NumberFormat(currentLocale(), { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1, signDisplay: signed ? 'exceptZero' : 'auto' }).format(v)
 }
 
 // ── Fatias da rosca ───────────────────────────────────────
 export interface Slice { key: string; name: string; value: number; share: number; color: string; prev: number; change: number | null; children?: CategoryRow[] }
 
 // Até 6 fatias: as 5 maiores com a cor fixa da categoria (a mesma em todas as telas e no PDF)
-// e o resto agrupado em cinza
+// e o resto agrupado em cinza hachurado (diferente da categoria "Outros", que é cinza liso)
 export function toSlices(rows: CategoryRow[], othersLabel: (count: number) => string): Slice[] {
   const main = rows.length <= 6 ? rows : rows.slice(0, 5)
   const rest = rows.length <= 6 ? [] : rows.slice(5)
@@ -279,7 +279,7 @@ export function toSlices(rows: CategoryRow[], othersLabel: (count: number) => st
   if (rest.length) {
     const value = r2(rest.reduce((s, r) => s + r.value, 0))
     const prev = r2(rest.reduce((s, r) => s + r.prev, 0))
-    slices.push({ key: '__others__', name: othersLabel(rest.length), value, share: rest.reduce((s, r) => s + r.share, 0), color: 'var(--cat-other)', prev, change: pctChange(value, prev), children: rest })
+    slices.push({ key: '__others__', name: othersLabel(rest.length), value, share: rest.reduce((s, r) => s + r.share, 0), color: 'var(--cat-group)', prev, change: pctChange(value, prev), children: rest })
   }
   return slices
 }

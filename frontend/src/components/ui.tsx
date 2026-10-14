@@ -37,6 +37,38 @@ export function IconButton({ icon, label, size = 'sm', variant = 'ghost', ...pro
   return <Button icon={icon} size={size} variant={variant} aria-label={label} title={label} {...props} />
 }
 
+// ── Ações da linha (editar/excluir) ───────────────────────
+// No computador, dois botões que aparecem no hover/foco da linha (o CSS da tela cuida disso);
+// em tela de toque, um "⋯" que abre um menu curto. Os dois existem no DOM; o CSS mostra um deles.
+export function RowActions({ name, onEdit, onDelete }: { name: string; onEdit: () => void; onDelete: () => void }) {
+  const [open, setOpen] = useState(false)
+  const wrap = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); wrap.current?.querySelector<HTMLButtonElement>('.ft-rowact__more')?.focus() } }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('pointerdown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [open])
+  const pick = (fn: () => void) => { setOpen(false); fn() }
+  return (
+    <span className="ft-rowact" ref={wrap}>
+      <span className="ft-rowact__inline">
+        <IconButton icon="edit" label={i18n.t('common.editName', { name })} onClick={onEdit} />
+        <IconButton icon="trash" label={i18n.t('common.deleteName', { name })} onClick={onDelete} />
+      </span>
+      <IconButton icon="more" className="ft-rowact__more" label={i18n.t('common.actionsFor', { name })} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(o => !o)} />
+      {open && (
+        <span className="ft-rowact__menu" role="menu">
+          <button type="button" role="menuitem" onClick={() => pick(onEdit)}><Icon name="edit" size={16} />{i18n.t('common.edit')}</button>
+          <button type="button" role="menuitem" className="ft-rowact__danger" onClick={() => pick(onDelete)}><Icon name="trash" size={16} />{i18n.t('common.delete')}</button>
+        </span>
+      )}
+    </span>
+  )
+}
+
 // ── Card ──────────────────────────────────────────────────
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode

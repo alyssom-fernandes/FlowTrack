@@ -50,7 +50,8 @@
       "clear": "Limpar filtros",
       "clearShort": "Limpar",
       "active_one": "{{count}} filtro ativo",
-      "active_other": "{{count}} filtros ativos"
+      "active_other": "{{count}} filtros ativos",
+      "clearOne": "Tirar o filtro {{name}}"
     },
     "summary": {
       "label": "Resumo das transações filtradas",

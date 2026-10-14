@@ -55,10 +55,18 @@
 .inv-name__note { display: block; max-width: 20rem; margin-top: 0.125rem; font-size: var(--font-size-sm); color: var(--text-hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .inv-type { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); white-space: nowrap; }
 .inv-value { color: var(--text-secondary); }
-.inv-result { display: flex; flex-direction: column; align-items: flex-end; gap: 0.0625rem; }
+.inv-result {
+  display: inline-flex; align-items: center; gap: 0.3125rem; padding: 0.1875rem 0.625rem; border-radius: var(--radius-full);
+  font-size: var(--font-size-sm); background: var(--bg-subtle); color: var(--text-secondary); white-space: nowrap;
+}
+.inv-result--up { background: var(--green-soft); color: var(--green); }
+.inv-result--down { background: var(--red-soft); color: var(--red); }
 .inv-result__value { font-weight: 600; }
-.inv-result__pct { font-size: var(--font-size-sm); font-weight: 500; }
-.inv-actions { display: flex; justify-content: flex-end; gap: 0.125rem; }
+.inv-result__pct { font-weight: 500; }
+/* Editar/excluir só no hover ou no foco (sempre à vista em tela de toque) */
+.inv-actions { display: flex; justify-content: flex-end; gap: 0.125rem; opacity: 0; transition: opacity var(--dur-1) ease; }
+.inv-table tbody tr:hover .inv-actions, .inv-table tbody tr:focus-within .inv-actions { opacity: 1; }
+@media (hover: none) { .inv-actions { opacity: 1; } }
 .inv-cell-label { display: none; }
 .inv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

@@ -70,7 +70,9 @@
       "balance": "Saldo",
       "previous": "Período anterior",
       "previousShort": "Período anterior",
-      "previousFaded": "Período anterior (tom suave)"
+      "previousFaded": "Período anterior (tom suave)",
+      "incomeTick": "Receitas (traço)",
+      "netAbove": "Sobra do mês, acima da barra"
     },
     "flow": {
       "titleMonth": "Receitas e gastos por mês",
@@ -148,7 +150,8 @@
       "history": "Histórico",
       "avgIncome": "Receita média por mês",
       "avgExpense": "Gasto médio por mês",
-      "projectedBalance": "Saldo previsto nos 3 meses"
+      "projectedBalance": "Saldo previsto nos 3 meses",
+      "today": "hoje · projeção →"
     },
     "aria": {
       "flow": "Gráfico de barras com receitas e gastos de {{range}}: receitas de {{income}} e gastos de {{expense}}. Os valores de cada período estão na visão em tabela.",

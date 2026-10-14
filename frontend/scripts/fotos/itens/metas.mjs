@@ -6,6 +6,14 @@ const proximoMes = mes(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1))
 const editar = /^(editar|edit) /i
 const excluir = /^(excluir|delete) /i
 
+// Editar/excluir de uma linha: botões no computador; em tela de toque ficam no menu "⋯"
+async function acaoDaLinha(page, qual) {
+  const direto = page.getByRole('button', { name: qual }).first()
+  if (await direto.isVisible().catch(() => false)) return direto.click()
+  await page.getByRole('button', { name: /^(ações de|actions for) /i }).first().click()
+  await page.getByRole('menuitem', { name: qual === editar ? /^(editar|edit)$/i : /^(excluir|delete)$/i }).click()
+}
+
 const mesPassado = mes(new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1))
 
 async function dialogo(page) {
@@ -85,8 +93,8 @@ export default [
       await page.getByText(/média dos últimos|3-month average|sem gastos|no spending/i).waitFor()
     },
   },
-  { id: 'orcamentos-editar', rota: '/goals?aba=orcamentos', inteira: false, acao: async page => { await page.getByRole('button', { name: editar }).first().click(); await dialogo(page) } },
-  { id: 'orcamentos-excluir', rota: '/goals?aba=orcamentos', inteira: false, acao: async page => { await page.getByRole('button', { name: excluir }).first().click(); await dialogo(page) } },
+  { id: 'orcamentos-editar', rota: '/goals?aba=orcamentos', inteira: false, acao: async page => { await acaoDaLinha(page, editar); await dialogo(page) } },
+  { id: 'orcamentos-excluir', rota: '/goals?aba=orcamentos', inteira: false, acao: async page => { await acaoDaLinha(page, excluir); await dialogo(page) } },
 
   // ── Investimentos ──
   { id: 'investimentos', rota: '/investments' },
@@ -122,6 +130,6 @@ export default [
       await page.getByRole('alert').first().waitFor()
     },
   },
-  { id: 'investimentos-editar', rota: '/investments', inteira: false, acao: async page => { await page.getByRole('button', { name: editar }).first().click(); await dialogo(page) } },
-  { id: 'investimentos-excluir', rota: '/investments', inteira: false, acao: async page => { await page.getByRole('button', { name: excluir }).first().click(); await dialogo(page) } },
+  { id: 'investimentos-editar', rota: '/investments', inteira: false, acao: async page => { await acaoDaLinha(page, editar); await dialogo(page) } },
+  { id: 'investimentos-excluir', rota: '/investments', inteira: false, acao: async page => { await acaoDaLinha(page, excluir); await dialogo(page) } },
 ]

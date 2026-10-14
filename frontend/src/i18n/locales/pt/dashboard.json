@@ -178,7 +178,9 @@
       "hideValues": "Ocultar valores",
       "showMore_one": "Ver a outra categoria",
       "showMore_other": "Ver as outras {{count}}",
-      "showLess": "Ver menos"
+      "showLess": "Ver menos",
+      "ofDays_one": "de {{count}}",
+      "ofDays_other": "de {{count}}"
     },
     "pace": {
       "title": "Quanto ainda posso gastar",
@@ -194,7 +196,7 @@
       "legendSpent": "Gasto até hoje",
       "legendPace": "Ritmo esperado",
       "howTitle": "Como calculamos",
-      "howText": "Somamos os orçamentos do mês. As contas fixas (os gastos recorrentes do mês passado) entram no dia em que vencem, e o resto do limite se espalha pelos dias. A linha tracejada é onde o gasto deveria estar a cada dia.",
+      "howText": "Somamos os orçamentos do mês. As contas fixas (os gastos recorrentes do mês passado) entram no dia em que vencem, e o resto do limite se espalha pelos dias: por isso o aluguel do dia 6 não deixa o mês inteiro “acima do ritmo”. A linha tracejada é onde o gasto deveria estar a cada dia; a área colorida é a diferença até hoje. Uma categoria que é quase só conta fixa, já paga e dentro do limite, aparece como “fixo · pago” e não gera aviso.",
       "a11y": "Gasto de {{spent}} até hoje, contra {{expected}} esperados pelo ritmo e {{limit}} de orçamento no mês.",
       "emptyTitle": "Veja seu ritmo do mês",
       "emptyText": "Crie orçamentos por categoria para saber quanto ainda pode gastar até o fim do mês.",

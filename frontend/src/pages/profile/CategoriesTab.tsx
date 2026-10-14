@@ -5,6 +5,8 @@ import { Icon } from '../../components/icons'
 import { useToastStore } from '../../store'
 import { categoriesService } from '../../services'
 import { categoryLabel, currentLocale } from '../../utils'
+import { categoryColor } from '../../lib/categoryColor'
+import { CategoryIcon } from '../dashboard/CategoryIcon'
 import type { Category } from '../../types'
 import { DEFAULT_COLOR, PALETTE, focusInvalid, uniqueColors } from './helpers'
 import { ColorPicker, ListSkeleton, LoadError } from './parts'
@@ -77,8 +79,10 @@ export function CategoriesTab() {
             {custom.map(c => (
               <li key={c.id} className="prf-item">
                 <button type="button" className="prf-item__main prf-item__main--compact" onClick={() => openEdit(c)}>
-                  <span className="prf-dot prf-dot--lg" style={{ background: c.color }} aria-hidden />
-                  <span className="prf-item__text"><span className="prf-item__title">{c.name}</span></span>
+                  <span className="ft-catpill prf-item__pill" style={{ '--c': categoryColor(c) } as React.CSSProperties}>
+                    <CategoryIcon name={c.icon} size={14} /><span className="prf-truncate">{c.name}</span>
+                  </span>
+                  <span className="prf-item__text" />
                   <Icon name="chevronRight" size={16} className="prf-item__chevron" />
                 </button>
                 <span className="prf-item__actions">
@@ -97,11 +101,10 @@ export function CategoriesTab() {
           {loading ? (
             <ListSkeleton rows={2} mark={false} />
           ) : (
-            <ul className="prf-chips">
+            <ul className="prf-pills">
               {defaults.map(c => (
-                <li key={c.id} className="prf-chip">
-                  <span className="prf-dot" style={{ background: c.color }} aria-hidden />
-                  <span className="prf-truncate">{categoryLabel(c)}</span>
+                <li key={c.id} className="ft-catpill" style={{ '--c': categoryColor(c) } as React.CSSProperties}>
+                  <CategoryIcon name={c.icon} size={14} />{categoryLabel(c)}
                 </li>
               ))}
             </ul>

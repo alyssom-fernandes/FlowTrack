@@ -1,12 +1,12 @@
 // ── Relatórios: gráficos (SVG feito à mão) ────────────────
 // Cada gráfico é desenhado no tamanho real do contêiner (ResizeObserver),
 // então o texto nunca distorce. Na impressão a largura vira a da folha A4.
-import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Icon } from '../../components/icons'
 import { Money } from '../../components/ui'
-import { formatPercent, formatMonth, currentLocale } from '../../utils'
+import { formatPercent, formatMonth, currentLocale, toISODate } from '../../utils'
 import type { ProjectionData } from '../../types'
 import { axisMoney, niceTicks, type Bucket, type Slice, type TopRow } from './dados'
 
@@ -65,12 +65,14 @@ export function Delta({ value, goodWhenUp, kind = 'percent', compact }: { value:
   )
 }
 
-export function Legend({ items }: { items: { label: string; color: string; faded?: boolean; line?: 'solid' | 'dashed' | 'band' }[] }) {
+export function Legend({ items }: { items: { label: string; color: string; faded?: boolean; line?: 'solid' | 'dashed' | 'band' | 'text' }[] }) {
   return (
     <ul className="rp-legend">
       {items.map(i => (
         <li key={i.label}>
-          {i.line
+          {i.line === 'text'
+            ? <span className="rp-legend__text" aria-hidden>+R$</span>
+            : i.line
             ? <span className={`rp-legend__line rp-legend__line--${i.line}`} style={{ color: i.color }} aria-hidden />
             : <span className="rp-legend__swatch" style={{ background: i.color, opacity: i.faded ? 0.35 : 1 }} aria-hidden />}
           {i.label}
@@ -110,16 +112,16 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
   const values = [...buckets.flatMap(b => [b.income, b.expense]), ...(prev ?? []).flatMap(b => [b.income, b.expense])]
   const ticks = niceTicks(Math.max(0, ...values))
   const yMax = ticks[ticks.length - 1] || 1
-  const tickLabels = ticks.map(axisMoney)
+  const tickLabels = ticks.map(v => axisMoney(v))
   const hasYear = buckets.some(b => b.yearMark)
-  const m = { top: 10, right: 2, bottom: hasYear ? 40 : 26, left: Math.max(...tickLabels.map(l => l.length)) * 6.2 + 12 }
+  const m = { top: 22, right: 2, bottom: hasYear ? 40 : 26, left: Math.max(...tickLabels.map(l => l.length)) * 6.2 + 12 }
   const plotW = Math.max(0, width - m.left - m.right)
   const plotH = H - m.top - m.bottom
   const band = plotW / Math.max(n, 1)
-  const per = prev ? 4 : 2
+  const per = prev ? 2 : 1
   const gap = 2
-  const pairGap = prev ? 5 : 0
-  const barW = clamp((band * (compact ? 0.78 : 0.7) - gap * (per - 1) - pairGap) / per, 2, prev ? 16 : 24)
+  const pairGap = prev ? 3 : 0
+  const barW = clamp((band * (compact ? 0.6 : 0.5) - gap * (per - 1) - pairGap) / per, 3, prev ? 22 : 36)
   const groupW = barW * per + gap * (per - 1) + pairGap
   const y = (v: number) => m.top + plotH - (v / yMax) * plotH
   const labelW = buckets[0]?.key.length === 10 ? 44 : 30
@@ -137,18 +139,33 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
     } else if (e.key === 'Escape') setActive(null)
   }
 
+  // Gasto em barra neutra; a receita é um traço sobre a barra e a sobra vai rotulada em cima.
+  // (O par verde/vermelho lado a lado é o gráfico padrão de todo painel: aqui a cor fica para o que importa.)
+  const thisMonth = toISODate().slice(0, 7)
   const bars: ReactNode[] = []
   for (let i = 0; i < n; i++) {
     const b = buckets[i], p = prev?.[i]
-    const items: { v: number; color: string; faded?: boolean }[] = prev
-      ? [{ v: p?.income ?? 0, color: 'var(--chart-income)', faded: true }, { v: b.income, color: 'var(--chart-income)' }, { v: p?.expense ?? 0, color: 'var(--chart-spend)', faded: true }, { v: b.expense, color: 'var(--chart-spend)' }]
-      : [{ v: b.income, color: 'var(--chart-income)' }, { v: b.expense, color: 'var(--chart-spend)' }]
+    const items: { inc: number; exp: number; faded?: boolean; current?: boolean }[] = prev
+      ? [{ inc: p?.income ?? 0, exp: p?.expense ?? 0, faded: true }, { inc: b.income, exp: b.expense, current: b.key === thisMonth }]
+      : [{ inc: b.income, exp: b.expense, current: b.key === thisMonth }]
     for (let j = 0, x = m.left + i * band + (band - groupW) / 2; j < items.length; j++) {
       const it = items[j]
-      const top = y(it.v)
+      const top = y(it.exp)
       const d = barPath(x, top, barW, m.top + plotH - top)
-      if (d) bars.push(<path key={`${i}-${j}`} d={d} fill={it.color} opacity={it.faded ? 0.35 : 1} />)
-      x += barW + gap + (prev && j === 1 ? pairGap : 0)
+      if (d) bars.push(<path key={`${i}-${j}`} d={d} fill="var(--chart-spend)" opacity={it.faded ? 0.4 : 1}
+        stroke={it.current ? 'var(--accent-ink)' : undefined} strokeWidth={it.current ? 1.5 : undefined} />)
+      if (it.inc > 0) {
+        const ty = y(it.inc)
+        bars.push(<line key={`${i}-${j}-r`} x1={x - 3} x2={x + barW + 3} y1={ty} y2={ty} stroke="var(--chart-income)" strokeWidth={2.5}
+          strokeLinecap="round" opacity={it.faded ? 0.45 : 1} />)
+      }
+      // Sobra do período (só na barra atual, sem repetir na comparação)
+      if (!it.faded && !b.future && (it.inc > 0 || it.exp > 0) && band >= 34) {
+        const net = it.inc - it.exp
+        bars.push(<text key={`${i}-${j}-s`} x={x + barW / 2} y={Math.min(y(it.inc), top) - 8} textAnchor="middle"
+          className={`rp-net${net < 0 ? ' rp-net--neg' : ''}`}>{axisMoney(net, true)}</text>)
+      }
+      x += barW + gap + (prev && j === 0 ? pairGap : 0)
     }
   }
 
@@ -207,20 +224,23 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
 
 // ── Gastos por categoria (rosca + legenda com valores) ────
 export function CategoryDonut({ slices, total, compare, ariaLabel }: { slices: Slice[]; total: number; compare: boolean; ariaLabel: string }) {
-  const { t } = useTranslation()
   const [active, setActive] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
   const cur = active !== null ? slices[active] : null
+  const shownSl = cur ?? slices[0]
 
   return (
     <div className={`rp-donut${compare ? ' rp-donut--compare' : ''}`}>
       {/* Barra empilhada: comparar por comprimento é mais fácil que por ângulo (sem rosca) */}
       <div className="rp-stack">
-        <div className="rp-stack__total" aria-hidden>
-          <span className="rp-stack__label">{cur ? cur.name : t('reports.categories.total')}</span>
-          <Money value={cur ? cur.value : total} compact className="rp-stack__value" />
-          {cur && <span className="rp-stack__share ft-num">{formatPercent(cur.share, 1, false)}</span>}
-        </div>
+        {/* Em destaque, a maior categoria (o total já está no subtítulo); ao passar o mouse, a da vez */}
+        {shownSl && (
+          <div className="rp-stack__total" aria-hidden>
+            <span className="rp-stack__label">{shownSl.name}</span>
+            <Money value={shownSl.value} compact className="rp-stack__value" />
+            <span className="rp-stack__share ft-num">{formatPercent(shownSl.share, 1, false)}</span>
+          </div>
+        )}
         <div className="rp-stack__bar" role="img" aria-label={ariaLabel}>
           {slices.map((sl, i) => (
             <span key={sl.key} className="rp-stack__seg" style={{ flexGrow: Math.max(sl.value, total * 0.004), background: sl.color, opacity: active !== null && active !== i ? 0.32 : 1 }}
@@ -302,6 +322,7 @@ export function TopList({ rows }: { rows: TopRow[] }) {
 
 // ── Projeção (histórico sólido, projeção tracejada) ───────
 export function ProjectionLines({ data, ariaLabel }: { data: ProjectionData; ariaLabel: string }) {
+  const hatch = useId()
   const { t } = useTranslation()
   const [ref, width] = useChartWidth<HTMLDivElement>()
   const [active, setActive] = useState<number | null>(null)
@@ -323,7 +344,7 @@ export function ProjectionLines({ data, ariaLabel }: { data: ProjectionData; ari
   const top = Math.max(1, ...pts.map((p, i) => Math.max(p.income + band(i, sdInc), p.expense + band(i, sdExp))))
   const ticks = niceTicks(top)
   const yMax = ticks[ticks.length - 1] || 1
-  const tickLabels = ticks.map(axisMoney)
+  const tickLabels = ticks.map(v => axisMoney(v))
   const yearOf = (k: string) => k.slice(0, 4)
   const multiYear = pts.length > 0 && yearOf(pts[0].month) !== yearOf(pts[n - 1].month)
   const m = { top: 22, right: compact ? 12 : 76, bottom: multiYear ? 40 : 26, left: Math.max(...tickLabels.map(l => l.length)) * 6.2 + 12 }
@@ -377,10 +398,17 @@ export function ProjectionLines({ data, ariaLabel }: { data: ProjectionData; ari
         {width > 0 && (
           <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="img" aria-label={ariaLabel} tabIndex={0} className="rp-svg"
             onPointerMove={pick} onPointerDown={pick} onPointerLeave={e => { if (e.pointerType !== 'touch') setActive(null) }} onKeyDown={onKey} onBlur={() => setActive(null)}>
+            {/* Futuro: linha "hoje" no mês corrente e hachura leve só na área projetada (sem retângulo cinza) */}
             {zoneX !== null && (
               <g>
-                <rect x={zoneX} y={m.top - 14} width={width - m.right - zoneX + (compact ? m.right : 0)} height={plotH + 14} fill="var(--bg-subtle)" rx={6} />
-                <text x={zoneX + 8} y={m.top - 3} className="rp-axis rp-axis--zone">{t('reports.projection.zone')}</text>
+                <defs>
+                  <pattern id={hatch} width={6} height={6} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                    <line x1={0} y1={0} x2={0} y2={6} stroke="var(--chart-grid)" strokeWidth={2} />
+                  </pattern>
+                </defs>
+                <rect x={x(h - 1)} y={m.top} width={Math.max(0, width - m.right - x(h - 1))} height={plotH} fill={`url(#${hatch})`} />
+                <line x1={x(h - 1)} x2={x(h - 1)} y1={m.top - 12} y2={m.top + plotH} stroke="var(--text-hint)" strokeWidth={1} strokeDasharray="3 3" />
+                <text x={x(h - 1) + 6} y={m.top - 3} className="rp-axis rp-axis--zone">{t('reports.projection.today')}</text>
               </g>
             )}
             {ticks.map((tk, i) => (
