@@ -53,19 +53,20 @@ create table categories (
 );
 
 -- Categorias padrão globais (sem user_id)
+-- Cores: paleta de categorias validada (frontend/src/lib/categoryColor.ts), valores do tema claro
 insert into categories (name, icon, color, is_default) values
-  ('Alimentação',     'utensils',       '#e06c75', true),
-  ('Transporte',      'car',            '#e09c4c', true),
-  ('Moradia',         'home',           '#61afef', true),
-  ('Saúde',           'heart',          '#98c379', true),
-  ('Educação',        'book',           '#c678dd', true),
-  ('Lazer',           'music',          '#56b6c2', true),
-  ('Vestuário',       'shirt',          '#e5c07b', true),
-  ('Assinaturas',     'repeat',         '#abb2bf', true),
-  ('Investimentos',   'trending-up',    '#4caf7d', true),
-  ('Receita',         'dollar-sign',    '#4caf7d', true),
-  ('Transferência',   'arrow-right',    '#61afef', true),
-  ('Outros',          'more-horizontal','#606060', true);
+  ('Alimentação',     'utensils',       '#eb6834', true),
+  ('Transporte',      'car',            '#eda100', true),
+  ('Moradia',         'home',           '#2a78d6', true),
+  ('Saúde',           'heart',          '#e87ba4', true),
+  ('Educação',        'book',           '#008300', true),
+  ('Lazer',           'music',          '#1baf7a', true),
+  ('Vestuário',       'shirt',          '#e34948', true),
+  ('Assinaturas',     'repeat',         '#4a3aa7', true),
+  ('Investimentos',   'trending-up',    '#9D2449', true),
+  ('Receita',         'dollar-sign',    '#2ca470', true),
+  ('Transferência',   'arrow-right',    '#8e8e99', true),
+  ('Outros',          'more-horizontal','#8e8e99', true);
 
 -- ============================================================
 -- MERCHANT CACHE (cache de categorização)
@@ -282,10 +283,11 @@ create policy "transactions: delete own" on transactions
 -- CATEGORIES (globais visíveis para todos, personalizadas só do próprio usuário)
 create policy "categories: select global or own" on categories
   for select using (user_id is null or auth.uid() = user_id);
+-- Categoria criada por um usuário nunca é "padrão" (padrão = is_default e sem dono)
 create policy "categories: insert own" on categories
-  for insert with check (auth.uid() = user_id);
+  for insert with check (auth.uid() = user_id and is_default = false);
 create policy "categories: update own" on categories
-  for update using (auth.uid() = user_id);
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id and is_default = false);
 create policy "categories: delete own" on categories
   for delete using (auth.uid() = user_id);
 
@@ -438,10 +440,11 @@ create policy "nws: update own" on net_worth_snapshots
 grant all on all tables    in schema public to service_role;
 grant all on all sequences in schema public to service_role;
 
-grant select, insert, update, delete on all tables    in schema public to authenticated;
+-- O app web só lê e grava pela API (service_role). O papel authenticated, que qualquer pessoa
+-- com a chave anon pública e uma conta obtém, fica só com leitura, filtrada pelo RLS.
+-- Assim ninguém grava direto na REST do Supabase contornando as conferências da API.
+grant select on all tables                            in schema public to authenticated;
 grant usage on all sequences                          in schema public to authenticated;
 
 grant select on categories, merchant_cache            to anon;
 
--- Histórico de alterações: só leitura para o usuário
-revoke insert, update, delete on audit_log from authenticated;

@@ -4,7 +4,7 @@ from app.core.security import get_current_user_id
 from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.models import CategoryCreate, CategoryUpdate, CategoryResponse, CategoryListResponse
-from app.api.v1._helpers import _first
+from app.api.v1._helpers import _first, visible_categories_filter
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 async def list_categories(user_id: str = Depends(get_current_user_id)):
     try:
         sb = get_supabase()
-        result = sb.table("categories").select("*").or_(f"is_default.eq.true,user_id.eq.{user_id}").order("name").execute()
+        result = sb.table("categories").select("*").or_(visible_categories_filter(user_id)).order("name").execute()
         cats = result.data or []
         return CategoryListResponse(categories=cats, total=len(cats))
     except Exception as e:

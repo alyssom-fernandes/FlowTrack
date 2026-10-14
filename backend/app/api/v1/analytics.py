@@ -7,7 +7,7 @@ from app.core.security import get_current_user_id
 from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.models import AlertListResponse, NetWorthResponse, ProjectionResponse, MonthData
-from app.api.v1._helpers import normalize_desc, _calc_goal_current, is_transfer, latest_installments
+from app.api.v1._helpers import normalize_desc, _calc_goal_current, is_transfer, latest_installments, _first, brl, month_shift
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -67,9 +67,9 @@ async def list_alerts(user_id: str = Depends(get_current_user_id)):
             pct = (current / g["target_amount"] * 100) if g["target_amount"] > 0 else 0
             remaining = round(g["target_amount"] - current, 2)
             if pct >= 100:
-                alerts.append({"type": "danger", "message": f'Meta "{g["name"]}" excedida em R${abs(remaining):.2f}', "category": "budget", "amount": abs(remaining)})
+                alerts.append({"type": "danger", "message": f'Meta “{g["name"]}” excedida em {brl(abs(remaining))}', "category": "budget", "amount": abs(remaining)})
             elif pct >= 75:
-                alerts.append({"type": "warning", "message": f'Meta "{g["name"]}" em {pct:.0f}% — faltam R${remaining:.2f}', "category": "budget", "amount": remaining})
+                alerts.append({"type": "warning", "message": f'Meta “{g["name"]}” em {pct:.0f}%, faltam {brl(remaining)}', "category": "budget", "amount": remaining})
 
         # Negative balance accounts
         neg_accs = sb.table("accounts").select("name,balance").eq("user_id", user_id).eq("is_active", True).lt("balance", 0).execute().data or []
@@ -89,11 +89,19 @@ async def list_alerts(user_id: str = Depends(get_current_user_id)):
             prev_first = date(today.year, today.month - 1, 1)
             prev_last = date(today.year, today.month, 1) - timedelta(days=1)
 
-        prev_rec = sb.table("transactions").select("description").eq("user_id", user_id).eq("is_recurring", True).gte("transaction_date", str(prev_first)).lte("transaction_date", str(prev_last)).limit(5).execute().data or []
+        prev_rec = sb.table("transactions").select("description,transaction_date").eq("user_id", user_id).eq("is_recurring", True).gte("transaction_date", str(prev_first)).lte("transaction_date", str(prev_last)).execute().data or []
         curr_norms = {normalize_desc(t["description"]) for t in txns}
+        seen: set[str] = set()
         for r in prev_rec:
-            if normalize_desc(r["description"]) not in curr_norms:
-                alerts.append({"type": "info", "message": f'Recorrente "{r["description"]}" não detectado este mês', "category": "recurring"})
+            norm = normalize_desc(r["description"])
+            if norm in seen or norm in curr_norms:
+                continue
+            if today.day < date.fromisoformat(r["transaction_date"]).day + 2:
+                continue  # ainda não passou o dia em que costuma cair
+            seen.add(norm)
+            if len(seen) > 5:
+                break
+            alerts.append({"type": "info", "message": f'Recorrente “{r["description"]}” não apareceu este mês', "category": "recurring"})
 
         # Budget alerts
         try:
@@ -107,15 +115,15 @@ async def list_alerts(user_id: str = Depends(get_current_user_id)):
             for b in budgets:
                 spent = cat_spending.get(b["category_id"], 0)
                 pct = (spent / b["limit_amount"] * 100) if b["limit_amount"] > 0 else 0
-                if pct >= 80 and pct < 100:
-                    cat_res = sb.table("categories").select("name").eq("id", b["category_id"]).single().execute()
-                    cat_name = cat_res.data["name"] if cat_res.data else "Categoria"
+                if pct < 80:
+                    continue
+                cat = _first(sb.table("categories").select("name").eq("id", b["category_id"]).limit(1).execute().data)
+                cat_name = cat["name"] if cat else "Categoria"
+                if pct < 100:
                     remaining = round(b["limit_amount"] - spent, 2)
-                    alerts.append({"type": "warning", "message": f'Orçamento "{cat_name}" em {pct:.0f}% — faltam R${remaining:.2f}', "category": "budget", "amount": remaining})
-                elif pct >= 100:
-                    cat_res = sb.table("categories").select("name").eq("id", b["category_id"]).single().execute()
-                    cat_name = cat_res.data["name"] if cat_res.data else "Categoria"
-                    alerts.append({"type": "danger", "message": f'Orçamento "{cat_name}" excedido', "category": "budget"})
+                    alerts.append({"type": "warning", "message": f'Orçamento “{cat_name}” em {pct:.0f}%, faltam {brl(remaining)}', "category": "budget", "amount": remaining})
+                else:
+                    alerts.append({"type": "danger", "message": f'Orçamento “{cat_name}” estourado', "category": "budget"})
         except Exception:
             pass
 
@@ -136,11 +144,9 @@ async def cashflow_projection(user_id: str = Depends(get_current_user_id)):
         accs = sb.table("accounts").select("balance").eq("user_id", user_id).eq("is_active", True).execute().data or []
         starting_balance = round(sum(a["balance"] for a in accs), 2)
 
-        if today.month <= 2:
-            lookback_start = date(today.year - 1, 10, 1)
-        else:
-            lookback_start = date(today.year, today.month - 2, 1)
-        recurring = sb.table("transactions").select("description,amount,transaction_date").eq("user_id", user_id).eq("is_recurring", True).gte("transaction_date", str(lookback_start)).execute().data or []
+        lookback_start = month_shift(date(today.year, today.month, 1), -2)
+        recurring = sb.table("transactions").select("description,amount,transaction_date,type").eq("user_id", user_id).eq("is_recurring", True).gte("transaction_date", str(lookback_start)).execute().data or []
+        recurring = [r for r in recurring if not is_transfer(r)]
 
         inst_res = sb.table("transactions").select("description,amount,transaction_date,installment_current,installment_total").eq("user_id", user_id).not_.is_("installment_total", "null").execute().data or []
         pending_inst = latest_installments(inst_res)
@@ -227,9 +233,7 @@ async def financial_projections(user_id: str = Depends(get_current_user_id)):
     try:
         sb = get_supabase()
         today = date.today()
-        start = date(today.year, today.month, 1)
-        for _ in range(5):
-            start = date(start.year - (1 if start.month == 1 else 0), 12 if start.month == 1 else start.month - 1, 1)
+        start = month_shift(date(today.year, today.month, 1), -11)
 
         txns = sb.table("transactions").select("transaction_date,amount,type").eq("user_id", user_id).gte("transaction_date", str(start)).execute().data or []
 

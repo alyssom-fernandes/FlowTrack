@@ -39,14 +39,54 @@ class _Query:
     def gt(self, col, val): self.filters.append(lambda r: r.get(col) is not None and r.get(col) > val); return self
     def lt(self, col, val): self.filters.append(lambda r: r.get(col) is not None and r.get(col) < val); return self
 
+    @property
+    def not_(self):
+        """Negação no estilo do supabase-py: .not_.is_("col", "null"), .not_.eq(...)."""
+        q = self
+
+        class _Not:
+            def is_(self, col, val):
+                if val in (None, "null"):
+                    q.filters.append(lambda r: r.get(col) is not None)
+                else:
+                    q.filters.append(lambda r: r.get(col) != val)
+                return q
+
+            def eq(self, col, val):
+                q.filters.append(lambda r: r.get(col) != val)
+                return q
+        return _Not()
+
+    def is_(self, col, val):
+        target = None if val in (None, "null") else val
+        self.filters.append(lambda r: r.get(col) is target if target is None else r.get(col) == target)
+        return self
+
     def or_(self, expr: str):
-        # Só o formato "col.eq.valor,col.eq.valor" usado pelo backend
-        tests = []
-        for part in expr.split(","):
-            col, _op, val = part.split(".", 2)
-            val = {"true": True, "false": False}.get(val, val)
-            tests.append((col, val))
-        self.filters.append(lambda r: any(r.get(c) == v for c, v in tests))
+        # Formatos usados pelo backend: "col.eq.valor", "col.is.null" e "and(...)", separados por vírgula
+        def split(text):
+            parts, depth, cur = [], 0, ""
+            for ch in text:
+                if ch == "," and depth == 0:
+                    parts.append(cur); cur = ""
+                    continue
+                depth += ch == "("
+                depth -= ch == ")"
+                cur += ch
+            return parts + [cur]
+
+        def term(t):
+            if t.startswith("and(") and t.endswith(")"):
+                subs = [term(x) for x in split(t[4:-1])]
+                return lambda r: all(f(r) for f in subs)
+            col, op, val = t.split(".", 2)
+            if op == "is":
+                return lambda r: r.get(col) is None if val == "null" else r.get(col) == val
+            v = {"true": True, "false": False}.get(val, val)
+            return (lambda r: r.get(col) == v) if op == "eq" else (lambda r: r.get(col) != v)
+
+        tests = [term(t) for t in split(expr)]
+        self.filters.append(lambda r: any(f(r) for f in tests))
         return self
 
     def order(self, *_a, **_k): return self

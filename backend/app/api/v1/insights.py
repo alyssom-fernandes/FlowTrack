@@ -8,6 +8,7 @@ from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.models import InsightPeriod, InsightResponse
+from app.api.v1._helpers import visible_categories_filter
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -47,7 +48,7 @@ async def generate_insight(request: Request, period: InsightPeriod, user_id: str
         txns = sb.table("transactions").select("amount,category_id,description,is_recurring,type").eq("user_id", user_id).gte("transaction_date", period.start_date).lte("transaction_date", period.end_date).execute().data or []
         txns = [t for t in txns if t.get("type") != "transfer"]
         goals = sb.table("goals").select("name,type,target_amount,is_active").eq("user_id", user_id).eq("is_active", True).execute().data or []
-        cats = sb.table("categories").select("id,name").or_(f"is_default.eq.true,user_id.eq.{user_id}").execute().data or []
+        cats = sb.table("categories").select("id,name").or_(visible_categories_filter(user_id)).execute().data or []
         cat_map = {c["id"]: c["name"] for c in cats}
 
         expenses = [t for t in txns if (t.get("amount") or 0) < 0]

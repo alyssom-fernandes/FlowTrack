@@ -31,13 +31,19 @@ def _require_account(sb, user_id: str, account_id: str) -> dict:
 
 
 def _require_category(sb, user_id: str, category_id: str | None) -> None:
-    """Categoria padrão ou do próprio usuário, ou 404. Sem categoria passa."""
+    """Categoria padrão (is_default e sem dono) ou do próprio usuário, ou 404. Sem categoria passa."""
     if not category_id:
         return
     res = sb.table("categories").select("id,user_id,is_default").eq("id", category_id).limit(1).execute()
     row = _first(res.data)
-    if not row or not (row.get("is_default") or row.get("user_id") == user_id):
+    is_default = bool(row) and row.get("is_default") is True and row.get("user_id") is None
+    if not row or not (is_default or row.get("user_id") == user_id):
         raise HTTPException(404, "Categoria não encontrada.")
+
+
+# Filtro PostgREST: categorias padrão (sem dono) ou do usuário
+def visible_categories_filter(user_id: str) -> str:
+    return f"and(is_default.eq.true,user_id.is.null),user_id.eq.{user_id}"
 
 
 def normalize_desc(description: str) -> str:
@@ -68,6 +74,19 @@ def latest_installments(rows: list[dict]) -> list[dict]:
         if key not in latest or (latest[key].get("installment_current") or 0) < cur:
             latest[key] = t
     return list(latest.values())
+
+
+def month_shift(d: date, months: int) -> date:
+    """Primeiro dia do mês, n meses antes (negativo) ou depois."""
+    index = d.year * 12 + d.month - 1 + months
+    return date(index // 12, index % 12 + 1, 1)
+
+
+def brl(value: float) -> str:
+    """R$ 1.234,56 (padrão brasileiro, sem depender do locale do servidor)."""
+    sign = "-" if value < 0 else ""
+    whole, cents = f"{abs(value):,.2f}".split(".")
+    return f"{sign}R$ {whole.replace(',', '.')},{cents}"
 
 
 def calc_profitability(invested: float, current: float):

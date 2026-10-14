@@ -4,12 +4,13 @@ import uuid
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.core.security import get_current_user_id
 from app.core.database import get_supabase
 from app.core.logging import get_logger
+from app.core.rate_limit import limiter
 from app.models import (
     TransactionCreate, TransactionUpdate, TransactionResponse, TransactionListResponse,
     BulkTransactionCreate, TransferCreate,
@@ -172,7 +173,8 @@ async def create_transfer(body: TransferCreate, user_id: str = Depends(get_curre
 
 
 @router.post("/transactions/bulk", tags=["Transactions"])
-async def bulk_create_transactions(payload: BulkTransactionCreate, user_id: str = Depends(get_current_user_id)):
+@limiter.limit("20/minute")
+async def bulk_create_transactions(request: Request, payload: BulkTransactionCreate, user_id: str = Depends(get_current_user_id)):
     """Save a batch of transactions (used after PDF/CSV preview confirmation)."""
     sb = get_supabase()
     _require_account(sb, user_id, payload.account_id)

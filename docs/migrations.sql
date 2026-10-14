@@ -77,3 +77,15 @@ drop policy if exists "Users can manage own audit log" on audit_log;
 drop policy if exists "audit_log: select own" on audit_log;
 create policy "audit_log: select own" on audit_log for select using (auth.uid() = user_id);
 revoke insert, update, delete on audit_log from authenticated;
+
+-- v2.1 — escrita só pela API (revisão adversarial de outubro de 2026)
+-- Categoria criada por usuário nunca é padrão
+drop policy if exists "categories: insert own" on categories;
+drop policy if exists "categories: update own" on categories;
+create policy "categories: insert own" on categories for insert with check (auth.uid() = user_id and is_default = false);
+create policy "categories: update own" on categories for update using (auth.uid() = user_id) with check (auth.uid() = user_id and is_default = false);
+-- O papel authenticated só lê (RLS); quem grava é a API com service_role
+revoke insert, update, delete on all tables in schema public from authenticated;
+-- Linhas antigas forjadas: "padrão" com dono deixam de ser padrão
+update categories set is_default = false where is_default = true and user_id is not null;
+

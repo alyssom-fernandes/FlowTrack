@@ -35,8 +35,8 @@ def _seed() -> dict:
             {"id": ACC_BOB, "user_id": BOB, "name": "Conta do Bob", "balance": 5000.0, "is_active": True},
         ],
         "categories": [
-            {"id": CAT_DEFAULT, "user_id": None, "is_default": True, "name": "Alimentação"},
-            {"id": CAT_BOB, "user_id": BOB, "is_default": False, "name": "Categoria do Bob"},
+            {"id": CAT_DEFAULT, "user_id": None, "is_default": True, "name": "Alimentação", "icon": "utensils", "color": "#eb6834", "created_at": "2026-01-01T00:00:00"},
+            {"id": CAT_BOB, "user_id": BOB, "is_default": False, "name": "Categoria do Bob", "icon": "tag", "color": "#000000", "created_at": "2026-01-01T00:00:00"},
         ],
         "transactions": [], "audit_log": [], "demo_users": [], "categorization_queue": [],
         "budgets": [], "goals": [],
@@ -266,3 +266,161 @@ class TestLimits:
     def test_health_does_not_expose_version_or_env(self, api):
         c, _ = api
         assert c.get("/health").json() == {"status": "ok"}
+
+
+# ── Worker de categorização (achados da revisão adversarial) ──
+class _FakeClaude:
+    """Cliente Anthropic falso: responde sempre o mesmo nome e guarda os prompts."""
+    def __init__(self, answer):
+        self.answer, self.prompts = answer, []
+        self.messages = self
+
+    def create(self, **kw):
+        self.prompts.append(kw["system"][0]["text"])
+        return SimpleNamespace(content=[SimpleNamespace(text=self.answer)])
+
+
+def _worker_db():
+    return FakeSupabase({
+        "categories": [
+            {"id": "cat-food", "name": "Alimentação", "user_id": None, "is_default": True},
+            {"id": "cat-transp", "name": "Transporte", "user_id": None, "is_default": True},
+            {"id": "cat-bob-food", "name": "alimentação", "user_id": BOB, "is_default": False},
+            {"id": "cat-bob-secret", "name": "Categoria secreta do Bob", "user_id": BOB, "is_default": False},
+            {"id": "cat-alice-pets", "name": "Pets", "user_id": ALICE, "is_default": False},
+            # Linha forjada pela REST: "padrão" mas com dono. Não pode valer como padrão.
+            {"id": "cat-fake-default", "name": "Falsa padrão", "user_id": BOB, "is_default": True},
+        ],
+        "transactions": [
+            {"id": "tx-a1", "user_id": ALICE, "description": "AMAZON MKTPLACE", "amount": -50.0},
+            {"id": "tx-a2", "user_id": ALICE, "description": "UBER *TRIP", "amount": -20.0},
+            {"id": "tx-b1", "user_id": BOB, "description": "LOJA DO BOB", "amount": -10.0, "category_id": None},
+        ],
+        "categorization_queue": [], "merchant_cache": [],
+    })
+
+
+def _run_worker(db, answer, queue):
+    from app.integrations import claude_api
+    db.tables["categorization_queue"] = [{"id": f"q{i}", "status": "pending", "created_at": str(i), **q} for i, q in enumerate(queue)]
+    fake = _FakeClaude(answer)
+    settings = SimpleNamespace(anthropic_api_key="sk-teste")
+    with patch.object(claude_api, "get_supabase", return_value=db), \
+         patch.object(claude_api, "get_settings", return_value=settings), \
+         patch.object(claude_api.anthropic, "Anthropic", return_value=fake):
+        claude_api.process_categorization_queue()
+    return fake
+
+
+def _tx(db, tx_id):
+    return next(t for t in db.rows("transactions") if t["id"] == tx_id)
+
+
+class TestCategorizationWorker:
+    def test_rule_layer_runs_first(self):
+        db = _worker_db()
+        fake = _run_worker(db, "Alimentação", [{"transaction_id": "tx-a2", "user_id": ALICE}])
+        assert _tx(db, "tx-a2")["category_id"] == "cat-transp"
+        assert _tx(db, "tx-a2")["categorized_by"] == "rule"
+        assert fake.prompts == []  # nenhuma chamada ao modelo
+
+    def test_ai_answer_maps_to_default_not_to_someone_elses_category(self):
+        db = _worker_db()
+        _run_worker(db, "alimentação", [{"transaction_id": "tx-a1", "user_id": ALICE}])
+        assert _tx(db, "tx-a1")["category_id"] == "cat-food"
+
+    def test_prompt_only_lists_default_and_own_categories(self):
+        db = _worker_db()
+        fake = _run_worker(db, "Pets", [{"transaction_id": "tx-a1", "user_id": ALICE}])
+        prompt = fake.prompts[0]
+        assert "Pets" in prompt and "Alimentação" in prompt
+        assert "Categoria secreta do Bob" not in prompt and "Falsa padrão" not in prompt
+        assert _tx(db, "tx-a1")["category_id"] == "cat-alice-pets"
+
+    def test_queue_item_cannot_touch_someone_elses_transaction(self):
+        db = _worker_db()
+        _run_worker(db, "Alimentação", [{"transaction_id": "tx-b1", "user_id": ALICE}])
+        assert _tx(db, "tx-b1").get("category_id") is None
+        assert db.rows("categorization_queue")[0]["status"] == "failed"
+
+    def test_cache_entry_with_foreign_category_is_ignored(self):
+        db = _worker_db()
+        db.tables["merchant_cache"].append({"normalized_description": "AMAZON MKTPLACE", "user_id": ALICE, "category_id": "cat-bob-secret"})
+        _run_worker(db, "Alimentação", [{"transaction_id": "tx-a1", "user_id": ALICE}])
+        assert _tx(db, "tx-a1")["category_id"] == "cat-food"
+        assert _tx(db, "tx-a1")["categorized_by"] == "ai"
+
+
+class TestDefaultCategoryDefinition:
+    def test_default_with_owner_is_not_default(self, api):
+        c, db = api
+        db.tables["categories"].append({"id": "cat-fake-default", "user_id": BOB, "is_default": True, "name": "Falsa"})
+        assert c.post("/api/v1/transactions", json=_txn(category_id="cat-fake-default")).status_code == 404
+
+    def test_list_hides_forged_default(self, api):
+        c, db = api
+        db.tables["categories"].append({"id": "cat-fake-default", "user_id": BOB, "is_default": True, "name": "Falsa",
+                                        "icon": "tag", "color": "#000000", "created_at": "2026-01-01T00:00:00"})
+        r = c.get("/api/v1/categories")
+        assert r.status_code == 200, r.text
+        ids = [x["id"] for x in r.json()["categories"]]
+        assert "cat-fake-default" not in ids and CAT_BOB not in ids
+
+
+class TestMoreLimits:
+    def test_bulk_over_2000_items_is_422(self, api):
+        c, db = api
+        item = {"description": "X", "amount": -1.0, "transaction_date": "2026-10-10", "type": "debit"}
+        r = c.post("/api/v1/transactions/bulk", json={"account_id": ACC_ALICE, "transactions": [item] * 2001})
+        assert r.status_code == 422
+        assert db.rows("transactions") == []
+
+    def test_investment_with_foreign_account_is_404(self, api):
+        c, db = api
+        r = c.post("/api/v1/investments", json={"name": "CDB", "account_id": ACC_BOB, "total_invested": 10, "current_value": 10})
+        assert r.status_code == 404
+
+    def test_undo_cannot_run_twice(self, api):
+        c, db = api
+        db.tables["audit_log"].append({"id": "log-1", "user_id": ALICE, "entity_type": "transaction", "entity_id": "tx-1",
+                                       "action": "delete", "undone": False,
+                                       "old_values": {"account_id": ACC_ALICE, "description": "Mercado", "amount": -50.0,
+                                                      "transaction_date": "2026-10-10", "type": "debit"}})
+        assert c.post("/api/v1/audit-log/log-1/undo").status_code == 200
+        assert c.post("/api/v1/audit-log/log-1/undo").status_code == 409
+        assert _balance(db, ACC_ALICE) == 950.0
+
+
+class TestRateLimitKey:
+    def _req(self, headers, host="10.0.0.1"):
+        from starlette.requests import Request
+        scope = {"type": "http", "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()], "client": (host, 1234)}
+        return Request(scope)
+
+    def test_authenticated_requests_are_counted_per_user(self):
+        from app.core.rate_limit import client_key
+        token = jwt.encode({"sub": ALICE}, "x" * 40, algorithm="HS256")
+        assert client_key(self._req({"Authorization": "Bearer " + token, "X-Forwarded-For": "1.2.3.4"})) == "user:" + ALICE
+
+    def test_forged_forwarded_for_does_not_change_the_key(self):
+        from app.core.rate_limit import client_key
+        a = client_key(self._req({"X-Forwarded-For": "6.6.6.6, 203.0.113.9"}))
+        b = client_key(self._req({"X-Forwarded-For": "7.7.7.7, 203.0.113.9"}))
+        assert a == b == "ip:203.0.113.9"
+
+
+class TestProductionSecrets:
+    def _settings(self, **kw):
+        from app.core.config import Settings
+        base = dict(supabase_url="https://x.supabase.co", supabase_anon_key="a", supabase_service_role_key="s",
+                    supabase_jwt_secret="z" * 40, internal_api_token="y" * 40, app_env="production")
+        base.update(kw)
+        return Settings(_env_file=None, **base)
+
+    def test_strong_secrets_pass(self):
+        assert self._settings().is_production
+
+    @pytest.mark.parametrize("field,value", [("supabase_jwt_secret", "curto"), ("internal_api_token", "gere-um-token-secreto-aqui-com-mais-letras")])
+    def test_weak_or_example_secrets_fail(self, field, value):
+        with pytest.raises(ValueError):
+            self._settings(**{field: value})

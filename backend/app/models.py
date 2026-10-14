@@ -47,12 +47,12 @@ class AccountListResponse(BaseModel):
 # ── Transaction ───────────────────────────────────────────
 class TransactionCreate(BaseModel):
     account_id: str; category_id: Optional[str] = None
-    description: str
+    description: str = Field(..., min_length=1, max_length=300)
     amount: float = Field(..., description="Negative = debit, positive = credit")
     currency: str = "BRL"; transaction_date: date; type: str = "debit"
     is_recurring: bool = False; installment_current: Optional[int] = None
-    installment_total: Optional[int] = None; notes: Optional[str] = None
-    tags: Optional[list[str]] = None
+    installment_total: Optional[int] = None; notes: Optional[str] = Field(None, max_length=1000)
+    tags: Optional[list[str]] = Field(None, max_length=20)
 
 class TransactionUpdate(BaseModel):
     account_id: Optional[str] = None; category_id: Optional[str] = None
@@ -166,14 +166,15 @@ class TransferCreate(BaseModel):
 
 # ── Import ────────────────────────────────────────────────
 class ParsedTransactionItem(BaseModel):
-    description: str
+    description: str = Field(..., min_length=1, max_length=300)
     amount: float
     transaction_date: date
     type: str = 'debit'
 
 class BulkTransactionCreate(BaseModel):
     account_id: str
-    transactions: list[ParsedTransactionItem]
+    # Um extrato de banco cabe com folga; acima disso, importe em partes
+    transactions: list[ParsedTransactionItem] = Field(..., max_length=2000)
 
 
 # ── Budget ────────────────────────────────────────────────

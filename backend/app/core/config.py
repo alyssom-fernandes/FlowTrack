@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from functools import lru_cache
 
 _BOM = "﻿"
@@ -39,6 +39,16 @@ class Settings(BaseSettings):
     @classmethod
     def strip_bom(cls, v: str) -> str:
         return _strip_bom(v)
+
+    @model_validator(mode="after")
+    def strong_secrets_in_production(self):
+        # Em produção, valor de exemplo ou segredo curto deixaria forjar tokens ou chamar /internal
+        if self.app_env == "production":
+            for name in ("supabase_jwt_secret", "internal_api_token"):
+                value = getattr(self, name)
+                if len(value) < 32 or any(w in value.lower() for w in ("seu-", "gere-", "placeholder", "secret-aqui", "changeme")):
+                    raise ValueError(f"{name}: use um segredo aleatório de pelo menos 32 caracteres em produção")
+        return self
 
     @property
     def cors_origins_list(self) -> list[str]:

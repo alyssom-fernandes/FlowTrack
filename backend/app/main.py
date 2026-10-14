@@ -50,6 +50,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 async def body_size_limit(request: Request, call_next):
     """Recusa corpos maiores que o teto de upload antes de ler (folga de 1 MB para o multipart)."""
     size = request.headers.get("content-length")
+    if request.method in ("POST", "PUT", "PATCH") and not size and request.headers.get("transfer-encoding"):
+        return JSONResponse(status_code=411, content={"detail": "Envie o tamanho do corpo (Content-Length)."})
     if size and size.isdigit() and int(size) > MAX_UPLOAD_BYTES + 1024 * 1024:
         return JSONResponse(status_code=413, content={"detail": "O arquivo passa de 10 MB."})
     return await call_next(request)

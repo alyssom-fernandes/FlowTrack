@@ -2,6 +2,7 @@ import anthropic
 from app.core.config import get_settings
 from app.core.database import get_supabase
 from app.core.logging import get_logger
+from app.integrations.rules import match_rule
 
 logger = get_logger(__name__)
 
@@ -15,13 +16,23 @@ def _build_system_prompt(category_names: list[str]) -> str:
     )
 
 
+def _categories_for(sb, user_id: str, defaults: list[dict]) -> tuple[dict, list[str]]:
+    """Categorias que este usuário pode receber: as padrão e as dele, nunca as de outra pessoa.
+    Em nome repetido, vale a padrão."""
+    own = (sb.table("categories").select("id, name, user_id, is_default")
+           .eq("user_id", user_id).execute().data) or []
+    by_name = {c["name"].lower(): c for c in own}
+    by_name.update({c["name"].lower(): c for c in defaults})
+    names = sorted({c["name"] for c in by_name.values()})
+    return by_name, names
+
+
 def process_categorization_queue(batch_size: int = 20) -> dict:
+    """Categoriza a fila em 3 camadas: regras fixas, cache de comerciantes e Claude Haiku.
+    A API usa service_role (ignora o RLS), então toda leitura e escrita filtra pelo dono do item."""
     settings = get_settings()
     sb = get_supabase()
-
-    if not settings.anthropic_api_key or settings.anthropic_api_key in ("pendente", ""):
-        logger.warning("ANTHROPIC_API_KEY not configured — skipping AI categorization")
-        return {"status": "skipped", "reason": "api_key_not_configured", "processed": 0}
+    has_ai = bool(settings.anthropic_api_key) and settings.anthropic_api_key != "pendente"
 
     queue_res = (
         sb.table("categorization_queue")
@@ -35,17 +46,16 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
     if not items:
         return {"status": "ok", "processed": 0}
 
-    cats_res = sb.table("categories").select("id, name").order("name").execute()
-    categories = cats_res.data or []
-    if not categories:
-        logger.warning("No categories found in DB")
+    # Padrão = is_default e sem dono (uma linha com dono nunca conta como padrão)
+    defaults = (sb.table("categories").select("id, name, user_id, is_default")
+                .eq("is_default", True).is_("user_id", "null").execute().data) or []
+    if not defaults:
+        logger.warning("No default categories found in DB")
         return {"status": "ok", "processed": 0}
+    default_by_name = {c["name"]: c for c in defaults}
 
-    cat_by_name_lower = {c["name"].lower(): c for c in categories}
-    category_names = [c["name"] for c in categories]
-
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    system_prompt = _build_system_prompt(category_names)
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key) if has_ai else None
+    per_user: dict[str, tuple[dict, list[str]]] = {}
     processed = 0
 
     for item in items:
@@ -54,21 +64,37 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
         queue_id = item["id"]
 
         try:
-            txn_res = (
-                sb.table("transactions")
-                .select("id, description, description_normalized, amount")
-                .eq("id", txn_id)
-                .single()
-                .execute()
-            )
-            txn = txn_res.data
+            txn = (sb.table("transactions")
+                   .select("id, description, description_normalized, amount")
+                   .eq("id", txn_id).eq("user_id", user_id)
+                   .limit(1).execute().data or [None])[0]
             if not txn:
+                # Item apontando para transação que não é do dono do item: não toca em nada
                 _mark_queue(sb, queue_id, "failed")
                 continue
 
-            desc_norm = (txn.get("description_normalized") or txn.get("description", ""))[:80]
+            if user_id not in per_user:
+                per_user[user_id] = _categories_for(sb, user_id, defaults)
+            allowed, names = per_user[user_id]
+            allowed_ids = {c["id"] for c in allowed.values()}
 
-            # Check merchant cache first
+            def apply(cat_id: str, by: str, confidence: float) -> None:
+                sb.table("transactions").update({
+                    "category_id": cat_id, "categorized_by": by, "confidence_score": confidence,
+                }).eq("id", txn_id).eq("user_id", user_id).execute()
+
+            description = txn.get("description") or ""
+            desc_norm = (txn.get("description_normalized") or description)[:80]
+
+            # 1. Regras fixas
+            rule = match_rule(description)
+            if rule and rule[0] in default_by_name:
+                apply(default_by_name[rule[0]]["id"], "rule", rule[1])
+                _mark_queue(sb, queue_id, "done")
+                processed += 1
+                continue
+
+            # 2. Cache de comerciantes do próprio usuário (só vale categoria que ele pode usar)
             cache_res = (
                 sb.table("merchant_cache")
                 .select("category_id")
@@ -77,40 +103,35 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
                 .limit(1)
                 .execute()
             )
-            if cache_res.data:
-                cat_id = cache_res.data[0]["category_id"]
-                sb.table("transactions").update({
-                    "category_id": cat_id,
-                    "categorized_by": "cache",
-                    "confidence_score": 0.9,
-                }).eq("id", txn_id).execute()
+            cached = cache_res.data[0]["category_id"] if cache_res.data else None
+            if cached in allowed_ids:
+                apply(cached, "cache", 0.9)
                 _mark_queue(sb, queue_id, "done")
                 processed += 1
                 continue
 
-            # Call Claude Haiku with prompt caching on the system prompt
+            # 3. Claude Haiku, com cache de prompt no texto de sistema
+            if client is None:
+                # Sem chave da Anthropic: fica sem categoria (a pessoa escolhe na tela) e sai da fila,
+                # para não travar os itens seguintes
+                _mark_queue(sb, queue_id, "failed")
+                continue
             response = client.messages.create(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=32,
                 system=[{
                     "type": "text",
-                    "text": system_prompt,
+                    "text": _build_system_prompt(names),
                     "cache_control": {"type": "ephemeral"},
                 }],
-                messages=[{"role": "user", "content": txn.get("description_normalized") or txn["description"]}],
+                messages=[{"role": "user", "content": txn.get("description_normalized") or description}],
             )
 
             cat_name = response.content[0].text.strip()
-            cat = cat_by_name_lower.get(cat_name.lower())
+            cat = allowed.get(cat_name.lower())
 
             if cat:
-                sb.table("transactions").update({
-                    "category_id": cat["id"],
-                    "categorized_by": "ai",
-                    "confidence_score": 0.85,
-                }).eq("id", txn_id).execute()
-
-                # Upsert merchant cache
+                apply(cat["id"], "ai", 0.85)
                 sb.table("merchant_cache").upsert({
                     "normalized_description": desc_norm,
                     "category_id": cat["id"],

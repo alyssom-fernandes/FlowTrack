@@ -6,7 +6,7 @@ from app.core.security import get_current_user_id
 from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.models import BudgetCreate, BudgetUpdate
-from app.api.v1._helpers import _require_category
+from app.api.v1._helpers import _require_category, visible_categories_filter
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -18,7 +18,7 @@ async def list_budgets(month: str = Query(..., pattern=r"^\d{4}-\d{2}$"), user_i
     try:
         sb = get_supabase()
         budgets = sb.table("budgets").select("*").eq("user_id", user_id).eq("month", month).execute().data or []
-        cats = sb.table("categories").select("id,name,color").or_(f"is_default.eq.true,user_id.eq.{user_id}").execute().data or []
+        cats = sb.table("categories").select("id,name,color").or_(visible_categories_filter(user_id)).execute().data or []
         cat_map = {c["id"]: c for c in cats}
 
         year, mon = int(month.split("-")[0]), int(month.split("-")[1])

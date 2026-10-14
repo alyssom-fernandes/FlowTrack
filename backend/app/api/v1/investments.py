@@ -6,6 +6,8 @@ from app.core.logging import get_logger
 from app.models import InvestmentCreate, InvestmentUpdate, InvestmentResponse, InvestmentListResponse
 from app.api.v1._helpers import calc_profitability
 
+from app.api.v1._helpers import _require_account
+
 router = APIRouter()
 logger = get_logger(__name__)
 
@@ -29,11 +31,15 @@ async def list_investments(user_id: str = Depends(get_current_user_id)):
 @router.post("/investments", response_model=InvestmentResponse, status_code=201, tags=["Investments"])
 async def create_investment(body: InvestmentCreate, user_id: str = Depends(get_current_user_id)):
     try:
+        sb = get_supabase()
+        if body.account_id:
+            _require_account(sb, user_id, body.account_id)
         data = body.model_dump(); data["user_id"] = user_id
-        result = get_supabase().table("investments").insert(data).execute()
+        result = sb.table("investments").insert(data).execute()
         inv = result.data[0]; p, pp = calc_profitability(inv["total_invested"], inv["current_value"])
         inv["profitability"] = p; inv["profitability_percent"] = pp
         return inv
+    except HTTPException: raise
     except Exception as e:
         logger.error("create_investment failed", error=str(e)); raise HTTPException(500, "Failed to create investment")
 
