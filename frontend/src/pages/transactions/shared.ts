@@ -174,6 +174,8 @@ export function filtersToParams(f: Filters, page: number): Record<string, string
   for (const k of URL_KEYS) {
     if (f[k] && ((k !== 'start_date' && k !== 'end_date') || f.period === 'custom')) out[k] = f[k]
   }
+  // "Todo o período" vai explícito: sem ele o endereço volta a abrir no mês corrente
+  if (!f.period) out.period = 'all'
   if (page > 1) out.page = String(page)
   return out
 }
@@ -188,4 +190,10 @@ function subscribe(cb: () => void) {
 }
 export function useIsMobile(): boolean {
   return useSyncExternalStore(subscribe, () => window.matchMedia(MOBILE_QUERY).matches, () => false)
+}
+
+/** A outra perna de uma transferência entre contas próprias (as duas têm o mesmo import_batch_id). */
+export function transferPeer(txn: Transaction, pool: Transaction[]): Transaction | undefined {
+  if (txn.type !== 'transfer' || !txn.import_batch_id) return undefined
+  return pool.find(o => o.id !== txn.id && o.type === 'transfer' && o.import_batch_id === txn.import_batch_id && Math.sign(o.amount) === -Math.sign(txn.amount))
 }

@@ -27,7 +27,7 @@
       "ok": "No ritmo",
       "warn": "Acima do ritmo",
       "over": "Estourou",
-      "behind": "Abaixo do ritmo",
+      "behind": "Atrasada",
       "done": "Concluída",
       "upcoming": "Não começou",
       "ended": "Encerrada"
@@ -70,8 +70,8 @@
       "amountSavings": "Valor a juntar",
       "periodLabel": "Período",
       "categoryLabel": "Categoria",
-      "hintLimit": "O progresso soma os gastos desta categoria no período.",
-      "hintSavings": "O progresso soma as entradas desta categoria no período.",
+      "hintLimit": "O progresso soma os gastos escolhidos no período.",
+      "hintSavings": "O progresso soma as entradas escolhidas no período.",
       "startDate": "Início",
       "endDate": "Fim",
       "create": "Criar meta",
@@ -99,8 +99,6 @@
       "nextMonth": "Próximo mês",
       "thisMonth": "Mês atual",
       "monthNav": "Mês do orçamento",
-      "budgeted": "Orçado",
-      "spent": "Gasto",
       "remaining": "Restante",
       "overTotal": "Acima do orçado",
       "usedPct": "{{pct}} do orçado",
@@ -110,7 +108,6 @@
       "listLabel": "Orçamentos por categoria",
       "spentOf": "{{spent}} de {{limit}}",
       "left": "Restam {{value}}",
-      "overBy": "{{value}} acima",
       "empty": {
         "title": "Nenhum orçamento em {{month}}",
         "text": "Defina um limite mensal por categoria para acompanhar quanto ainda pode gastar.",
@@ -148,9 +145,12 @@
         "deleteError": "Não foi possível excluir o orçamento."
       },
       "restOf": "Gasto {{spent}} de {{limit}} orçados",
-      "paceBelow": "{{value}} abaixo do ritmo",
+      "paceBelow": "{{value}} de folga",
       "paceAbove": "{{value}} acima do ritmo",
-      "paceOver": "Orçamentos estourados"
+      "paceOver": "Orçamentos estourados",
+      "paceMargin": "{{value}} acima, dentro da margem",
+      "leftClosed": "Sobrou",
+      "closedOk": "Dentro do orçado"
     },
     "saved": "Guardado até agora",
     "invite": {

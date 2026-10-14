@@ -12,7 +12,7 @@
 //         --larguras 1366,375 · --temas escuro,claro · --idioma pt|en · --escala 1|2
 //         --paralelo 4 · --saida pasta
 import { chromium } from '@playwright/test'
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -139,8 +139,16 @@ async function main() {
   await browser.close()
   resultados.sort((a, b) => a.arquivo.localeCompare(b.arquivo))
   const comErro = resultados.filter(r => r.falha || r.erros.length)
-  writeFileSync(join(o.saida, 'relatorio.json'), JSON.stringify({ base: o.base, idioma: o.idioma, total: resultados.length, comErro: comErro.length, fotos: resultados }, null, 2))
-  console.log(`\n${resultados.length} fotos em ${o.saida} · ${comErro.length} com erro ou falha`)
+  // Rodada parcial (--itens, --areas, uma largura ou um tema) atualiza o relatório da pasta em vez de apagar o resto da matriz
+  const arqRel = join(o.saida, 'relatorio.json')
+  let todas = resultados
+  if ((o.itens || o.areas || o.larguras.length < 2 || o.temas.length < 2) && existsSync(arqRel)) {
+    const novos = new Set(resultados.map(r => r.arquivo))
+    todas = [...JSON.parse(readFileSync(arqRel, 'utf8')).fotos.filter(f => !novos.has(f.arquivo)), ...resultados].sort((a, b) => a.arquivo.localeCompare(b.arquivo))
+  }
+  const comErroTodas = todas.filter(r => r.falha || r.erros.length)
+  writeFileSync(arqRel, JSON.stringify({ base: o.base, idioma: o.idioma, total: todas.length, comErro: comErroTodas.length, fotos: todas }, null, 2))
+  console.log(`\n${resultados.length} fotos em ${o.saida} · ${comErro.length} com erro ou falha${todas !== resultados ? ` (relatório da pasta: ${todas.length} fotos, ${comErroTodas.length} com erro)` : ''}`)
   process.exit(comErro.length ? 1 : 0)
 }
 

@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react'
+import { useRef, type CSSProperties, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, EmptyState, Skeleton } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
@@ -124,7 +124,9 @@ export function ColorPicker({ value, onChange, colors, label, names }: {
 // ── Marca do banco: quadrado com a cor e a inicial ──
 export function BankMark({ color, label, size = 'md' }: { color: string; label: string; size?: 'md' | 'sm' }) {
   return (
-    <span className={`prf-mark prf-mark--${size}`} aria-hidden style={{ background: color, color: readableOn(color) }}>
+    // Quadrado em tom suave da cor do banco, letra na própria cor (como o tile das categorias):
+    // cores de banco saturadas (roxo, laranja, verde puro) brigavam com o vinho e com o verde de estado
+    <span className={`prf-mark prf-mark--${size}`} aria-hidden style={{ '--c': color } as CSSProperties}>
       {(label.trim()[0] || '?').toUpperCase()}
     </span>
   )

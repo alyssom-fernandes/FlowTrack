@@ -27,7 +27,7 @@
       "ok": "On pace",
       "warn": "Over pace",
       "over": "Over limit",
-      "behind": "Behind pace",
+      "behind": "Behind",
       "done": "Reached",
       "upcoming": "Not started",
       "ended": "Ended"
@@ -70,8 +70,8 @@
       "amountSavings": "Amount to save",
       "periodLabel": "Period",
       "categoryLabel": "Category",
-      "hintLimit": "Progress adds up spending in this category during the period.",
-      "hintSavings": "Progress adds up income in this category during the period.",
+      "hintLimit": "Progress adds up the chosen spending during the period.",
+      "hintSavings": "Progress adds up the chosen income during the period.",
       "startDate": "Start",
       "endDate": "End",
       "create": "Create goal",
@@ -99,8 +99,6 @@
       "nextMonth": "Next month",
       "thisMonth": "This month",
       "monthNav": "Budget month",
-      "budgeted": "Budgeted",
-      "spent": "Spent",
       "remaining": "Remaining",
       "overTotal": "Over budget",
       "usedPct": "{{pct}} of budget used",
@@ -110,7 +108,6 @@
       "listLabel": "Budgets by category",
       "spentOf": "{{spent}} of {{limit}}",
       "left": "{{value}} left",
-      "overBy": "{{value}} over",
       "empty": {
         "title": "No budgets for {{month}}",
         "text": "Set a monthly limit per category to see how much you can still spend.",
@@ -148,9 +145,12 @@
         "deleteError": "Couldn't delete the budget."
       },
       "restOf": "Spent {{spent}} of {{limit}} budgeted",
-      "paceBelow": "{{value}} under pace",
+      "paceBelow": "{{value}} to spare",
       "paceAbove": "{{value}} over pace",
-      "paceOver": "Over budget"
+      "paceOver": "Over budget",
+      "paceMargin": "{{value}} over, within margin",
+      "leftClosed": "Left over",
+      "closedOk": "Within budget"
     },
     "saved": "Saved so far",
     "invite": {

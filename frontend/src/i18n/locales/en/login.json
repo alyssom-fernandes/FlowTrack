@@ -1,9 +1,9 @@
 {
   "login": {
     "hero": {
-      "title": "From bank statement",
-      "titleMuted": "to monthly report.",
-      "text": "FlowTrack imports statements from Nubank, Sicredi, Mercado Pago and Will Bank as PDF, OFX or CSV, categorizes spending with AI and brings budgets, goals and investments together, with reports in PDF and Excel."
+      "title": "Statements in.",
+      "titleMuted": "The month explained.",
+      "text": "Import a statement from Nubank, Sicredi, Mercado Pago or Will Bank (PDF, OFX or CSV). AI sorts every expense into a category; you just check it."
     },
     "preview": {
       "title": "Statement imported",
@@ -42,7 +42,7 @@
       "unknown": "We couldn't sign you in. Try again."
     },
     "unavailable": {
-      "title": "Account sign-in is off.",
+      "title": "Signing in isn't available in this version.",
       "text": "This public version runs without a server; the demo has every feature."
     },
     "backToLogin": "Back to sign in",
@@ -60,7 +60,7 @@
       "title": "Check your email",
       "text": "If there's an account for <b>{{email}}</b>, you'll get a link to set a new password.",
       "spam": "Nothing after a few minutes? Check your spam folder or request another link.",
-      "again": "Request another link"
+      "again": "Request a new link"
     },
     "prefs": {
       "language": "Language",
@@ -90,8 +90,8 @@
       "unavailableTitle": "Password reset unavailable",
       "unavailableText": "This public version runs without a server, so there are no accounts to reset. The demo has every feature.",
       "doneTitle": "Password updated",
-      "doneText": "Your new password is active. Use it next time you sign in.",
-      "continue": "Continue"
+      "doneText": "Done. Use your new password from now on.",
+      "continue": "Go to dashboard"
     }
   }
 }

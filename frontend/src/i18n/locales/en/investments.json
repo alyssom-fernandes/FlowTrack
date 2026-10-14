@@ -8,13 +8,7 @@
     "editInvestment": "Edit investment",
     "kpi": {
       "invested": "Invested",
-      "current": "Current value",
-      "result": "Return",
-      "resultRef": "on amount invested",
-      "positions_one": "across {{count}} holding",
-      "positions_other": "across {{count}} holdings",
-      "types_one": "{{count}} asset type",
-      "types_other": "{{count}} asset types"
+      "current": "Current value"
     },
     "allocation": {
       "title": "Allocation by type",
@@ -57,7 +51,7 @@
       "create": "Add investment",
       "errorName": "Give the investment a name.",
       "errorInvested": "Enter an amount greater than zero.",
-      "errorCurrent": "Enter the current value (zero or more).",
+      "errorCurrent": "Enter what it's worth today. 0 is fine.",
       "errorSave": "Couldn't save. Please try again."
     },
     "delete": {
@@ -85,7 +79,7 @@
     "otherFolded": "Other",
     "hero": {
       "result": "{{value}} ({{pct}}) return on what you put in",
-      "positions": "Positions",
+      "positions": "Holdings",
       "types": "Types",
       "inPeriod": "{{value}} in this period, deposits plus returns",
       "range": "Chart period",

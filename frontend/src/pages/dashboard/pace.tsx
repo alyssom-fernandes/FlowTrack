@@ -1,13 +1,13 @@
 // ── Quanto ainda posso gastar ─────────────────────────────
 // O gasto acumulado do mês (nas categorias com orçamento) contra a linha do ritmo:
 // onde ele deveria estar a cada dia, com as contas fixas no dia em que vencem.
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardHeader, EmptyState, Money, Skeleton } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import type { Budget, Transaction } from '../../types'
-import { billsByCategory, expectedBy, monthDays, paceOf, PACE_COLOR } from '../../lib/pace'
+import { billsByCategory, expectedBy, monthDays, paceOf, paceTone, PACE_TONE_COLOR, PACE_TONE_ICON } from '../../lib/pace'
 import { currentLocale, formatCurrency } from '../../utils'
 
 interface Props {
@@ -88,10 +88,21 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
     : ''
   const todayX = day > 0 ? x(day) : 0
   const todayY = actual.length ? y(actual[actual.length - 1]) : 0
-  const color = PACE_COLOR[status]
-  const statusText = status === 'over'
-    ? t('dashboard.pace.over', { value: formatCurrency(spent - limit) })
+  const tone = paceTone(status, diff)
+  const color = PACE_TONE_COLOR[tone]
+  const statusText = status === 'over' ? t('dashboard.pace.over', { value: formatCurrency(spent - limit) })
+    : tone === 'margin' ? t('dashboard.pace.margin', { value: formatCurrency(-diff) })
     : diff >= 0 ? t('dashboard.pace.below', { value: formatCurrency(diff) }) : t('dashboard.pace.above', { value: formatCurrency(-diff) })
+  // Diferença de hoje em texto e ícone, nunca só a cor. No celular fica no cabeçalho do card:
+  // ancorada no gráfico, ela cobria o rótulo do teto.
+  const showTag = w > 0 && day > 0 && actual.length > 0
+  const narrow = w > 0 && w < 480
+  const tag = (extra: string, style?: CSSProperties) => (
+    <span className={`ft-pace__status ft-pace__status--${tone}${extra}`} style={style}>
+      <Icon name={PACE_TONE_ICON[tone]} size={14} />
+      {statusText}
+    </span>
+  )
 
   return (
     <Card className="ft-dash-pace">
@@ -102,6 +113,7 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
           <Money value={Math.max(0, left)} size="kpi" className="ft-pace__value" style={left < 0 ? { color: 'var(--red)' } : undefined} />
           <span className="ft-pace__until">{left >= 0 ? t('dashboard.pace.freeUntil', { date: lastDay }) : t('dashboard.pace.overTotal')}</span>
         </div>
+        {showTag && narrow && tag('')}
       </div>
       <div ref={wrap} className="ft-pace__chart" data-chart="ritmo">
         {w > 0 && (
@@ -125,14 +137,8 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
             <text x={w - PAD.right} y={H - 4} textAnchor="end" className="ft-pace__label">{dim}</text>
           </svg>
         )}
-        {/* Diferença ancorada no ponto de hoje (texto e ícone, nunca só a cor) */}
-        {w > 0 && day > 0 && actual.length > 0 && (
-          <span className={`ft-pace__status ft-pace__status--${status} ft-pace__tag`}
-            style={{ left: Math.min(Math.max(todayX, 105), w - 105), top: Math.max(0, todayY - 40) }}>
-            <Icon name={status === 'ok' ? 'checkCircle' : status === 'warn' ? 'alert' : 'alertCircle'} size={14} />
-            {statusText}
-          </span>
-        )}
+        {/* Diferença ancorada no ponto de hoje */}
+        {showTag && !narrow && tag(' ft-pace__tag', { left: Math.min(Math.max(todayX, 105), w - 105), top: Math.max(0, todayY - 40) })}
       </div>
       <div className="ft-pace__legend">
         <span><i className="ft-pace__key" style={{ background: color }} />{t('dashboard.pace.legendSpent')}</span>

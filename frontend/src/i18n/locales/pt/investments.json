@@ -8,13 +8,7 @@
     "editInvestment": "Editar investimento",
     "kpi": {
       "invested": "Investido",
-      "current": "Valor atual",
-      "result": "Resultado",
-      "resultRef": "sobre o investido",
-      "positions_one": "em {{count}} ativo",
-      "positions_other": "em {{count}} ativos",
-      "types_one": "{{count}} tipo de investimento",
-      "types_other": "{{count}} tipos de investimento"
+      "current": "Valor atual"
     },
     "allocation": {
       "title": "Distribuição por tipo",
@@ -57,7 +51,7 @@
       "create": "Adicionar investimento",
       "errorName": "Dê um nome para o investimento.",
       "errorInvested": "Informe um valor maior que zero.",
-      "errorCurrent": "Informe o valor atual (zero ou mais).",
+      "errorCurrent": "Informe quanto vale hoje. Pode ser 0.",
       "errorSave": "Não foi possível salvar. Tente de novo."
     },
     "delete": {
@@ -85,7 +79,7 @@
     "otherFolded": "Outros",
     "hero": {
       "result": "{{value}} ({{pct}}) de rendimento sobre o que você aplicou",
-      "positions": "Posições",
+      "positions": "Ativos",
       "types": "Tipos",
       "inPeriod": "{{value}} no período, somando aportes e rendimento",
       "range": "Período do gráfico",

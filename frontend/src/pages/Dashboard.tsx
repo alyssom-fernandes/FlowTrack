@@ -80,11 +80,11 @@ export function Dashboard() {
   const hadInsight = useRef(false)
   useEffect(() => { hadInsight.current = !!insight }, [insight])
 
-  const loadInsight = useCallback(async () => {
+  const loadInsight = useCallback(async (refresh = false) => {
     setInsightLoading(true)
     setInsightError(false)
     try {
-      setInsight(await insightsService.generate(start_date, end_date))
+      setInsight(await insightsService.generate(start_date, end_date, refresh))
     } catch {
       setInsightError(true)
       // Se já havia um resumo na tela, ele fica e o aviso vem num toast
@@ -93,6 +93,17 @@ export function Dashboard() {
       setInsightLoading(false)
     }
   }, [start_date, end_date, toast, t])
+
+  const insightStale = useMemo(() => {
+    if (!insight || insight.income == null || insight.expense == null) return false
+    let income = 0, expense = 0
+    for (const tx of transactions) {
+      if (tx.type === 'transfer') continue
+      if (tx.amount > 0) income += tx.amount
+      else expense -= tx.amount
+    }
+    return Math.abs(income - insight.income) > 0.005 || Math.abs(expense - insight.expense) > 0.005
+  }, [insight, transactions])
 
   useEffect(() => {
     if (status === 'ready' && hasHistory) loadInsight()
@@ -171,7 +182,7 @@ export function Dashboard() {
           <div className="ft-dash-col ft-dash-col--side">
             <AlertsCard alerts={alerts} loading={alertsLoading} error={alertsError} onRetry={reloadAlerts} />
             <BudgetsCard budgets={budgets ?? []} categories={categories} loading={budgets === null} previousMonth={prevMonthTx} monthKey={currentMonth} now={now} />
-            <InsightCard insight={insight} loading={insightLoading} error={insightError} onRefresh={loadInsight} />
+            <InsightCard insight={insight} loading={insightLoading} error={insightError} onRefresh={() => loadInsight(true)} stale={insightStale} />
           </div>
           <CashflowCard cashflow={cashflow} points={points} />
           {netWorth !== false && <NetWorthCard nw={netWorth} />}

@@ -45,7 +45,7 @@ export interface DemoDB {
   budgets: BudgetRow[]
   snapshots: NetWorthSnapshot[]
   audit: AuditLogEntry[]
-  insight_cache: Record<string, { text: string; ts: string }>
+  insight_cache: Record<string, { text: string; ts: string; income?: number; expense?: number }>
 }
 
 // ── Helpers de data ───────────────────────────────────────

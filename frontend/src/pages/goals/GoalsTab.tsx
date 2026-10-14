@@ -52,7 +52,7 @@ function GoalCard({ goal, category, today, onEdit, onDelete }: {
     <Card className={`gl-card${isLimit ? '' : ' gl-card--savings'}`} style={{ '--c': color } as React.CSSProperties}>
       {/* Meta de economia: faixa na cor da meta, glifo grande cortado pela borda e o valor guardado sobre ela */}
       {!isLimit && (
-        <div className="gl-card__band">
+        <div className="gl-card__band" data-corte-ok>
           <span className="gl-card__band-icon" aria-hidden>{category ? <CategoryIcon name={category.icon} size={96} /> : <Icon name="piggy" size={96} />}</span>
           <span className="gl-card__band-fig">
             <Money value={goal.current_amount} size="kpi" className="gl-card__value" />

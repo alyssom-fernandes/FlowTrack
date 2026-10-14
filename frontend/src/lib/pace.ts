@@ -15,6 +15,18 @@ export const PACE_COLOR: Record<PaceStatus, string> = {
   over: 'var(--pace-over)',
 }
 
+// Tom do ritmo total (painel e cabeçalho de Orçamentos): acima do esperado mas dentro da margem
+// de 5% não é aviso, mas também não é "no ritmo": fica neutro, nunca verde com "acima".
+export type PaceTone = PaceStatus | 'margin'
+
+export const PACE_TONE_COLOR: Record<PaceTone, string> = { ...PACE_COLOR, margin: 'var(--chart-neutral)' }
+
+export const PACE_TONE_ICON = { ok: 'checkCircle', warn: 'alert', over: 'alertCircle', margin: 'info' } as const
+
+export function paceTone(status: PaceStatus, diff: number): PaceTone {
+  return status === 'ok' && diff < 0 ? 'margin' : status
+}
+
 export interface Bill { day: number; amount: number }
 
 /** Dias do mês "YYYY-MM" e o dia de hoje dentro dele (o último dia para meses fechados, 0 para futuros). */
@@ -104,18 +116,22 @@ export function periodElapsed(start: string, end: string | null | undefined, tod
 
 type T = (key: string, opts?: Record<string, unknown>) => string
 
-/** Texto da pílula: "no ritmo", "acima do ritmo", "estourou R$ 24,67", "fixo · pago". */
-export function budgetStatusText(state: BudgetState, t: T, money: (v: number) => string): string {
+/**
+ * Texto da pílula: "no ritmo", "acima do ritmo", "estourou R$ 24,67", "fixo · pago".
+ * Mês fechado não tem ritmo: só "estourou" ou "dentro do limite".
+ */
+export function budgetStatusText(state: BudgetState, t: T, money: (v: number) => string, closed = false): string {
   if (state.status === 'over') return t('common.budgetState.over', { value: money(-state.left) })
+  if (closed) return t('common.budgetState.closedOk')
   return t(`common.budgetState.${state.status}`)
 }
 
 /** Frase do resumo derivada dos estados: "1 estourou · 2 de 6 acima do ritmo" ou "Todas no ritmo". */
-export function budgetsSummaryText(states: BudgetStatus[], t: T): string {
+export function budgetsSummaryText(states: BudgetStatus[], t: T, closed = false): string {
   const over = states.filter(s => s === 'over').length
-  const warn = states.filter(s => s === 'warn').length
+  const warn = closed ? 0 : states.filter(s => s === 'warn').length
   const parts: string[] = []
   if (over) parts.push(t('common.budgetState.summaryOver', { count: over, total: states.length }))
   if (warn) parts.push(t('common.budgetState.summaryWarn', { count: warn, total: states.length }))
-  return parts.length ? parts.join(' · ') : t('common.budgetState.summaryOk')
+  return parts.length ? parts.join(' · ') : t(closed ? 'common.budgetState.summaryOkClosed' : 'common.budgetState.summaryOk')
 }

@@ -280,8 +280,8 @@ export const cashflowService = {
 
 // ── Insights ──────────────────────────────────────────────
 export const insightsService = {
-  async generate(startDate: string, endDate: string): Promise<InsightResponse> {
-    const { data } = await api.post('/api/v1/insights', { start_date: startDate, end_date: endDate })
+  async generate(startDate: string, endDate: string, refresh = false): Promise<InsightResponse> {
+    const { data } = await api.post('/api/v1/insights', { start_date: startDate, end_date: endDate, refresh })
     return data
   },
 }

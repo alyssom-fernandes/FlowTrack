@@ -4,7 +4,7 @@ import { categoryColor, categoryRank } from '../../lib/categoryColor'
 import { categoryLabel } from '../../utils'
 
 // ── Dados ─────────────────────────────────────────────────
-export type Node = { key: string; label: string; value: number; color: string; icon?: string; href?: string; kind: 'category' | 'none' | 'others' | 'left' }
+export type Node = { key: string; label: string; value: number; color: string; icon?: string; href?: string; kind: 'category' | 'none' | 'others' | 'left'; count?: number }
 export type Source = { key: string; label: string; value: number }
 export type FlowData = { income: number; expense: number; nodes: Node[]; deficit: number; sources: Source[] }
 
@@ -57,7 +57,7 @@ export function buildFlow(transactions: Transaction[], categories: Category[], t
     keep = sorted.slice(0, MAX_NODES - 1)
   }
   if (rest.length === 1) keep.push(rest[0])
-  else if (rest.length > 1) keep.push({ key: 'others', label: t('dashboard.flow.others', { count: rest.length }), value: rest.reduce((s, n) => s + n.value, 0), color: 'var(--cat-other)', kind: 'others' })
+  else if (rest.length > 1) keep.push({ key: 'others', label: t('dashboard.flow.others', { count: rest.length }), value: rest.reduce((s, n) => s + n.value, 0), color: 'var(--cat-other)', kind: 'others', count: rest.length })
   nodes = keep
   // Ordem fixa (a das cores validadas), sem categoria e "Outras" no fim
   const rank = (n: Node) => n.kind === 'none' ? 2000 : n.kind === 'others' ? 1500 : categoryRank(categories.find(c => c.id === n.key))

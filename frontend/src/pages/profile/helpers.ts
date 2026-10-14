@@ -3,7 +3,7 @@
 // Paleta para contas e categorias: o vinho, as oito cores das categorias padrão (validadas para
 // daltonismo e contraste, ver tokens.css) e o cinza. Sem verde: verde é cor de estado.
 export const PALETTE = [
-  '#9D2449', '#2a78d6', '#0f8fb3', '#4a3aa7', '#e87ba4', '#e34948',
+  '#9D2449', '#2a78d6', '#0f8fb3', '#4a3aa7', '#7a26d9', '#e34948',
   '#eb6834', '#eda100', '#a86a1c', '#8e8e99',
 ]
 
@@ -16,7 +16,9 @@ export function readableOn(hex: string): string {
   const n = parseInt(m[1], 16)
   const lin = (c: number) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4 }
   const l = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255)
-  return l > 0.45 ? '#111113' : '#ffffff'
+  // O que der mais contraste (o corte fixo em 0,45 punha branco no laranja: 2,6:1)
+  const lDark = 0.0074 // #111113
+  return (l + 0.05) / (lDark + 0.05) >= 1.05 / (l + 0.05) ? '#111113' : '#ffffff'
 }
 
 export function sameColor(a?: string, b?: string): boolean {

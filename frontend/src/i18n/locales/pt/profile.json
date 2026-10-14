@@ -95,7 +95,7 @@
       "deleteAction": "Excluir conta",
       "saveError": "Não foi possível salvar a conta. Tente de novo.",
       "deleteTitle": "Excluir a conta?",
-      "deleteText": "“{{name}}” sai da lista e do saldo total. As transações já lançadas continuam no histórico.",
+      "deleteText": "“{{name}}” sai da lista e do saldo total. As transações já lançadas continuam em Transações.",
       "created": "Conta criada.",
       "updated": "Conta atualizada.",
       "deleted": "Conta excluída.",
@@ -131,7 +131,6 @@
       "deleteError": "Não foi possível excluir a categoria."
     },
     "colors": {
-      "label": "Cor",
       "pick": "Cor {{color}}"
     },
     "history": {

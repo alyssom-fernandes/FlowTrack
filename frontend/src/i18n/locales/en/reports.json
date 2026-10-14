@@ -48,9 +48,9 @@
       "label": "Period summary",
       "income": "Income",
       "expense": "Expenses",
-      "balance": "Net balance",
+      "balance": "Left over in the period",
       "savings": "Savings rate",
-      "noPrev": "No earlier data",
+      "noPrev": "No previous period",
       "noBase": "No basis for comparison",
       "noIncome": "No income in this period",
       "vsPrevShort": "vs previous period",
@@ -67,27 +67,27 @@
     "legend": {
       "income": "Income",
       "expense": "Expenses",
-      "balance": "Balance",
+      "balance": "Left over",
       "previous": "Previous period",
       "previousShort": "Previous period",
       "previousFaded": "Previous period (muted)",
-      "incomeTick": "Income (tick)",
-      "netAbove": "Monthly surplus, above the bar"
+      "incomeTick": "Income (line)",
+      "netAbove": "Left over in the period, above each column"
     },
     "flow": {
       "titleMonth": "Income and expenses by month",
       "titleWeek": "Income and expenses by week",
       "sub_one": "{{count}} transaction in the period",
       "sub_other": "{{count}} transactions in the period",
-      "compareSub": "Muted bars: {{range}}"
+      "compareSub": "Compared with {{range}}"
     },
     "table": {
       "week": "Week",
       "month": "Month",
       "income": "Income",
       "expense": "Expenses",
-      "balance": "Balance",
-      "savings": "Savings",
+      "balance": "Left over",
+      "savings": "% of income",
       "prevIncome": "Prev. income",
       "prevExpense": "Prev. expenses",
       "total": "Total",
@@ -150,12 +150,13 @@
       "history": "History",
       "avgIncome": "Average monthly income",
       "avgExpense": "Average monthly expenses",
-      "projectedBalance": "Expected balance over 3 months",
-      "today": "today · projection →"
+      "projectedBalance": "Expected left over (3 months)",
+      "today": "today · forecast →",
+      "todayShort": "today"
     },
     "aria": {
       "flow": "Bar chart of income and expenses for {{range}}: income of {{income}} and expenses of {{expense}}. The values for each period are in the table view.",
-      "categories": "Donut chart of expenses by category: {{list}}.",
+      "categories": "Stacked bar of expenses by category: {{list}}.",
       "projection": "Line chart with history and the forecast for the next 3 months: income of about {{income}} and expenses of about {{expense}} per month."
     },
     "empty": {
@@ -170,7 +171,7 @@
     },
     "error": {
       "title": "Couldn't load the report",
-      "text": "Check your connection and try again.",
+      "text": "Something went wrong building the report. Your data is safe; try again.",
       "retry": "Try again"
     },
     "print": {
@@ -198,7 +199,7 @@
       "fluxo": "Flow",
       "mes": "Month by month",
       "categorias": "Categories",
-      "projecao": "Projection"
+      "projecao": "Forecast"
     },
     "flowTab": {
       "title": "Where the money went",

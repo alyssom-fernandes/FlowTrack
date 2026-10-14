@@ -357,6 +357,33 @@ class TestInsights:
         assert r2.status_code == 200
         assert r2.json()["cached"] is True
 
+    def test_insight_refresh_skips_cache_and_reports_basis(self, client):
+        """refresh=True generates again; the response carries the income/expense it used."""
+        from app.core.rate_limit import limiter
+        limiter.reset()  # 5/min por usuário: as outras chamadas desta classe já gastaram parte
+        c, sb = client
+        def query(rows):
+            q = MagicMock()
+            q.eq.return_value = q; q.gte.return_value = q; q.lte.return_value = q
+            q.select.return_value = q; q.or_.return_value = q
+            q.execute.return_value = MagicMock(data=rows)
+            return q
+        txns = query([
+            {"amount": 1000.0, "category_id": None, "description": "Salário", "is_recurring": False, "type": "income"},
+            {"amount": -250.5, "category_id": None, "description": "Mercado", "is_recurring": False, "type": "expense"},
+        ])
+        sb.table.side_effect = lambda name: txns if name == "transactions" else query([])
+
+        payload = {"start_date": "2026-04-01", "end_date": "2026-04-30"}
+        r1 = c.post("/api/v1/insights", json=payload)
+        assert r1.status_code == 200
+        assert r1.json()["income"] == 1000.0 and r1.json()["expense"] == 250.5
+        r2 = c.post("/api/v1/insights", json=payload)
+        assert r2.json()["cached"] is True and r2.json()["expense"] == 250.5
+        r3 = c.post("/api/v1/insights", json={**payload, "refresh": True})
+        assert r3.status_code == 200
+        assert r3.json()["cached"] is False
+
     def test_insight_missing_dates_returns_422(self, client):
         c, _ = client
         r = c.post("/api/v1/insights", json={"start_date": "2026-06-01"})

@@ -147,7 +147,7 @@ export function Login() {
               <div className="ent-field">
                 <div className="ent-field__head">
                   <label htmlFor="ent-password" className="ft-field__label">{t('login.form.password')}</label>
-                  <button type="button" className="ent-link" onClick={() => goTo('forgot')}>{t('login.form.forgot')}</button>
+                  <button type="button" className="ent-link ent-link--quiet" onClick={() => goTo('forgot')}>{t('login.form.forgot')}</button>
                 </div>
                 <PasswordInput id="ent-password" autoComplete="current-password" value={password} error={fieldErrors.password}
                   onChange={e => { setPassword(e.target.value); setFieldErrors(f => ({ ...f, password: undefined })) }} />

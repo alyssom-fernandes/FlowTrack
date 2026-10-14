@@ -102,10 +102,13 @@ export function FlowDiagram({ data, minHeight = 0, plotLabel, emptyText, showSou
   const byValue = nodes.filter(n => n.kind !== 'left').sort((a, b) => (a.kind === 'others' ? 1 : 0) - (b.kind === 'others' ? 1 : 0) || b.value - a.value)
   const topKeys = new Set(byValue.slice(0, 3).map(n => n.key))
   const listed = showAll ? [...byValue, ...nodes.filter(n => n.kind === 'left')] : [...byValue.filter(n => topKeys.has(n.key)), ...nodes.filter(n => n.kind === 'left')]
-  const hiddenCount = byValue.length - Math.min(3, byValue.length)
+  // Conta categorias, não linhas: "Outras 6" escondida são 6 categorias
+  const hiddenCount = byValue.filter(n => !topKeys.has(n.key)).reduce((s, n) => s + (n.kind === 'others' ? n.count ?? 1 : 1), 0)
   const height = Math.max(220, nodes.length * LABEL_H, minHeight)
-  const withSources = showSources && sources.length > 1 && width >= 760
-  const leftW = withSources ? SOURCES_W : 0
+  // De onde veio o dinheiro: rótulo e valor à esquerda da barra, também com uma fonte só
+  // (sem ele a origem era uma barra branca sem nome). Coluna mais estreita no hero do Dashboard.
+  const withSources = showSources && sources.length > 0 && width >= 600
+  const leftW = withSources ? (width >= 760 ? SOURCES_W : 132) : 0
   const labelsW = Math.min(250, Math.max(190, width * 0.34))
   const plotW = Math.max(0, width - labelsW - leftW)
   const geo = useMemo(() => layout(nodes, height), [nodes, height])
@@ -310,7 +313,7 @@ export function FlowHero({ transactions, categories, balance, balanceDelta, acco
         {prev && <p className="flow__ref">{t('dashboard.flow.compared', { range: sameDays })}</p>}
       </div>
 
-      <FlowDiagram data={flow} minHeight={sideH} plotLabel={t('dashboard.flow.plotLabel')} emptyText={t('dashboard.flow.empty')} />
+      <FlowDiagram data={flow} minHeight={sideH} showSources plotLabel={t('dashboard.flow.plotLabel')} emptyText={t('dashboard.flow.empty')} />
     </section>
   )
 }

@@ -561,11 +561,11 @@ function reserveSentence(g: GoalRow): string {
 }
 
 route('POST', '/insights', async ({ body }) => {
-  const { start_date, end_date } = body as { start_date: string; end_date: string }
+  const { start_date, end_date, refresh } = body as { start_date: string; end_date: string; refresh?: boolean }
   const d = loadDb()
   const key = `${start_date}:${end_date}:${isEn() ? 'en' : 'pt'}`
-  const cached = d.insight_cache[key]
-  if (cached) return { text: cached.text, generated_at: cached.ts, cached: true }
+  const cached = refresh ? undefined : d.insight_cache[key]
+  if (cached) return { text: cached.text, generated_at: cached.ts, cached: true, income: cached.income ?? null, expense: cached.expense ?? null }
   await wait(600)
   const txs = d.transactions.filter(t => t.transaction_date >= start_date && t.transaction_date <= end_date && isFlow(t))
   const income = txs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
@@ -580,17 +580,18 @@ route('POST', '/insights', async ({ body }) => {
   const parts = isEn()
     ? [
         `You kept ${rate.toFixed(0)}% of what came in: ${brl(income)} of income against ${brl(expense)} of spending.`,
-        topName ? `${topName} was the largest expense at ${brl(top![1])}, ${share}% of the total.` : '',
+        topName ? `${topName} was the largest expense at ${brl(top![1])}, ${share}% of spending.` : '',
       ]
     : [
         `Você guardou ${rate.toFixed(0)}% do que entrou no período: ${brl(income)} de receitas contra ${brl(expense)} de gastos.`,
-        topName ? `${topName} foi a maior despesa, com ${brl(top![1])}, ${share}% do total.` : '',
+        topName ? `${topName} foi a maior despesa, com ${brl(top![1])}, ${share}% dos gastos.` : '',
       ]
   if (reserve) parts.push(reserveSentence(reserve))
   const text = parts.filter(Boolean).join(' ')
   const ts = nowIso()
-  d.insight_cache[key] = { text, ts }
-  return { text, generated_at: ts, cached: false }
+  const basis = { income: Math.round(income * 100) / 100, expense: Math.round(expense * 100) / 100 }
+  d.insight_cache[key] = { text, ts, ...basis }
+  return { text, generated_at: ts, cached: false, ...basis }
 })
 
 // Orçamentos

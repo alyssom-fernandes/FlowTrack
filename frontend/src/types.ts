@@ -245,6 +245,8 @@ export interface InsightResponse {
   text: string
   generated_at: string
   cached: boolean
+  income?: number | null   // receitas e gastos que o resumo usou
+  expense?: number | null
 }
 
 // ── Cashflow ──────────────────────────────────────────────

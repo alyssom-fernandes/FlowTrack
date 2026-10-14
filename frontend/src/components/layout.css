@@ -65,7 +65,7 @@
 }
 .ft-bottom__link {
   position: relative; flex: 1; min-width: 0; height: var(--navbar-height); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1875rem;
-  color: var(--text-hint); font-size: 0.65625rem; font-weight: 500; letter-spacing: 0.01em;
+  color: var(--text-hint); font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.01em;  /* 11 px: mínimo do app */
 }
 .ft-bottom__link span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.125rem; }
 .ft-bottom__link[aria-current='page'] { color: var(--accent-text); font-weight: 600; }
@@ -107,3 +107,14 @@
 /* Rodapé da marca (guia AFN) */
 .ft-page-footer { padding: 20px 36px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: center; gap: 10px; }
 @media (max-width: 767px) { .ft-page-footer { padding: 16px 16px; } }
+
+/* Alvos de toque de 40 px no celular */
+@media (max-width: 767px) {
+  .ft-avatar--link { width: 2.5rem; height: 2.5rem; }
+  .ft-demo-banner .ft-link-btn { padding: 0.75rem 0.5rem; }
+}
+
+@media (max-width: 767px) {
+  .ft-mobile-top > a { display: inline-flex; align-items: center; min-height: 2.5rem; }
+  .ft-demo-banner .ft-link-btn { display: inline-flex; align-items: center; min-height: 2.5rem; }
+}

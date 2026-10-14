@@ -1,9 +1,9 @@
 {
   "login": {
     "hero": {
-      "title": "Do extrato do banco",
-      "titleMuted": "ao relatório do mês.",
-      "text": "O FlowTrack importa extratos do Nubank, Sicredi, Mercado Pago e Will Bank em PDF, OFX ou CSV, categoriza os gastos com IA e reúne orçamentos, metas e investimentos, com relatórios em PDF e Excel."
+      "title": "O extrato entra.",
+      "titleMuted": "O mês se explica.",
+      "text": "Importe o extrato do Nubank, Sicredi, Mercado Pago ou Will Bank (PDF, OFX ou CSV). A IA separa cada gasto por categoria; você só confere."
     },
     "preview": {
       "title": "Extrato importado",
@@ -42,7 +42,7 @@
       "unknown": "Não foi possível entrar agora. Tente de novo."
     },
     "unavailable": {
-      "title": "Login com conta desligado.",
+      "title": "Entrar com conta não está disponível nesta versão.",
       "text": "Esta versão pública roda sem servidor; a demonstração tem todas as funções."
     },
     "backToLogin": "Voltar ao login",
@@ -60,7 +60,7 @@
       "title": "Confira o seu e-mail",
       "text": "Se houver uma conta com <b>{{email}}</b>, você vai receber um link para criar uma nova senha.",
       "spam": "Não chegou em alguns minutos? Veja a caixa de spam ou peça outro link.",
-      "again": "Pedir outro link"
+      "again": "Pedir um novo link"
     },
     "prefs": {
       "language": "Idioma",
@@ -90,8 +90,8 @@
       "unavailableTitle": "Redefinição indisponível",
       "unavailableText": "Esta versão pública roda sem servidor, então não há contas para redefinir. A demonstração tem todas as funções.",
       "doneTitle": "Senha atualizada",
-      "doneText": "A nova senha já está valendo. Use-a na próxima vez que entrar.",
-      "continue": "Continuar"
+      "doneText": "Pronto. Use a nova senha a partir de agora.",
+      "continue": "Ir para o painel"
     }
   }
 }

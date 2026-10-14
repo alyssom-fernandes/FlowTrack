@@ -3,31 +3,12 @@
     "title": "Dashboard",
     "subtitle": "Resumo de {{month}}",
     "kpi": {
-      "label": "Números do mês",
       "balance": "Saldo em contas",
       "income": "Receitas do mês",
-      "expenses": "Gastos do mês",
-      "net": "Sobra do mês",
       "vsMonth": "vs. {{month}}",
       "sinceMonthEnd": "vs. fim de {{month}}",
       "accounts_one": "{{count}} conta",
-      "accounts_other": "{{count}} contas",
-      "noAccounts": "Nenhuma conta cadastrada",
-      "noComparison": "Sem dados de {{month}} para comparar",
-      "savingsRate": "Taxa de economia",
-      "savedShort": "Economia",
-      "noIncome": "Sem receitas no mês"
-    },
-    "monthly": {
-      "title": "Evolução mensal",
-      "subtitle": "Últimos 6 meses",
-      "income": "Receitas",
-      "expenses": "Gastos",
-      "net": "Sobra",
-      "avgNet_one": "Sobra no período:",
-      "avgNet_other": "Sobra média por mês:",
-      "a11yMonth": "{{month}}, receitas {{income}} e gastos {{expense}}",
-      "keyboardHint": "Gráfico de receitas e gastos por mês. Use as setas para percorrer os meses."
+      "accounts_other": "{{count}} contas"
     },
     "insight": {
       "title": "Resumo do mês",
@@ -37,7 +18,9 @@
       "loading": "Gerando o resumo",
       "error": "Não foi possível gerar o resumo agora.",
       "retry": "Tentar de novo",
-      "refreshError": "Não foi possível atualizar o resumo agora."
+      "refreshError": "Não foi possível atualizar o resumo agora.",
+      "stale": "Os números mudaram desde este resumo.",
+      "staleAction": "Atualizar"
     },
     "cashflow": {
       "title": "Projeção de saldo",
@@ -101,8 +84,8 @@
       "emptyTitle": "Nenhum orçamento neste mês",
       "emptyText": "Defina um limite por categoria para acompanhar os gastos.",
       "emptyAction": "Definir orçamento",
-      "more_one": "E mais {{count}} orçamento.",
-      "more_other": "E mais {{count}} orçamentos."
+      "more_one": "Ver o outro orçamento",
+      "more_other": "Ver os outros {{count}}"
     },
     "recent": {
       "title": "Últimas transações",
@@ -176,8 +159,8 @@
       "compared": "Comparado com {{range}}",
       "showValues": "Mostrar valores",
       "hideValues": "Ocultar valores",
-      "showMore_one": "Ver a outra categoria",
-      "showMore_other": "Ver as outras {{count}}",
+      "showMore_one": "Ver mais 1 categoria",
+      "showMore_other": "Ver mais {{count}} categorias",
       "showLess": "Ver menos",
       "ofDays_one": "de {{count}}",
       "ofDays_other": "de {{count}}",
@@ -190,7 +173,7 @@
       "subtitle_other": "Somando {{count}} orçamentos: {{total}}",
       "freeUntil": "livres até {{date}}",
       "overTotal": "acima do total dos orçamentos",
-      "below": "{{value}} abaixo do ritmo",
+      "below": "{{value}} de folga",
       "above": "{{value}} acima do ritmo",
       "over": "Orçamentos estourados em {{value}}",
       "ceiling": "Orçamentos: {{value}}",
@@ -198,11 +181,12 @@
       "legendSpent": "Gasto até hoje",
       "legendPace": "Ritmo esperado",
       "howTitle": "Como calculamos",
-      "howText": "Somamos os orçamentos do mês. As contas fixas (os gastos recorrentes do mês passado) entram no dia em que vencem, e o resto do limite se espalha pelos dias: por isso o aluguel do dia 6 não deixa o mês inteiro “acima do ritmo”. A linha tracejada é onde o gasto deveria estar a cada dia; a área colorida é a diferença até hoje. Uma categoria que é quase só conta fixa, já paga e dentro do limite, aparece como “fixo · pago” e não gera aviso.",
+      "howText": "Somamos seus orçamentos e espalhamos o limite pelos dias do mês; as contas fixas (recorrentes do mês passado) entram no dia em que vencem. A linha tracejada é onde o gasto deveria estar hoje.",
       "a11y": "Gasto de {{spent}} até hoje, contra {{expected}} esperados pelo ritmo e {{limit}} de orçamento no mês.",
       "emptyTitle": "Veja seu ritmo do mês",
       "emptyText": "Crie orçamentos por categoria para saber quanto ainda pode gastar até o fim do mês.",
-      "emptyAction": "Criar orçamentos"
+      "emptyAction": "Criar orçamentos",
+      "margin": "{{value}} acima, dentro da margem"
     }
   }
 }

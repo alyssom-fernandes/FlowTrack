@@ -61,9 +61,9 @@
       "netHint": "Receitas menos gastos. Transferências entre contas próprias não entram na conta.",
       "auto": "Categorização automática",
       "autoHint": "Transações categorizadas por regra, por histórico ou pela IA, sem escolha manual.",
-      "pending_one": "{{count}} sem categoria",
-      "pending_other": "{{count}} sem categoria",
-      "noPending": "Nenhuma pendente"
+      "pending_one": "{{count}} a revisar",
+      "pending_other": "{{count}} a revisar",
+      "noPending": "Nada a revisar"
     },
     "list": {
       "label": "Lista de transações",
@@ -112,7 +112,8 @@
       },
       "change": "Clique para alterar.",
       "categorySaved": "Categoria atualizada",
-      "categoryError": "Não foi possível mudar a categoria."
+      "categoryError": "Não foi possível mudar a categoria.",
+      "transferRoute": "{{from}} → {{to}}"
     },
     "form": {
       "newTitle": "Nova transação",
@@ -174,7 +175,8 @@
       "title": "Excluir transação",
       "message": "“{{name}}”, de {{date}}, no valor de {{amount}}, será excluída. Se precisar, dá para desfazer em Perfil, no histórico de alterações.",
       "confirm": "Excluir transação",
-      "error": "Não foi possível excluir. Tente de novo."
+      "error": "Não foi possível excluir. Tente de novo.",
+      "transferMessage": "A transferência de {{amount}} de {{from}} para {{to}}, de {{date}}, será excluída nas duas contas. Se precisar, dá para desfazer em Perfil, no histórico de alterações."
     },
     "import": {
       "title": "Importar extrato",
@@ -196,7 +198,7 @@
       },
       "reading": "Lendo {{name}}…",
       "readingMany": "Lendo {{count}} arquivos…",
-      "unsupported": "Formato não suportado. Use um arquivo CSV, OFX ou PDF.",
+      "unsupported": "Esse arquivo não é CSV, OFX nem PDF. No Excel, use Salvar como › CSV e envie de novo.",
       "readError": "Não foi possível ler {{name}}. Confira se é um extrato válido.",
       "nothingFound": "Nenhuma transação encontrada em {{name}}.",
       "account": "Importar para a conta",
@@ -228,11 +230,10 @@
         "amountHint": "Valores negativos viram gastos",
         "credit": "Crédito (receitas)",
         "debit": "Débito (gastos)",
-        "single": "Valor em uma coluna",
-        "split": "Crédito e débito separados",
+        "single": "Uma coluna",
+        "split": "Crédito e débito",
         "modeLabel": "Como o valor aparece no arquivo",
         "pick": "Escolha a coluna",
-        "none": "Nenhuma",
         "preview": "Como vai ficar",
         "ready": "{{valid}} de {{total}} linhas prontas para importar",
         "skip": "Ignorada: {{reason}}",
@@ -264,7 +265,7 @@
       "toReview_one": "{{count}} sem categoria",
       "toReview_other": "{{count}} sem categoria",
       "rowCategory": "Categoria da linha {{n}}",
-      "suggested": "sugerida · {{pct}}",
+      "suggested": "regra · {{pct}}",
       "suggestedHint": "Sugerida pelas regras de categorização (sem IA). Troque se não for essa."
     },
     "export": {
@@ -307,16 +308,17 @@
     "review": {
       "chip_one": "{{count}} a revisar",
       "chip_other": "{{count}} a revisar",
-      "title_one": "{{count}} transação para conferir",
-      "title_other": "{{count}} transações para conferir",
+      "title_one": "{{count}} transação para revisar",
+      "title_other": "{{count}} transações para revisar",
       "text": "Sem categoria ou categorizadas pela IA com menos de 85% de confiança. Confirme com ✓ ou escolha outra categoria.",
       "exit": "Sair da revisão",
       "confirmOne": "Confirmar {{category}} em {{name}}",
       "confirmed_one": "{{count}} transação marcada como revisada",
       "confirmed_other": "{{count}} transações marcadas como revisadas",
-      "footHint": "As sem categoria precisam de uma escolha antes.",
       "confirmAll_one": "Marcar {{count}} como revisada",
-      "confirmAll_other": "Marcar {{count}} como revisadas"
+      "confirmAll_other": "Marcar {{count}} como revisadas",
+      "footHint_one": "Escolha a categoria da transação sem categoria para marcar todas.",
+      "footHint_other": "Escolha a categoria das {{count}} transações sem categoria para marcar todas."
     }
   }
 }

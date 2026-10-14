@@ -126,7 +126,7 @@ export function Field({ label, hint, error, optional, htmlFor, children, style }
     <div className="ft-field" style={style}>
       {label && <label htmlFor={htmlFor} className="ft-field__label"><span>{label}{optional && <span className="ft-field__optional"> · {t('common.optionalShort', 'opcional')}</span>}</span></label>}
       {children}
-      {error ? <span className="ft-field__error" role="alert">{error}</span> : hint ? <span className="ft-field__hint">{hint}</span> : null}
+      {error ? <span className="ft-field__error" role="alert"><Icon name="alertCircle" size={14} />{error}</span> : hint ? <span className="ft-field__hint">{hint}</span> : null}
     </div>
   )
 }
@@ -360,9 +360,9 @@ export function ProgressBar({ value, tone = 'accent', height = 6, label, pace, c
 // ── Valores em dinheiro ───────────────────────────────────
 // Todo valor que aparece sozinho na tela passa por aqui (valor dentro de frase continua texto).
 // size: "row" até ~20px (listas, tabelas, dicas) · "kpi" de 24 a 32px · "hero" no número dominante.
-// tone "auto": verde para entradas, vermelho para saídas
+// tone "auto": verde para entradas; saída fica no texto normal (vermelho é estouro e erro, como na lista de Transações)
 export function Money({ value, signed, compact, tone = 'none', size = 'row', style, className = '' }: { value: number; signed?: boolean; compact?: boolean; tone?: 'auto' | 'none'; size?: 'row' | 'kpi' | 'hero'; style?: CSSProperties; className?: string }) {
-  const color = tone === 'auto' ? (value > 0 ? 'var(--green)' : value < 0 ? 'var(--red)' : 'var(--text-muted)') : undefined
+  const color = tone === 'auto' ? (value > 0 ? 'var(--green)' : value < 0 ? undefined : 'var(--text-muted)') : undefined
   if (compact) {
     const text = formatCurrencyCompact(value)
     return <span className={`ft-money ft-num ${className}`} style={{ color, whiteSpace: 'nowrap', ...style }} title={formatCurrency(value)}>{text}</span>
@@ -469,7 +469,7 @@ export function AfnBrand({ showBy = true, size = 'login' }: { showBy?: boolean; 
         <span className="pf-gap" />
         <span className="pf-sys" style={{ fontSize: fs }}>SYSTEMS</span>
       </div>
-      {showBy && <span className="pf-by" style={{ fontSize: '8px' }}>by Alyssom Fernandes</span>}
+      {showBy && <span className="pf-by" style={{ fontSize: '10px' }}>by Alyssom Fernandes</span>}
     </div>
   )
 }

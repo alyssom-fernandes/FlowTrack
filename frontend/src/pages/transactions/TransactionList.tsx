@@ -8,7 +8,7 @@ import { REVIEW_CONFIDENCE } from '../../lib/review'
 import type { Account, Category, Transaction } from '../../types'
 import { CategoryGlyph } from './CategoryGlyph'
 import { categoryColor } from '../../lib/categoryColor'
-import { dayHeading, groupByDay, isFlow, PAGE_SIZE, useIsMobile } from './shared'
+import { dayHeading, groupByDay, isFlow, PAGE_SIZE, transferPeer, useIsMobile } from './shared'
 
 interface ListProps {
   items: Transaction[]
@@ -149,6 +149,42 @@ function MobileCard({ txn, account, category, categories, onEdit, onCategory, on
   )
 }
 
+// ── Transferência entre contas próprias: uma linha só ("Nubank → Sicredi Poupança"), valor neutro ──
+// As duas pernas viram uma; sem pílula de categoria (não é receita nem gasto). Editar abre a perna de saída.
+function TransferRow({ out, from, to, mobile, onEdit, onDelete }: { out: Transaction; from?: Account; to?: Account; mobile: boolean; onEdit: () => void; onDelete: () => void }) {
+  const { t } = useTranslation()
+  const label = t('transactions.row.transferRoute', { from: from?.name ?? '—', to: to?.name ?? '—' })
+  const pill = <span className="tx-pill" title={t('transactions.row.transferHint')}><Icon name="transfer" size={11} />{t('transactions.row.transfer')}</span>
+  const amount = <Money value={Math.abs(out.amount)} className="tx-amount" style={{ color: 'var(--text-secondary)' }} />
+  const desc = <span className="tx-desc-line"><button type="button" className="tx-desc" onClick={onEdit} title={out.description}>{label}</button></span>
+  const meta = out.notes || out.tags?.length ? <RowMeta txn={{ ...out, type: 'debit' }} /> : null
+  if (mobile) {
+    return (
+      <li className="tx-card" onClick={e => { if (!fromControl(e)) onEdit() }}>
+        <CategoryGlyph transfer size={38} />
+        <div className="tx-card__body">
+          <div className="tx-card__top">{desc}{amount}</div>
+          <div className="tx-card__sub">{pill}</div>
+          {meta}
+        </div>
+      </li>
+    )
+  }
+  return (
+    <li className="tx-row tx-cols" onClick={e => { if (!fromControl(e)) onEdit() }}>
+      <CategoryGlyph transfer />
+      <div className="tx-row__main">{desc}{meta}</div>
+      <span className="tx-cat">{pill}</span>
+      <span className="tx-acc" />
+      <span className="tx-amount-cell">{amount}</span>
+      <span className="tx-row__actions">
+        <IconButton icon="edit" label={t('transactions.list.editAria', { name: label })} onClick={onEdit} />
+        <IconButton icon="trash" label={t('transactions.list.deleteAria', { name: label })} onClick={onDelete} className="tx-del" />
+      </span>
+    </li>
+  )
+}
+
 export function ListSkeleton({ rows = 8 }: { rows?: number }) {
   const mobile = useIsMobile()
   return (
@@ -214,6 +250,12 @@ export function TransactionList({ items, dayTotalsFrom, accounts, categories, pa
             </div>
             <ul className="tx-ul">
               {g.items.map(txn => {
+                const peer = transferPeer(txn, g.items)
+                if (peer) {
+                  if (txn.amount > 0) return null  // a perna de entrada aparece junto da de saída
+                  return <TransferRow key={txn.id} out={txn} from={accById.get(txn.account_id)} to={accById.get(peer.account_id)} mobile={mobile}
+                    onEdit={() => onEdit(txn)} onDelete={() => onDelete(txn)} />
+                }
                 const common = {
                   txn, account: accById.get(txn.account_id), category: txn.category_id ? catById.get(txn.category_id) : undefined, categories,
                   onEdit: () => onEdit(txn), onCategory: (id: string) => onCategory(txn, id),

@@ -120,7 +120,6 @@ export default [
   },
 
   // Redefinir senha
-  { id: 'redefinir-senha', rota: '/reset-password', semDemo: true },
   { id: 'redefinir-senha-expirado', rota: '/reset-password?error=access_denied&error_code=otp_expired', semDemo: true },
   { id: 'redefinir-senha-sem-servidor', rota: '/reset-password', semDemo: true, acao: semServidor },
   { id: 'redefinir-senha-form', rota: '/reset-password', semDemo: true, acao: sessaoDeRecuperacao },

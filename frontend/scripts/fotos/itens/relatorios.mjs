@@ -61,7 +61,6 @@ export default [
   { id: 'relatorios-mes-a-mes', rota: '/reports?vista=mes' },
   { id: 'relatorios-categorias', rota: '/reports?vista=categorias' },
   { id: 'relatorios-projecao', rota: '/reports?vista=projecao' },
-  { id: 'relatorios-fluxo-12-meses', rota: '/reports', acao: (p, c) => periodo(p, c, '12m') },
   { id: 'relatorios-este-mes', rota: '/reports', acao: (p, c) => periodo(p, c, 'thisMonth') },
   { id: 'relatorios-mes-passado', rota: '/reports', acao: (p, c) => periodo(p, c, 'lastMonth') },
   { id: 'relatorios-3-meses', rota: '/reports', acao: (p, c) => periodo(p, c, '3m') },

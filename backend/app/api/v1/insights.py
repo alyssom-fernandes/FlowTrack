@@ -27,8 +27,8 @@ def _cache_get(key: str) -> dict | None:
     return None
 
 
-def _cache_put(key: str, text: str, ts: datetime) -> None:
-    _insights_cache[key] = {"text": text, "ts": ts}
+def _cache_put(key: str, text: str, ts: datetime, income: float, expense: float) -> None:
+    _insights_cache[key] = {"text": text, "ts": ts, "income": income, "expense": expense}
     _insights_cache.move_to_end(key)
     while len(_insights_cache) > _CACHE_MAX:
         _insights_cache.popitem(last=False)
@@ -39,9 +39,10 @@ def _cache_put(key: str, text: str, ts: datetime) -> None:
 async def generate_insight(request: Request, period: InsightPeriod, user_id: str = Depends(get_current_user_id)):
     """Generate an AI-powered financial insight for a given period, cached for 24h."""
     cache_key = f"{user_id}:{period.start_date}:{period.end_date}"
-    cached = _cache_get(cache_key)
+    cached = None if period.refresh else _cache_get(cache_key)
     if cached:
-        return InsightResponse(text=cached["text"], generated_at=cached["ts"].isoformat(), cached=True)
+        return InsightResponse(text=cached["text"], generated_at=cached["ts"].isoformat(), cached=True,
+                               income=cached.get("income"), expense=cached.get("expense"))
 
     try:
         sb = get_supabase()
@@ -78,7 +79,8 @@ async def generate_insight(request: Request, period: InsightPeriod, user_id: str
             prompt = (
                 f"Você é um assistente financeiro pessoal. Analise os dados abaixo e gere um insight conciso (máximo 3 frases) "
                 f"em português, tom direto e cordial, com números específicos. Responda em texto corrido, "
-                f"sem markdown, sem títulos, sem listas e sem emoji.\n\n"
+                f"sem markdown, sem títulos, sem listas e sem emoji. Ao dar a porcentagem de uma categoria, "
+                f"diga a base ('dos gastos' ou 'do que entrou').\n\n"
                 f"Período: {period.start_date} a {period.end_date}\n"
                 f"Receitas: R${total_inc:.2f} | Gastos: R${total_exp:.2f} | Economia: {savings_rate}%\n"
                 f"Top categorias:\n{top_cats_str or '- Sem dados'}\n"
@@ -93,8 +95,9 @@ async def generate_insight(request: Request, period: InsightPeriod, user_id: str
             text = resp.content[0].text.strip()
 
         ts = datetime.now()
-        _cache_put(cache_key, text, ts)
-        return InsightResponse(text=text, generated_at=ts.isoformat(), cached=False)
+        income, expense = round(total_inc, 2), round(total_exp, 2)
+        _cache_put(cache_key, text, ts, income, expense)
+        return InsightResponse(text=text, generated_at=ts.isoformat(), cached=False, income=income, expense=expense)
     except Exception as e:
         logger.error("generate_insight failed", error=str(e))
         raise HTTPException(500, "Failed to generate insight")

@@ -75,7 +75,7 @@
 .rp-svg:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 4px; border-radius: var(--radius-sm); }
 .rp-axis { font-size: 11px; fill: var(--chart-axis); font-variant-numeric: tabular-nums; font-family: var(--font); }
 .rp-axis--active { fill: var(--text-primary); font-weight: 600; }
-.rp-axis--year { fill: var(--text-hint); font-size: 10px; }
+.rp-axis--year { fill: var(--text-hint); font-size: 11px; }
 .rp-axis--future { opacity: 0.55; }
 .rp-axis--zone { fill: var(--text-muted); font-weight: 500; }
 .rp-end-label { font-size: 12px; font-weight: 500; fill: var(--text-secondary); font-family: var(--font); }

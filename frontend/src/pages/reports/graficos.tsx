@@ -142,6 +142,9 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
   // Gasto em barra neutra; a receita é um traço sobre a barra e a sobra vai rotulada em cima.
   // (O par verde/vermelho lado a lado é o gráfico padrão de todo painel: aqui a cor fica para o que importa.)
   const thisMonth = toISODate().slice(0, 7)
+  // No celular a leitura fica num painel abaixo do gráfico (padrão: último período já iniciado)
+  const lastStarted = buckets.reduce((acc, b, i) => (b.future ? acc : i), n - 1)
+  const shown = active ?? (compact ? lastStarted : null)
   const bars: ReactNode[] = []
   for (let i = 0; i < n; i++) {
     const b = buckets[i], p = prev?.[i]
@@ -159,19 +162,22 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
         bars.push(<line key={`${i}-${j}-r`} x1={x - 3} x2={x + barW + 3} y1={ty} y2={ty} stroke="var(--chart-income)" strokeWidth={2.5}
           strokeLinecap="round" opacity={it.faded ? 0.45 : 1} />)
       }
-      // Sobra do período (só na barra atual, sem repetir na comparação)
-      if (!it.faded && !b.future && (it.inc > 0 || it.exp > 0) && band >= 34) {
+      // Sobra do período (só na barra atual, sem repetir na comparação). Rótulo só onde cabe na
+      // coluna; no celular, só no período em leitura (os vizinhos se atropelavam), e nunca fora do gráfico.
+      if (!it.faded && !b.future && (it.inc > 0 || it.exp > 0)) {
         const net = it.inc - it.exp
-        bars.push(<text key={`${i}-${j}-s`} x={x + barW / 2} y={Math.min(y(it.inc), top) - 8} textAnchor="middle"
-          className={`rp-net${net < 0 ? ' rp-net--neg' : ''}`}>{axisMoney(net, true)}</text>)
+        const label = axisMoney(net, true)
+        const lw = label.length * 6.4
+        if (compact ? i === shown : band >= Math.max(34, lw + 6)) {
+          const cx = clamp(x + barW / 2, m.left + lw / 2, width - m.right - lw / 2)
+          bars.push(<text key={`${i}-${j}-s`} x={cx} y={Math.min(y(it.inc), top) - 8} textAnchor="middle"
+            className={`rp-net${net < 0 ? ' rp-net--neg' : ''}`}>{label}</text>)
+        }
       }
       x += barW + gap + (prev && j === 0 ? pairGap : 0)
     }
   }
 
-  // No celular a leitura fica num painel abaixo do gráfico (padrão: último período já iniciado)
-  const lastStarted = buckets.reduce((acc, b, i) => (b.future ? acc : i), n - 1)
-  const shown = active ?? (compact ? lastStarted : null)
   const a = shown !== null ? buckets[shown] : null
   const ap = shown !== null ? prev?.[shown] : undefined
   const readout = a && (
@@ -408,7 +414,10 @@ export function ProjectionLines({ data, ariaLabel }: { data: ProjectionData; ari
                 </defs>
                 <rect x={x(h - 1)} y={m.top} width={Math.max(0, width - m.right - x(h - 1))} height={plotH} fill={`url(#${hatch})`} />
                 <line x1={x(h - 1)} x2={x(h - 1)} y1={m.top - 12} y2={m.top + plotH} stroke="var(--text-hint)" strokeWidth={1} strokeDasharray="3 3" />
-                <text x={x(h - 1) + 6} y={m.top - 3} className="rp-axis rp-axis--zone">{t('reports.projection.today')}</text>
+                {/* No celular o rótulo vai à esquerda da linha, curto (à direita ele saía do card) */}
+                {compact
+                  ? <text x={x(h - 1) - 6} y={m.top - 3} textAnchor="end" className="rp-axis rp-axis--zone">{t('reports.projection.todayShort')}</text>
+                  : <text x={x(h - 1) + 6} y={m.top - 3} className="rp-axis rp-axis--zone">{t('reports.projection.today')}</text>}
               </g>
             )}
             {ticks.map((tk, i) => (

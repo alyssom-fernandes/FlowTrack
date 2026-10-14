@@ -219,11 +219,15 @@ class AlertListResponse(BaseModel):
 class InsightPeriod(BaseModel):
     start_date: str
     end_date: str
+    refresh: bool = False  # True = gera de novo mesmo com resumo guardado
 
 class InsightResponse(BaseModel):
     text: str
     generated_at: str
     cached: bool
+    # Receitas e gastos que o resumo usou: a tela compara com os números atuais e avisa se mudaram
+    income: float | None = None
+    expense: float | None = None
 
 
 # ── Cashflow ──────────────────────────────────────────────

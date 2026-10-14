@@ -13,7 +13,7 @@
       "exportTitle": "Export transactions",
       "exportScope": "Exports the transactions shown with the current filters.",
       "csv": "CSV",
-      "csvHint": "Comma-separated text that opens in any spreadsheet app",
+      "csvHint": "Semicolon-separated text that opens in any spreadsheet app",
       "xlsx": "Excel",
       "xlsxHint": "Formatted spreadsheet with period and totals",
       "exported_one": "File created with {{count}} transaction",
@@ -61,9 +61,9 @@
       "netHint": "Income minus expenses. Transfers between your own accounts are left out.",
       "auto": "Auto-categorized",
       "autoHint": "Transactions categorized by a rule, by history or by AI, with no manual choice.",
-      "pending_one": "{{count}} uncategorized",
-      "pending_other": "{{count}} uncategorized",
-      "noPending": "Nothing pending"
+      "pending_one": "{{count}} to review",
+      "pending_other": "{{count}} to review",
+      "noPending": "Nothing to review"
     },
     "list": {
       "label": "Transaction list",
@@ -112,7 +112,8 @@
       },
       "change": "Click to change.",
       "categorySaved": "Category updated",
-      "categoryError": "Could not change the category."
+      "categoryError": "Could not change the category.",
+      "transferRoute": "{{from}} → {{to}}"
     },
     "form": {
       "newTitle": "New transaction",
@@ -174,7 +175,8 @@
       "title": "Delete transaction",
       "message": "“{{name}}” on {{date}}, for {{amount}}, will be deleted. If needed, you can undo it from the change history in Profile.",
       "confirm": "Delete transaction",
-      "error": "Could not delete. Please try again."
+      "error": "Could not delete. Please try again.",
+      "transferMessage": "The {{amount}} transfer from {{from}} to {{to}} on {{date}} will be deleted from both accounts. If needed, you can undo it from the change history in Profile."
     },
     "import": {
       "title": "Import statement",
@@ -196,7 +198,7 @@
       },
       "reading": "Reading {{name}}…",
       "readingMany": "Reading {{count}} files…",
-      "unsupported": "Unsupported format. Use a CSV, OFX or PDF file.",
+      "unsupported": "That file isn't CSV, OFX or PDF. In Excel, use Save as › CSV and upload it again.",
       "readError": "Could not read {{name}}. Check that it is a valid statement.",
       "nothingFound": "No transactions found in {{name}}.",
       "account": "Import into account",
@@ -228,11 +230,10 @@
         "amountHint": "Negative values become expenses",
         "credit": "Credit (income)",
         "debit": "Debit (expenses)",
-        "single": "One amount column",
-        "split": "Separate credit and debit",
+        "single": "One column",
+        "split": "Credit and debit",
         "modeLabel": "How the amount appears in the file",
         "pick": "Choose a column",
-        "none": "None",
         "preview": "Preview",
         "ready": "{{valid}} of {{total}} rows ready to import",
         "skip": "Skipped: {{reason}}",
@@ -264,7 +265,7 @@
       "toReview_one": "{{count}} uncategorized",
       "toReview_other": "{{count}} uncategorized",
       "rowCategory": "Category for row {{n}}",
-      "suggested": "suggested · {{pct}}",
+      "suggested": "rule · {{pct}}",
       "suggestedHint": "Suggested by the categorization rules (no AI). Change it if it's wrong."
     },
     "export": {
@@ -307,16 +308,17 @@
     "review": {
       "chip_one": "{{count}} to review",
       "chip_other": "{{count}} to review",
-      "title_one": "{{count}} transaction to check",
-      "title_other": "{{count}} transactions to check",
+      "title_one": "{{count}} transaction to review",
+      "title_other": "{{count}} transactions to review",
       "text": "Uncategorized, or categorized by AI with less than 85% confidence. Confirm with ✓ or pick another category.",
       "exit": "Leave review",
       "confirmOne": "Confirm {{category}} for {{name}}",
       "confirmed_one": "{{count}} transaction marked as reviewed",
       "confirmed_other": "{{count}} transactions marked as reviewed",
-      "footHint": "Uncategorized ones need a choice first.",
       "confirmAll_one": "Mark {{count}} as reviewed",
-      "confirmAll_other": "Mark {{count}} as reviewed"
+      "confirmAll_other": "Mark {{count}} as reviewed",
+      "footHint_one": "Pick a category for the uncategorized transaction to mark them all.",
+      "footHint_other": "Pick a category for the {{count}} uncategorized transactions to mark them all."
     }
   }
 }

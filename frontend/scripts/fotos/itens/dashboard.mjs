@@ -94,7 +94,8 @@ export default [
     },
   },
   {
-    // Resposta da IA com markdown cru (como pode vir da API): a tela limpa e organiza
+    // Resposta da IA com markdown cru (como pode vir da API): a tela limpa e organiza.
+    // Os números do resumo guardado diferem dos atuais: aparece o aviso para atualizar.
     id: 'dashboard-resumo-markdown', rota: '/dashboard', inteira: false,
     acao: async page => {
       await mexerNaBase(page, (db) => {
@@ -102,12 +103,12 @@ export default [
         const h = new Date()
         const periodo = `${iso(new Date(h.getFullYear(), h.getMonth(), 1))}:${iso(new Date(h.getFullYear(), h.getMonth() + 1, 0))}`
         const ts = new Date(Date.now() - 42 * 60000).toISOString()
-        db.insight_cache[`${periodo}:pt`] = { ts, text: `## Resumo
+        db.insight_cache[`${periodo}:pt`] = { ts, income: 6289.31, expense: 5040.30, text: `## Resumo
 **Você guardou 20%** do que entrou: R$ 6.289,31 contra R$ 5.040,30 de gastos.
 - *Moradia* foi a maior despesa, com R$ 2.223,77.
 - Lazer passou do orçamento em R$ 24,67.
 No ritmo atual, a reserva fica completa em cerca de 4 meses.` }
-        db.insight_cache[`${periodo}:en`] = { ts, text: `## Summary
+        db.insight_cache[`${periodo}:en`] = { ts, income: 6289.31, expense: 5040.30, text: `## Summary
 **You kept 20%** of what came in: R$6,289.31 against R$5,040.30 of spending.
 - *Housing* was the largest expense at R$2,223.77.
 - Leisure went R$24.67 over budget.

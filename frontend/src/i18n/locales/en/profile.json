@@ -95,7 +95,7 @@
       "deleteAction": "Delete account",
       "saveError": "Couldn't save the account. Please try again.",
       "deleteTitle": "Delete this account?",
-      "deleteText": "“{{name}}” will be removed from the list and the total balance. Transactions already recorded stay in your history.",
+      "deleteText": "“{{name}}” will be removed from the list and the total balance. Transactions already recorded stay in Transactions.",
       "created": "Account created.",
       "updated": "Account updated.",
       "deleted": "Account deleted.",
@@ -131,7 +131,6 @@
       "deleteError": "Couldn't delete the category."
     },
     "colors": {
-      "label": "Color",
       "pick": "Color {{color}}"
     },
     "history": {

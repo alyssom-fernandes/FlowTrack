@@ -43,7 +43,7 @@ export function KpiTile({ label, value, delta, foot, extra, negative }: { label:
 }
 
 // ── Resumo do mês (IA) ────────────────────────────────────
-export function InsightCard({ insight, loading, error, onRefresh }: { insight: InsightResponse | null; loading: boolean; error: boolean; onRefresh: () => void }) {
+export function InsightCard({ insight, loading, error, onRefresh, stale }: { insight: InsightResponse | null; loading: boolean; error: boolean; onRefresh: () => void; stale?: boolean }) {
   const { t } = useTranslation()
   // Parágrafos e listas na ordem em que vieram (itens seguidos viram uma lista)
   const groups: { kind: 'p' | 'h' | 'ul'; texts: string[] }[] = []
@@ -79,6 +79,13 @@ export function InsightCard({ insight, loading, error, onRefresh }: { insight: I
           {groups.map((g, i) => g.kind === 'ul'
             ? <ul key={i}>{g.texts.map((text, j) => <li key={j}>{render(text)}</li>)}</ul>
             : <p key={i} className={g.kind === 'h' ? 'ft-insight__h' : undefined}>{render(g.texts[0])}</p>)}
+          {/* Resumo guardado com números que já mudaram (ex.: importou um extrato depois) */}
+          {stale && !loading && (
+            <p className="ft-insight__stale">
+              <Icon name="info" size={14} />{t('dashboard.insight.stale')}
+              <button type="button" className="ft-insight__stale-btn" onClick={onRefresh}>{t('dashboard.insight.staleAction')}</button>
+            </p>
+          )}
         </div>
       )}
     </Card>
@@ -284,7 +291,7 @@ export function AlertsCard({ alerts, loading, error, onRetry }: { alerts: Alert[
           <Icon name="alertCircle" size={18} style={{ color: 'var(--red)' }} />
           <div>
             <div className="ft-alerts-ok__title">{t('nav.alertsError')}</div>
-            {onRetry && <button type="button" className="ft-link-btn" style={{ padding: 0, marginTop: '0.25rem' }} onClick={onRetry}>{t('nav.retry')}</button>}
+            {onRetry && <Button variant="secondary" size="sm" icon="refresh" onClick={onRetry} style={{ marginTop: '0.5rem' }}>{t('nav.retry')}</Button>}
           </div>
         </div>
       ) : sorted.length === 0 ? (
@@ -378,7 +385,7 @@ export function BudgetsCard({ budgets, categories, loading, previousMonth, month
           })}
         </ul>
       )}
-      {budgets.length > sorted.length && <p className="ft-dash-note">{t('dashboard.budgets.more', { count: budgets.length - sorted.length })}</p>}
+      {budgets.length > sorted.length && <p className="ft-dash-note"><Link to="/goals?aba=orcamentos" className="ft-dash-link">{t('dashboard.budgets.more', { count: budgets.length - sorted.length })}</Link></p>}
     </Card>
   )
 }
@@ -512,19 +519,25 @@ function SkeletonCard({ className, chart = 0, lines = 0 }: { className: string; 
 }
 
 export function DashboardSkeleton() {
+  // Mesma grade da tela pronta (hero com saldo e fluxo, duas colunas), para o carregamento antecipar o layout
   return (
     <div className="ft-dash-grid" aria-busy="true">
-      <div className="ft-dash-kpis">
-        {[0, 1, 2, 3].map(i => (
-          <Card key={i} className="ft-kpi"><Skeleton height={12} width="45%" /><Skeleton height={26} width="70%" style={{ margin: '0.625rem 0' }} /><Skeleton height={11} width="55%" /></Card>
-        ))}
+      <section className="flow ft-dash-skel" aria-hidden>
+        <div className="flow__head">
+          <Skeleton height={14} width="45%" />
+          <div className="ft-dash-skel__balance"><Skeleton height={12} width="35%" /><Skeleton height={44} width="80%" /><Skeleton height={12} width="40%" /></div>
+          {[0, 1, 2].map(i => <div key={i} className="ft-dash-skel__stat"><Skeleton height={12} width="30%" /><Skeleton height={18} width="38%" /></div>)}
+        </div>
+        <Skeleton height={300} radius="var(--radius-md)" />
+      </section>
+      <div className="ft-dash-col ft-dash-col--main">
+        <SkeletonCard className="ft-dash-pace" chart={172} />
+        <SkeletonCard className="ft-dash-recent" lines={5} />
       </div>
-      <SkeletonCard className="ft-dash-monthly" chart={236} />
-      <SkeletonCard className="ft-dash-networth" chart={150} />
-      <SkeletonCard className="ft-dash-cashflow" chart={200} />
-      <div className="ft-dash-side">
+      <div className="ft-dash-col ft-dash-col--side">
+        <SkeletonCard className="ft-dash-alerts" lines={2} />
+        <SkeletonCard className="ft-dash-budgets" lines={4} />
         <SkeletonCard className="ft-dash-insight" lines={5} />
-        <SkeletonCard className="ft-dash-alerts" lines={3} />
       </div>
     </div>
   )

@@ -48,9 +48,9 @@
       "label": "Resumo do período",
       "income": "Receitas",
       "expense": "Gastos",
-      "balance": "Saldo do período",
+      "balance": "Sobra do período",
       "savings": "Taxa de economia",
-      "noPrev": "Sem dados anteriores",
+      "noPrev": "Sem período anterior",
       "noBase": "Sem base de comparação",
       "noIncome": "Sem receitas no período",
       "vsPrevShort": "vs. período anterior",
@@ -67,27 +67,27 @@
     "legend": {
       "income": "Receitas",
       "expense": "Gastos",
-      "balance": "Saldo",
+      "balance": "Sobra",
       "previous": "Período anterior",
       "previousShort": "Período anterior",
       "previousFaded": "Período anterior (tom suave)",
       "incomeTick": "Receitas (traço)",
-      "netAbove": "Sobra do mês, acima da barra"
+      "netAbove": "Sobra do período, acima de cada coluna"
     },
     "flow": {
       "titleMonth": "Receitas e gastos por mês",
       "titleWeek": "Receitas e gastos por semana",
       "sub_one": "{{count}} lançamento no período",
       "sub_other": "{{count}} lançamentos no período",
-      "compareSub": "Barras em tom suave: {{range}}"
+      "compareSub": "Comparado com {{range}}"
     },
     "table": {
       "week": "Semana",
       "month": "Mês",
       "income": "Receitas",
       "expense": "Gastos",
-      "balance": "Saldo",
-      "savings": "Economia",
+      "balance": "Sobra",
+      "savings": "% do que entrou",
       "prevIncome": "Receitas ant.",
       "prevExpense": "Gastos ant.",
       "total": "Total",
@@ -150,12 +150,13 @@
       "history": "Histórico",
       "avgIncome": "Receita média por mês",
       "avgExpense": "Gasto médio por mês",
-      "projectedBalance": "Saldo previsto nos 3 meses",
-      "today": "hoje · projeção →"
+      "projectedBalance": "Sobra prevista nos 3 meses",
+      "today": "hoje · projeção →",
+      "todayShort": "hoje"
     },
     "aria": {
       "flow": "Gráfico de barras com receitas e gastos de {{range}}: receitas de {{income}} e gastos de {{expense}}. Os valores de cada período estão na visão em tabela.",
-      "categories": "Gráfico de rosca dos gastos por categoria: {{list}}.",
+      "categories": "Barra empilhada dos gastos por categoria: {{list}}.",
       "projection": "Gráfico de linhas com o histórico e a projeção dos próximos 3 meses: receitas de cerca de {{income}} e gastos de cerca de {{expense}} por mês."
     },
     "empty": {
@@ -170,7 +171,7 @@
     },
     "error": {
       "title": "Não foi possível carregar o relatório",
-      "text": "Verifique a conexão e tente de novo.",
+      "text": "Algo falhou ao montar o relatório. Seus dados continuam salvos; tente de novo.",
       "retry": "Tentar de novo"
     },
     "print": {

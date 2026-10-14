@@ -1,9 +1,11 @@
-// Resumo do filtro atual: entradas, saídas, resultado e categorização automática
+// Resumo do filtro atual: entradas, saídas, resultado e categorização automática.
+// "A revisar" usa a mesma regra do chip e do modo revisão (lib/review): uma contagem só na tela.
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, Money, Skeleton } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { formatPercent } from '../../utils'
+import { needsReview } from '../../lib/review'
 import type { Transaction } from '../../types'
 import { autoStats, sumFlows } from './shared'
 
@@ -21,10 +23,11 @@ function Stat({ label, hint, dot, value, sub }: { label: string; hint?: string; 
   )
 }
 
-export function SummaryStrip({ data, onShowPending }: { data: Transaction[] | null; onShowPending?: () => void }) {
+export function SummaryStrip({ data }: { data: Transaction[] | null }) {
   const { t } = useTranslation()
   const flows = data ? sumFlows(data) : null
   const auto = data ? autoStats(data) : null
+  const toReview = data ? data.filter(needsReview).length : 0
   return (
     <Card padding="none" className="tx-summary" role="group" aria-label={t('transactions.summary.label')} aria-busy={!data || undefined}>
       <Stat label={t('transactions.summary.income')} value={flows && <Money value={flows.income} />} />
@@ -32,10 +35,8 @@ export function SummaryStrip({ data, onShowPending }: { data: Transaction[] | nu
       <Stat label={t('transactions.summary.net')} hint={t('transactions.summary.netHint')} value={flows && <Money value={flows.net} signed />} />
       <Stat label={t('transactions.summary.auto')} hint={t('transactions.summary.autoHint')}
         value={auto && formatPercent(auto.pct, 0, false)}
-        sub={!auto ? <Skeleton width="50%" height={12} /> : auto.pending > 0 && !onShowPending
-          ? <span className="tx-pending">{t('transactions.summary.pending', { count: auto.pending })}</span>
-          : auto.pending > 0
-          ? <button type="button" className="tx-pending" onClick={onShowPending}>{t('transactions.summary.pending', { count: auto.pending })}<Icon name="arrowRight" size={12} /></button>
+        sub={!auto ? <Skeleton width="50%" height={12} /> : toReview > 0
+          ? <span className="tx-pending">{t('transactions.summary.pending', { count: toReview })}</span>
           : t('transactions.summary.noPending')} />
     </Card>
   )

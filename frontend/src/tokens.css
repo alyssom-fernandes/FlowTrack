@@ -34,19 +34,19 @@
   --text-primary:   #f4f4f5;
   --text-secondary: #d4d4d8;
   --text-muted:     #a1a1aa;
-  --text-hint:      #7a7a85;
+  --text-hint:      #878791;   /* ≥ 4,5:1 em todas as superfícies (cards, modais, hero) */
 
   /* Marca AFN (guia de marca) */
   --brand-afn:        #c44a5a;
   --brand-afn-stroke: rgba(196, 74, 90, 0.4);
   --brand-secondary:  rgba(255, 255, 255, 0.28);
-  --brand-by:         rgba(255, 255, 255, 0.28);
+  --brand-by:         rgba(255, 255, 255, 0.5);   /* "by Alyssom Fernandes" e "FlowTrack" do rodapé: texto, não logotipo (≥ 4,5:1) */
 
   /* Status */
   --green:       #3fbf86;
   --green-soft:  rgba(63, 191, 134, 0.12);
-  --red:         #f0677a;
-  --red-soft:    rgba(240, 103, 122, 0.12);
+  --red:         #f4838f;   /* um pouco mais claro: centavos de valor negativo ficam acima de 4,5:1 na pílula */
+  --red-soft:    rgba(244, 131, 143, 0.12);
   --red-solid:   #c4364b;   /* preenchimento com texto branco (contraste 5,3:1) */
   --amber:       #e5a54b;
   --amber-fill:  #e5a54b;   /* preenchimento (barras); --amber é para texto */
@@ -68,7 +68,7 @@
   --chart-2: #d95926;
   --chart-3: #1c9cc4;
   --chart-4: #c98500;
-  --chart-5: #d55181;
+  --chart-5: #7b4be2;
   --chart-6: #b7782a;
   --chart-7: #9085e9;
   --chart-8: #8b8b96;
@@ -80,7 +80,7 @@
   --cat-2: #d95926;  /* Alimentação */
   --cat-3: #1c9cc4;  /* Lazer */
   --cat-4: #c98500;  /* Transporte */
-  --cat-5: #d55181;  /* Saúde */
+  --cat-5: #7b4be2;  /* Saúde: violeta (o rosa se confundia com o vinho da Sobra) */
   --cat-6: #b7782a;  /* Educação */
   --cat-7: #9085e9;  /* Assinaturas */
   --cat-8: #e66767;  /* Vestuário */
@@ -187,7 +187,7 @@
   --text-primary:   #111113;
   --text-secondary: #2c2c31;
   --text-muted:     #5b5b66;
-  --text-hint:      #777782;
+  --text-hint:      #6b6b76;   /* ≥ 4,5:1 em todas as superfícies */
 
   --brand-afn:        #6b1f2a;
   --brand-afn-stroke: rgba(107, 31, 42, 0.4);
@@ -213,7 +213,7 @@
   --chart-2: #eb6834;
   --chart-3: #0f8fb3;
   --chart-4: #eda100;
-  --chart-5: #e87ba4;
+  --chart-5: #7a26d9;
   --chart-6: #a86a1c;
   --chart-7: #4a3aa7;
   --chart-8: #8e8e99;
@@ -222,7 +222,7 @@
   --cat-2: #eb6834;
   --cat-3: #0f8fb3;
   --cat-4: #eda100;
-  --cat-5: #e87ba4;
+  --cat-5: #7a26d9;
   --cat-6: #a86a1c;
   --cat-7: #4a3aa7;
   --cat-8: #e34948;
@@ -317,8 +317,8 @@ img, svg {
 .pf-afn  { font-family: var(--font-mono); font-weight: 700; letter-spacing: 2px; color: var(--brand-afn); -webkit-text-stroke: 0.3px var(--brand-afn-stroke); }
 .pf-sys  { font-family: var(--font-mono); font-weight: 700; letter-spacing: 2px; color: var(--brand-secondary); }
 .pf-gap  { width: 4px; display: inline-block; }
-.pf-pipe { font-family: var(--font-mono); font-weight: 700; color: var(--brand-secondary); }
-.pf-info { font-family: var(--font-mono); font-weight: 700; letter-spacing: .3px; color: var(--brand-secondary); }
+.pf-pipe { font-family: var(--font-mono); font-weight: 700; color: var(--brand-by); }
+.pf-info { font-family: var(--font-mono); font-weight: 700; letter-spacing: .3px; color: var(--brand-by); }
 .pf-by   { font-family: var(--font-mono); font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--brand-by); }
 
 /* ── SCROLLBAR ── */
@@ -419,15 +419,16 @@ html[data-hide-values='true'] .ft-money, html[data-hide-values='true'] .ft-hidea
     --chart-neutral: #8e8e99; --chart-axis: #6f6f78;
     --chart-income: #2ca470; --chart-expense: #9a2929; --chart-spend: #8e8e99;
     --chart-1: #2a78d6; --chart-2: #eb6834; --chart-3: #0f8fb3; --chart-4: #eda100;
-    --chart-5: #e87ba4; --chart-6: #a86a1c; --chart-7: #4a3aa7; --chart-8: #8e8e99;
+    --chart-5: #7a26d9; --chart-6: #a86a1c; --chart-7: #4a3aa7; --chart-8: #8e8e99;
     --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #0f8fb3; --cat-4: #eda100;
-    --cat-5: #e87ba4; --cat-6: #a86a1c; --cat-7: #4a3aa7; --cat-8: #e34948; --cat-other: #8e8e99;
+    --cat-5: #7a26d9; --cat-6: #a86a1c; --cat-7: #4a3aa7; --cat-8: #e34948; --cat-other: #8e8e99;
     --accent-soft: rgba(157, 36, 73, 0.08); --bg-input: #ffffff;
     --green-soft: rgba(19, 132, 79, 0.09); --red-soft: rgba(198, 47, 69, 0.08); --amber-soft: rgba(168, 101, 15, 0.1);
     --bg: #ffffff; --bg-card: #ffffff; --bg-card-hover: #ffffff; --bg-elevated: #ffffff; --bg-subtle: #f6f6f7;
     --border: #dcdce0; --border-subtle: #e9e9ec; --border-strong: #c9c9cf;
     --text-primary: #111113; --text-secondary: #2c2c31; --text-muted: #55555f; --text-hint: #6f6f78;
-    --accent-text: #8a1f40; --green: #13844f; --red: #c62f45; --amber: #a8650f; --amber-fill: #e0960c;
+    /* verde e âmbar iguais aos do tema claro: nas pílulas da impressão os anteriores ficavam abaixo de 4,5:1 */
+    --accent-text: #8a1f40; --green: #0e7243; --red: #c62f45; --amber: #8a5208; --amber-fill: #e0960c;
     --brand-afn: #6b1f2a; --brand-secondary: #505050; --brand-by: #505050;
     --chart-grid: rgba(0, 0, 0, 0.08);
   }

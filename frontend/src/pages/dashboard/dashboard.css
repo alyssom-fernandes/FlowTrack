@@ -247,7 +247,7 @@
   .ft-pace__tag { animation: ft-fade-in 0.16s var(--ease-out) calc(var(--dur-4) + 120ms) both; }
 }
 @keyframes ft-fade-in { from { opacity: 0; } }
-.ft-pace__label { font-size: 10.5px; fill: var(--text-hint); font-family: var(--font); font-variant-numeric: tabular-nums; }
+.ft-pace__label { font-size: 11px; fill: var(--text-hint); font-family: var(--font); font-variant-numeric: tabular-nums; }
 .ft-pace__label--today { fill: var(--text-secondary); font-weight: 600; }
 @media (prefers-reduced-motion: no-preference) {
   .ft-pace__line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: ft-draw var(--dur-4) var(--ease-out) 120ms forwards; }
@@ -265,3 +265,14 @@
 .ft-pace__how p { margin-top: 0.375rem; line-height: 1.55; max-width: 40rem; }
 
 /* Orçamentos pelo ritmo */
+
+/* Esqueleto do carregamento: mesma grade do hero */
+.ft-dash-skel__balance { display: flex; flex-direction: column; gap: 0.5rem; }
+.ft-dash-skel__stat { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 0.875rem; border-top: 1px solid var(--border-subtle); }
+.ft-insight__stale { display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); font-size: var(--font-size-sm); color: var(--text-muted); }
+.ft-insight__stale-btn { min-height: 2.5rem; padding: 0 0.25rem; color: var(--accent-text); font-weight: 600; }
+.ft-insight__stale-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 767px) {
+  .ft-dash-link, .ft-alert__action { display: inline-flex; align-items: center; min-height: 2.5rem; }
+}

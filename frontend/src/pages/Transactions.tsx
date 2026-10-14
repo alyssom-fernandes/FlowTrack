@@ -14,7 +14,7 @@ import { TransactionModal, type SavedKind } from './transactions/TransactionModa
 import { ImportModal } from './transactions/ImportModal'
 import { ExportMenu } from './transactions/ExportMenu'
 import { describeFilters, exportTransactions, type ExportFormat } from './transactions/exportFile'
-import { DEFAULT_FILTERS, fetchAll, filtersFromParams, filtersToParams, hasAnyFilter, NO_CATEGORY, PAGE_SIZE, toQuery, type Filters } from './transactions/shared'
+import { DEFAULT_FILTERS, fetchAll, filtersFromParams, filtersToParams, hasAnyFilter, NO_CATEGORY, PAGE_SIZE, toQuery, transferPeer, type Filters } from './transactions/shared'
 import { needsReview } from '../lib/review'
 import { Icon } from '../components/icons'
 import './transactions/transactions.css'
@@ -125,6 +125,7 @@ export function Transactions() {
   const reviewing = filters.review === '1'
   const reviewCount = all ? (reviewing ? all.length : all.filter(needsReview).length) : null
   const confirmable = reviewing && all ? all.filter(tx => tx.category_id) : []
+  const uncategorized = reviewing && all ? all.length - confirmable.length : 0
   const [confirmingAll, setConfirmingAll] = useState(false)
   // Confirmar = a pessoa conferiu: a categoria passa a valer como escolha dela
   const confirmOne = async (txn: Transaction) => {
@@ -171,11 +172,21 @@ export function Transactions() {
     setReload(n => n + 1)
   }
 
+  const deletingPeer = deleting ? transferPeer(deleting, all ?? list?.items ?? []) : undefined
+  const transferAccounts = (a: Transaction, b: Transaction) => {
+    const [out, inn] = a.amount < 0 ? [a, b] : [b, a]
+    const name = (id: string) => accounts.find(x => x.id === id)?.name ?? '—'
+    return { from: name(out.account_id), to: name(inn.account_id) }
+  }
+
   const confirmDelete = async () => {
     if (!deleting) return
     setDeleteBusy(true)
     try {
+      // Transferência: as duas pernas saem juntas (uma só deixaria uma conta com saldo errado)
+      const peer = transferPeer(deleting, all ?? list?.items ?? [])
       await transactionsService.remove(deleting.id)
+      if (peer) await transactionsService.remove(peer.id)
       toast({ message: t('transactions.form.toastDeleted') })
       setDeleting(null)
       setReload(n => n + 1)
@@ -243,7 +254,7 @@ export function Transactions() {
           <p className="tx-print-only">{describeFilters(filters, accounts, categories)}</p>
           <FilterBar filters={filters} onChange={updateFilters} onClear={clearFilters} accounts={accounts} categories={categories} tags={tags} />
           <MonthNav filters={filters} onChange={updateFilters} />
-          {list.total > 0 && !reviewing && <SummaryStrip data={all} onShowPending={filters.category_id === NO_CATEGORY ? undefined : () => updateFilters({ category_id: NO_CATEGORY })} />}
+          {list.total > 0 && !reviewing && <SummaryStrip data={all} />}
           {reviewing ? (
             <div className="tx-review" role="status">
               <span className="tx-review__icon" aria-hidden><Icon name="sparkle" size={16} /></span>
@@ -271,7 +282,7 @@ export function Transactions() {
             {/* Rodapé fixo do modo revisão: confirma de uma vez as que já têm categoria */}
             {reviewing && confirmable.length > 0 && (
               <div className="tx-review-foot">
-                <span className="tx-review-foot__hint">{t('transactions.review.footHint')}</span>
+                {uncategorized > 0 && <span className="tx-review-foot__hint">{t('transactions.review.footHint', { count: uncategorized })}</span>}
                 <Button icon="check" loading={confirmingAll} onClick={confirmAll}>{t('transactions.review.confirmAll', { count: confirmable.length })}</Button>
               </div>
             )}
@@ -285,7 +296,9 @@ export function Transactions() {
         onSaved={onSaved} onDelete={tx => { setEditing(null); setDeleting(tx) }} />
       <ConfirmDialog open={!!deleting} onClose={() => setDeleting(null)} onConfirm={confirmDelete} loading={deleteBusy}
         title={t('transactions.delete.title')} confirmLabel={t('transactions.delete.confirm')}
-        message={deleting && t('transactions.delete.message', { name: deleting.description, date: formatDate(deleting.transaction_date), amount: formatCurrency(Math.abs(deleting.amount)) })} />
+        message={deleting && (deletingPeer
+          ? t('transactions.delete.transferMessage', { ...transferAccounts(deleting, deletingPeer), date: formatDate(deleting.transaction_date), amount: formatCurrency(Math.abs(deleting.amount)) })
+          : t('transactions.delete.message', { name: deleting.description, date: formatDate(deleting.transaction_date), amount: formatCurrency(Math.abs(deleting.amount)) }))} />
       <ImportModal open={importing} onClose={closeImport} accounts={accounts} categories={categories} defaultAccountId={filters.account_id}
         onImported={() => { setPage(1); setReload(n => n + 1) }}
         onReview={() => { closeImport(); setFiltersState({ ...DEFAULT_FILTERS, period: '', review: '1' }); setPage(1) }} />

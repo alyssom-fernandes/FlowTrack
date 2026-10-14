@@ -5,7 +5,7 @@ import { Button, Card, ConfirmDialog, EmptyState, IconButton, Money, ProgressBar
 import { Icon } from '../../components/icons'
 import { budgetsService, categoriesService, transactionsService } from '../../services'
 import { categoryColor } from '../../lib/categoryColor'
-import { billsByCategory, budgetState, budgetStatusText, budgetsSummaryText, monthDays, paceOf, BUDGET_COLOR, PACE_COLOR, type Bill, type BudgetState } from '../../lib/pace'
+import { billsByCategory, budgetState, budgetStatusText, budgetsSummaryText, monthDays, paceOf, paceTone, BUDGET_COLOR, PACE_COLOR, PACE_TONE_COLOR, PACE_TONE_ICON, type Bill, type BudgetState } from '../../lib/pace'
 import { useToastStore } from '../../store'
 import { categoryLabel, formatCurrency, formatPercent } from '../../utils'
 import type { Budget, Category, Transaction } from '../../types'
@@ -19,7 +19,7 @@ function pace(budgets: Budget[], bills: Map<string, Bill[]>, month: string, toda
   return budgets.map(b => ({ budget: b, ...budgetState(b.spent, b.limit_amount, bills.get(b.category_id) ?? [], day, dim) }))
 }
 
-function Summary({ budgets, paced, daysLeft, future }: { budgets: Budget[]; paced: Paced[]; daysLeft: number | null; future: boolean }) {
+function Summary({ budgets, paced, daysLeft, future, closed }: { budgets: Budget[]; paced: Paced[]; daysLeft: number | null; future: boolean; closed: boolean }) {
   const { t } = useTranslation()
   const limit = budgets.reduce((s, b) => s + b.limit_amount, 0)
   const spent = budgets.reduce((s, b) => s + b.spent, 0)
@@ -27,27 +27,33 @@ function Summary({ budgets, paced, daysLeft, future }: { budgets: Budget[]; pace
   const rest = limit - spent
   const pct = limit > 0 ? (spent / limit) * 100 : 0
   const total = paceOf(spent, limit, expected)
+  // Mês fechado não tem ritmo: o cabeçalho diz quanto sobrou e se algum estourou
+  const tone = closed ? total.status : paceTone(total.status, total.diff)
+  const pill = total.status === 'over' ? t('goals.budgets.paceOver')
+    : closed ? t('goals.budgets.closedOk')
+    : tone === 'margin' ? t('goals.budgets.paceMargin', { value: formatCurrency(-total.diff) })
+    : total.diff >= 0 ? t('goals.budgets.paceBelow', { value: formatCurrency(total.diff) }) : t('goals.budgets.paceAbove', { value: formatCurrency(-total.diff) })
   return (
     <Card className="gl-bsum ft-card--hero">
       <div className="gl-bsum__main">
         <div>
-          <span className="gl-fig__label">{rest >= 0 ? t('goals.budgets.remaining') : t('goals.budgets.overTotal')}</span>
+          <span className="gl-fig__label">{rest < 0 ? t('goals.budgets.overTotal') : closed ? t('goals.budgets.leftClosed') : t('goals.budgets.remaining')}</span>
           <Money value={Math.abs(rest)} size="hero" className={`gl-bsum__rest${rest < 0 ? ' gl-neg' : ''}`} />
           <span className="gl-bsum__of ft-num">{t('goals.budgets.restOf', { spent: formatCurrency(spent), limit: formatCurrency(limit) })}</span>
         </div>
         {!future && (
-          <span className={`ft-pace__status ft-pace__status--${total.status}`}>
-            <Icon name={total.status === 'ok' ? 'checkCircle' : total.status === 'warn' ? 'alert' : 'alertCircle'} size={14} />
-            {total.status === 'over' ? t('goals.budgets.paceOver') : total.diff >= 0 ? t('goals.budgets.paceBelow', { value: formatCurrency(total.diff) }) : t('goals.budgets.paceAbove', { value: formatCurrency(-total.diff) })}
+          <span className={`ft-pace__status ft-pace__status--${tone}`}>
+            <Icon name={PACE_TONE_ICON[tone]} size={14} />
+            {pill}
           </span>
         )}
       </div>
-      <ProgressBar value={pct} height={8} color={PACE_COLOR[total.status]} pace={!future && limit > 0 ? (expected / limit) * 100 : undefined}
+      <ProgressBar value={pct} height={8} color={closed ? PACE_COLOR[total.status] : PACE_TONE_COLOR[tone]} pace={!future && !closed && limit > 0 ? (expected / limit) * 100 : undefined}
         label={t('goals.budgets.usedPct', { pct: formatPercent(pct, 0, false) })} />
       <div className="gl-bsum__foot ft-num">
         <span className="gl-bsum__foot-item">{t('goals.budgets.usedPct', { pct: formatPercent(pct, 0, false) })}</span>
         <span className="gl-bsum__foot-item">
-          {future ? t('goals.budgets.notStarted') : budgetsSummaryText(paced.map(p => p.status), t)}
+          {future ? t('goals.budgets.notStarted') : budgetsSummaryText(paced.map(p => p.status), t, closed)}
         </span>
         {daysLeft !== null && <span className="gl-bsum__foot-item"><Icon name="calendar" size={14} />{t('goals.budgets.daysLeft', { count: daysLeft })}</span>}
       </div>
@@ -55,12 +61,13 @@ function Summary({ budgets, paced, daysLeft, future }: { budgets: Budget[]; pace
   )
 }
 
-function BudgetRow({ paced, category, future, onEdit, onDelete }: { paced: Paced; category?: Category; future: boolean; onEdit: () => void; onDelete: () => void }) {
+function BudgetRow({ paced, category, future, closed, onEdit, onDelete }: { paced: Paced; category?: Category; future: boolean; closed: boolean; onEdit: () => void; onDelete: () => void }) {
   const { t } = useTranslation()
   const { budget, expected, status, left } = paced
   const name = category ? categoryLabel(category) : budget.category_name || '—'
   const pct = budget.limit_amount > 0 ? (budget.spent / budget.limit_amount) * 100 : 0
-  const statusText = budgetStatusText(paced, t, formatCurrency)
+  const statusText = budgetStatusText(paced, t, formatCurrency, closed)
+  const tone = closed && status !== 'over' ? 'ok' : status
   return (
     <li className="gl-brow">
       <span className="gl-brow__name">
@@ -68,17 +75,16 @@ function BudgetRow({ paced, category, future, onEdit, onDelete }: { paced: Paced
         <span>{name}</span>
       </span>
       <div className="gl-brow__bar">
-        <ProgressBar value={pct} color={future ? 'var(--chart-neutral)' : BUDGET_COLOR[status]} pace={!future && status !== 'paid' && budget.limit_amount > 0 ? (expected / budget.limit_amount) * 100 : undefined}
+        <ProgressBar value={pct} color={future ? 'var(--chart-neutral)' : BUDGET_COLOR[tone]} pace={!future && !closed && status !== 'paid' && budget.limit_amount > 0 ? (expected / budget.limit_amount) * 100 : undefined}
           label={`${name}: ${formatPercent(pct, 0, false)}${future ? '' : `, ${statusText}`}`} />
       </div>
       <span className="gl-brow__spent ft-num">
         {t('goals.budgets.spentOf', { spent: formatCurrency(budget.spent), limit: formatCurrency(budget.limit_amount) })}
       </span>
-      <span className="gl-brow__left ft-num">
-        {left >= 0 ? t('goals.budgets.left', { value: formatCurrency(left) }) : t('goals.budgets.overBy', { value: formatCurrency(-left) })}
-      </span>
+      {/* Estourado: o excedente fica só na pílula ("estourou R$ 27,89"), um dado por lugar */}
+      <span className="gl-brow__left ft-num">{left >= 0 ? t('goals.budgets.left', { value: formatCurrency(left) }) : null}</span>
       {future ? <span className="gl-brow__pct ft-num">{formatPercent(pct, 0, false)}</span>
-        : <span className={`gl-brow__state ft-budget__status ft-budget__status--${status}`}>{statusText}</span>}
+        : <span className={`gl-brow__state ft-budget__status ft-budget__status--${tone}`}>{statusText}</span>}
       <span className="gl-brow__actions"><RowActions name={name} onEdit={onEdit} onDelete={onDelete} /></span>
     </li>
   )
@@ -230,11 +236,11 @@ export function BudgetsTab({ creating, onCreatingChange }: { creating: boolean; 
         </Card>
       ) : (
         <>
-          <Summary budgets={budgets} paced={paced} daysLeft={daysLeft} future={month > current} />
+          <Summary budgets={budgets} paced={paced} daysLeft={daysLeft} future={month > current} closed={month < current} />
           <Card padding="none">
             <ul className="gl-blist" aria-label={t('goals.budgets.listLabel')}>
               {sorted.map(b => (
-                <BudgetRow key={b.id} paced={pacedById.get(b.id)!} category={catById.get(b.category_id)} future={month > current}
+                <BudgetRow key={b.id} paced={pacedById.get(b.id)!} category={catById.get(b.category_id)} future={month > current} closed={month < current}
                   onEdit={() => { setEditing(b); onCreatingChange(false) }} onDelete={() => setRemoving(b)} />
               ))}
             </ul>
