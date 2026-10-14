@@ -17,9 +17,13 @@
   transition: background var(--transition), color var(--transition);
 }
 .ft-nav-link:hover { background: var(--bg-subtle); color: var(--text-primary); }
-.ft-nav-link[aria-current='page'] { background: var(--accent-soft); color: var(--text-primary); font-weight: 600; }
-.ft-nav-link[aria-current='page'] svg { color: var(--accent-text); }
-.ft-nav-link[aria-current='page']::before { content: ''; position: absolute; left: -0.625rem; top: 0.5rem; bottom: 0.5rem; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+/* Item ativo em vinho sólido: a cor da marca marca onde você está */
+.ft-nav-link[aria-current='page'] { background: var(--accent); color: var(--on-accent); font-weight: 600; box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, var(--shadow-sm); }
+.ft-nav-link[aria-current='page'] svg { color: var(--on-accent); }
+.ft-nav-link[aria-current='page']:hover { background: var(--accent-hover); color: var(--on-accent); }
+.ft-nav-group { display: flex; flex-direction: column; gap: 0.125rem; }
+.ft-nav-group + .ft-nav-group { margin-top: 1rem; }
+.ft-nav-group__label { padding: 0 0.75rem 0.375rem; font-size: var(--font-size-sm); font-weight: 500; color: var(--text-hint); }
 
 .ft-sidebar__user { margin: 0.625rem; padding: 0.625rem; border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; align-items: center; gap: 0.625rem; background: var(--bg-card); }
 .ft-avatar { width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: var(--font-size-sm); font-weight: 600; background: var(--accent-soft); color: var(--accent-text); }
@@ -65,7 +69,15 @@
 }
 .ft-bottom__link span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.125rem; }
 .ft-bottom__link[aria-current='page'] { color: var(--accent-text); font-weight: 600; }
-.ft-bottom__link[aria-current='page']::before { content: ''; position: absolute; top: 0; left: 30%; right: 30%; height: 2px; border-radius: 0 0 2px 2px; background: var(--accent); }
+.ft-bottom__link { position: relative; z-index: 1; }
+.ft-bottom__pill {
+  position: absolute; top: 0.4375rem; left: 0; width: calc(100% / var(--count)); height: 2rem; pointer-events: none;
+  transform: translateX(calc(var(--active) * 100%)); transition: transform var(--dur-2) var(--ease-in-out);
+}
+.ft-bottom__pill::before { content: ''; position: absolute; left: 50%; width: 4rem; height: 100%; transform: translateX(-50%); border-radius: var(--radius-full); background: var(--accent-soft); }
+.ft-mobile-top__actions { display: flex; align-items: center; gap: 0.5rem; }
+.ft-avatar--link { width: 2.25rem; height: 2.25rem; box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px color-mix(in srgb, var(--accent) 55%, transparent); }
+.ft-avatar--link[aria-current='page'] { background: var(--accent); color: var(--on-accent); }
 
 .ft-main-col { padding-bottom: calc(var(--navbar-height) + env(safe-area-inset-bottom)); }
 
@@ -85,6 +97,7 @@
 .ft-demo-banner__actions { display: flex; gap: 0.25rem; }
 .ft-link-btn { font-size: var(--font-size-sm); font-weight: 600; color: var(--text-primary); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; padding: 0.125rem 0.375rem; border-radius: var(--radius-sm); }
 .ft-link-btn:hover { text-decoration-color: currentColor; }
+@media (max-width: 767px) { .ft-demo-banner .ft-link-btn { padding: 0.6875rem 0.5rem; margin: -0.5rem 0; } }
 @media (max-width: 767px) { .ft-demo-banner { justify-content: space-between; padding: 0.375rem 0.75rem 0.375rem 1rem; } .ft-demo-banner__long { display: none; } }
 @media (min-width: 768px) { .ft-demo-banner__short { display: none; } }
 

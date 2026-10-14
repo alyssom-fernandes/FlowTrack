@@ -6,7 +6,7 @@
       "label": "This month in numbers",
       "balance": "Account balance",
       "income": "Income this month",
-      "expenses": "Spending this month",
+      "expenses": "Expenses this month",
       "net": "Left over this month",
       "vsMonth": "vs {{month}}",
       "sinceMonthEnd": "vs end of {{month}}",
@@ -22,12 +22,12 @@
       "title": "Monthly trend",
       "subtitle": "Last 6 months",
       "income": "Income",
-      "expenses": "Spending",
+      "expenses": "Expenses",
       "net": "Left over",
       "avgNet_one": "Left over in the period:",
-      "avgNet_other": "Average left over per month:",
-      "a11yMonth": "{{month}}, income {{income}} and spending {{expense}}",
-      "keyboardHint": "Income and spending by month. Use the arrow keys to move between months."
+      "avgNet_other": "Average monthly surplus:",
+      "a11yMonth": "{{month}}, income {{income}} and expenses {{expense}}",
+      "keyboardHint": "Income and expenses by month. Use the arrow keys to move between months."
     },
     "insight": {
       "title": "Monthly summary",
@@ -76,7 +76,9 @@
       "allGood": "All clear",
       "allGoodText": "No budgets over the limit and no negative balances.",
       "showAll": "Show all ({{count}})",
-      "showLess": "Show less"
+      "showLess": "Show less",
+      "recurringGroup_one": "{{count}} recurring payment hasn't shown up this month: {{names}}",
+      "recurringGroup_other": "{{count}} recurring payments haven't shown up this month: {{names}}"
     },
     "budgets": {
       "title": "Budgets this month",
@@ -86,8 +88,13 @@
       "left": "{{value}} left",
       "over": "{{value}} over the limit",
       "emptyTitle": "No budgets this month",
-      "emptyText": "Set a limit per category to keep track of your spending.",
-      "emptyAction": "Set a budget"
+      "emptyText": "Set a limit per category to keep track of your expenses.",
+      "emptyAction": "Set a budget",
+      "statusOk": "on pace",
+      "statusWarn": "over pace",
+      "statusOver": "over budget",
+      "more_one": "And {{count}} more budget.",
+      "more_other": "And {{count}} more budgets."
     },
     "recent": {
       "title": "Recent transactions",
@@ -123,7 +130,7 @@
       "previews": {
         "monthly": {
           "title": "Monthly trend",
-          "text": "Income and spending over the last six months, month by month."
+          "text": "Income and expenses over the last six months, month by month."
         },
         "cashflow": {
           "title": "Balance forecast",
@@ -143,6 +150,47 @@
     "actions": {
       "import": "Import statement",
       "newTransaction": "New transaction"
+    },
+    "flow": {
+      "title": "{{month}} 1–{{day}}",
+      "in": "Income",
+      "out": "Expenses",
+      "left": "Left over",
+      "short": "Short",
+      "vsSameDays_one": "{{month}} 1",
+      "vsSameDays_other": "{{month}} 1–{{day}}",
+      "rate": "{{pct}} of what came in",
+      "uncategorized": "Uncategorized",
+      "others": "{{count}} more",
+      "see": "{{name}}: {{value}}, {{pct}} of what came in. See transactions",
+      "plotLabel": "Where this month's money went",
+      "empty": "Nothing in or out this month yet.",
+      "compared": "Compared with {{range}}",
+      "showValues": "Show amounts",
+      "hideValues": "Hide amounts",
+      "showMore_one": "See the other category",
+      "showMore_other": "See the other {{count}}",
+      "showLess": "See less"
+    },
+    "pace": {
+      "title": "How much I can still spend",
+      "subtitle_one": "Across {{count}} budget: {{total}}",
+      "subtitle_other": "Across {{count}} budgets: {{total}}",
+      "freeUntil": "left until {{date}}",
+      "overTotal": "over your total budget",
+      "below": "{{value}} under pace",
+      "above": "{{value}} over pace",
+      "over": "Budgets exceeded by {{value}}",
+      "ceiling": "Budgets: {{value}}",
+      "today": "today",
+      "legendSpent": "Spent so far",
+      "legendPace": "Expected pace",
+      "howTitle": "How we calculate it",
+      "howText": "We add up this month's budgets. Fixed bills (last month's recurring expenses) count on the day they are due, and the rest of the limit is spread across the days. The dashed line is where your spending should be each day.",
+      "a11y": "{{spent}} spent so far, against {{expected}} expected by the pace and {{limit}} budgeted this month.",
+      "emptyTitle": "See your monthly pace",
+      "emptyText": "Create budgets by category to know how much you can still spend until the end of the month.",
+      "emptyAction": "Create budgets"
     }
   }
 }

@@ -55,7 +55,9 @@
       "noIncome": "No income in this period",
       "vsPrevShort": "vs previous period",
       "pp": "{{value}} pp",
-      "transfersNote": "Transfers between your own accounts are left out of the totals."
+      "transfersNote": "Transfers between your own accounts are left out of the totals.",
+      "left": "Left over in the period",
+      "ofIncome": "{{pct}} of what came in"
     },
     "delta": {
       "up": "{{value}} higher than the previous period",

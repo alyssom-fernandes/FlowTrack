@@ -7,10 +7,10 @@
     },
     "preview": {
       "title": "Statement imported",
-      "source": "Nubank · {{n}} transactions",
+      "source": "Nubank, {{n}} transactions",
       "categorizing": "Categorizing…",
       "ai": "AI · {{pct}}",
-      "budget": "Budget · {{category}}",
+      "budget": "{{category}} budget",
       "spent": "{{spent}} of {{limit}}",
       "aria": "FlowTrack preview: Nubank statement imported. {{first}} categorized as {{firstCat}} by AI with {{firstPct}} confidence; {{second}} as {{secondCat}} with {{secondPct}}. {{category}} budget at {{pct}}."
     },

@@ -14,7 +14,7 @@ export default [
   // Geral
   { id: 'perfil', rota: '/profile' },
   { id: 'perfil-preferencias-en', rota: '/profile', acao: async page => { await page.getByRole('radio', { name: 'English' }).click() } },
-  { id: 'perfil-restaurar', rota: '/profile', inteira: false, acao: async page => { await page.getByRole('button', { name: /^(restaurar|restore)$/i }).click() } },
+  { id: 'perfil-restaurar', rota: '/profile', inteira: false, acao: async page => { await page.getByRole('button', { name: /^(restaurar|restore|reset)$/i }).click() } },
 
   // Contas
   { id: 'perfil-contas', rota: '/profile?tab=accounts' },

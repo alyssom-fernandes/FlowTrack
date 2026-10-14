@@ -39,6 +39,8 @@ export function allocation(list: Investment[]): Slice[] {
       const idx = hued.indexOf(key)
       return { ...s, share: total > 0 ? (s.value / total) * 100 : 0, color: idx >= 0 ? `var(--chart-${idx + 1})` : 'var(--chart-8)' }
     })
+    // A cor segue o tipo; a ordem segue o valor atual (maior primeiro), "Outros" sempre no fim
+    .sort((a, b) => (a.key === 'outro' ? 1 : b.key === 'outro' ? -1 : b.value - a.value))
 }
 
 export function colorByType(slices: Slice[]): (type: InvestmentType) => string {

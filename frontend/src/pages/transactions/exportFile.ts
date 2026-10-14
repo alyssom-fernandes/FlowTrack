@@ -1,8 +1,8 @@
 // ── Exportação no navegador (CSV e Excel), respeitando os filtros ──
 import i18n from '../../i18n'
-import { buildCsv, downloadBlob, exportFileName } from '../../lib/export'
+import { buildCsv, downloadBlob, exportFileName, generatedAt } from '../../lib/export'
 import { buildXlsx, type XlsxColumn, type XlsxValue } from '../../lib/xlsx'
-import { categoryLabel, currentLocale, formatCurrency, formatDate } from '../../utils'
+import { categoryLabel, currentLocale, formatDate } from '../../utils'
 import type { Account, Category, Transaction } from '../../types'
 import { fetchAll, NO_CATEGORY, periodRange, sumFlows, type Filters } from './shared'
 
@@ -28,7 +28,7 @@ export function describeFilters(f: Filters, accounts: Account[], categories: Cat
   if (f.type) parts.push(tr('type', { value: tr(f.type === 'credit' ? 'typeCredit' : f.type === 'debit' ? 'typeDebit' : 'typeTransfer') }))
   if (f.tag) parts.push(tr('tag', { value: `#${f.tag}` }))
   if (f.search.trim()) parts.push(tr('search', { value: f.search.trim() }))
-  parts.push(tr('generated', { date: formatDate(new Date().toISOString()) }))
+  parts.push(tr('generated', { date: generatedAt(currentLocale()) }))
   return parts.join(' · ')
 }
 
@@ -61,7 +61,7 @@ export async function exportTransactions(format: ExportFormat, filters: Filters,
       t.notes ?? '',
     ]
   })
-  const name = exportFileName('transacoes')
+  const name = exportFileName(tr('fileBase'))
 
   if (format === 'csv') {
     downloadBlob(buildCsv(columns, rows, currentLocale()), `${name}.csv`)
@@ -75,7 +75,12 @@ export async function exportTransactions(format: ExportFormat, filters: Filters,
     subtitle: describeFilters(filters, accounts, categories),
     columns,
     rows,
-    totals: [tr('total'), tr('totals', { income: formatCurrency(flows.income), expense: formatCurrency(flows.expense) }), '', '', tr('net'), flows.net, '', ''],
+    // Totais em células numéricas (dá para usar em fórmulas); transferências ficam fora
+    totals: [
+      [tr('totalIncome'), '', '', '', '', flows.income, '', ''],
+      [tr('totalExpense'), '', '', '', '', -flows.expense, '', ''],
+      [tr('net'), '', '', '', '', flows.net, '', ''],
+    ],
   }], { title: tr('sheetTitle'), author: 'FlowTrack', locale: currentLocale() })
   downloadBlob(blob, `${name}.xlsx`)
   return txs.length

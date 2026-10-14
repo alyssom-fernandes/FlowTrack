@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { Badge, Button, EmptyState, Money, Modal, Select, Spinner, Tabs } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { transactionsService } from '../../services'
-import { formatCurrency, formatDateShort } from '../../utils'
+import { formatCurrency, formatDateShort, formatSignedCurrency } from '../../utils'
 import type { Account, ParsedTransaction } from '../../types'
 import { guessMapping, interpret, parseCsv, type CsvMapping, type CsvTable } from './csv'
 import { amountToInput, parseAmount, useIsMobile } from './shared'
@@ -59,6 +59,8 @@ export function ImportModal({ open, onClose, accounts, defaultAccountId, onImpor
   const mobile = useIsMobile()
   const inputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>('choose')
+  // Valor em edição fica cru ("-54,90"); fora da edição aparece como no resto do app ("-R$ 54,90")
+  const [editingAmount, setEditingAmount] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const [accountId, setAccountId] = useState('')
@@ -257,7 +259,9 @@ export function ImportModal({ open, onClose, accounts, defaultAccountId, onImpor
                 <input type="checkbox" className="tx-rrow__check" checked={r.selected} aria-label={t('transactions.import.rowSelect', { n: i + 1 })} onChange={() => update(r.key, { selected: !r.selected })} />
                 <input type="date" className="tx-cell tx-rrow__date" value={r.date} aria-label={t('transactions.import.rowDate', { n: i + 1 })} onChange={e => update(r.key, { date: e.target.value })} />
                 <input className="tx-cell tx-rrow__desc" value={r.description} aria-label={t('transactions.import.rowDescription', { n: i + 1 })} onChange={e => update(r.key, { description: e.target.value })} />
-                <input className={`tx-cell tx-rrow__amt ft-num${bad ? ' is-bad' : r.amount > 0 ? ' is-in' : ' is-out'}`} inputMode="decimal" value={r.amountStr} aria-invalid={bad || undefined}
+                <input className={`tx-cell tx-rrow__amt ft-num${bad ? ' is-bad' : r.amount > 0 ? ' is-in' : ' is-out'}`} inputMode="decimal"
+                  value={editingAmount === r.key || !Number.isFinite(r.amount) ? r.amountStr : formatSignedCurrency(r.amount)} aria-invalid={bad || undefined}
+                  onFocus={e => { setEditingAmount(r.key); requestAnimationFrame(() => e.target.select()) }} onBlur={() => setEditingAmount(null)}
                   aria-label={t('transactions.import.rowAmount', { n: i + 1 })} onChange={e => update(r.key, { amountStr: e.target.value })} />
               </li>
             )

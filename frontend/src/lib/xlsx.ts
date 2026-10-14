@@ -19,7 +19,7 @@ export interface XlsxSheet {
   subtitle?: string
   columns: XlsxColumn[]
   rows: XlsxValue[][]
-  totals?: XlsxValue[] // linha final em negrito (use '' nas colunas sem total)
+  totals?: XlsxValue[] | XlsxValue[][] // linha(s) finais em negrito (use '' nas colunas sem total)
 }
 
 // Índices de estilo (cellXfs em styles.xml)
@@ -70,12 +70,15 @@ function sheetXml(sheet: XlsxSheet): string {
     r++
   }
   const lastDataRow = r - 1
-  if (sheet.totals) {
+  const totalRows = !sheet.totals ? [] : Array.isArray(sheet.totals[0]) ? sheet.totals as XlsxValue[][] : [sheet.totals as XlsxValue[]]
+  for (const total of totalRows) {
     rows.push(`<row r="${r}">${sheet.columns.map((c, i) => {
-      const v = sheet.totals![i]
+      const v = total[i]
       const st = typeof v === 'number' ? (c.type === 'currency' ? S.boldCurrency : S.boldNumber) : S.bold
+      // O rótulo vai como texto mesmo na coluna de data
       return cell(`${colName(i)}${r}`, v, typeof v === 'number' ? (c.type === 'percent' ? 'percent' : c.type || 'number') : 'text', st)
     }).join('')}</row>`)
+    r++
   }
   const lastCol = colName(sheet.columns.length - 1)
   const cols = sheet.columns.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${c.width ?? Math.max(10, Math.min(48, c.header.length + 4))}" customWidth="1"/>`).join('')

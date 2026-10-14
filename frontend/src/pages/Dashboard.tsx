@@ -5,16 +5,15 @@ import { Icon } from '../components/icons'
 import { Button, Card, EmptyState, Page, PageHeader } from '../components/ui'
 import { useAlertsStore, useToastStore } from '../store'
 import { transactionsService, accountsService, categoriesService, summaryService, insightsService, cashflowService, budgetsService, netWorthService } from '../services'
-import { formatCurrency, formatCurrencyCompact, formatMonth, formatPercent, getCurrentMonthRange } from '../utils'
+import { formatMonth, formatPercent, getCurrentMonthRange, toISODate } from '../utils'
 import type { Transaction, Account, Category, CashflowProjection, Budget, NetWorth, InsightResponse } from '../types'
-import { AlertsCard, BudgetsCard, CashflowCard, DashboardSkeleton, InsightCard, KpiTile, MonthlyCard, NetWorthCard, Onboarding, RecentCard, type Delta } from './dashboard/cards'
-import { dailyProjection, lastMonths, monthKey, pctChange, type MonthTotals } from './dashboard/data'
+import { AlertsCard, BudgetsCard, CashflowCard, DashboardSkeleton, InsightCard, NetWorthCard, Onboarding, RecentCard, type Delta } from './dashboard/cards'
+import { dailyProjection, monthKey, pctChange, type MonthTotals } from './dashboard/data'
+import { FlowHero } from './dashboard/flow'
+import { PaceCard } from './dashboard/pace'
 import './dashboard/dashboard.css'
 
 const isFlow = (tx: Transaction) => tx.type !== 'transfer'
-
-// Valores muito altos viram "R$ 1,2 mi" para caber no cartão
-const kpiMoney = (v: number) => (Math.abs(v) >= 100_000 ? formatCurrencyCompact(v) : formatCurrency(v))
 
 export function Dashboard() {
   const { t } = useTranslation()
@@ -32,6 +31,7 @@ export function Dashboard() {
   const [cashflow, setCashflow] = useState<CashflowProjection | null>(null)
   const [budgets, setBudgets] = useState<Budget[] | null>(null)
   const [netWorth, setNetWorth] = useState<NetWorth | null | false>(null)
+  const [prevMonthTx, setPrevMonthTx] = useState<Transaction[] | null>(null)
   const [insight, setInsight] = useState<InsightResponse | null>(null)
   const [insightLoading, setInsightLoading] = useState(false)
   const [insightError, setInsightError] = useState(false)
@@ -57,10 +57,22 @@ export function Dashboard() {
     cashflowService.projection().then(r => { if (alive) setCashflow(r) }).catch(() => { if (alive) setCashflow({ days: [], starting_balance: 0, projected_balance: 0, has_negative_days: false }) })
     budgetsService.list(currentMonth).then(r => { if (alive) setBudgets(r.budgets || []) }).catch(() => { if (alive) setBudgets([]) })
     netWorthService.get().then(r => { if (alive) setNetWorth(r) }).catch(() => { if (alive) setNetWorth(false) })
+    // Mês anterior inteiro: comparação "até o mesmo dia" e contas fixas para o ritmo
+    const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0)
+    transactionsService.list({ start_date: toISODate(prevStart), end_date: toISODate(prevEnd), page_size: 500 })
+      .then(r => { if (alive) setPrevMonthTx(r.transactions || []) })
+      .catch(() => { if (alive) setPrevMonthTx([]) })
     return () => { alive = false }
   }, [attempt]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const months6 = useMemo(() => lastMonths(summary, 6, now), [summary, now])
+  // Mês anterior até o mesmo dia: o mês corrente ainda não acabou, então a comparação é justa
+  const prevToDate = useMemo(() => {
+    if (!prevMonthTx) return null
+    const f = prevMonthTx.filter(tx => isFlow(tx) && Number(tx.transaction_date.slice(8, 10)) <= now.getDate())
+    if (!f.length) return null
+    return { income: f.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0), expense: -f.filter(tx => tx.amount < 0).reduce((s, tx) => s + tx.amount, 0) }
+  }, [prevMonthTx, now])
   const hasHistory = summary.some(m => m.income || m.expense) || transactions.length > 0
   const isNew = status === 'ready' && !hasHistory
 
@@ -89,13 +101,6 @@ export function Dashboard() {
   const points = useMemo(() => (cashflow ? dailyProjection(cashflow, now) : []), [cashflow, now])
 
   // ── Métricas do mês ─────────────────────────────────────
-  const flows = transactions.filter(isFlow)
-  const fromSummary = summary.find(m => m.month === currentMonth)
-  const income = fromSummary ? fromSummary.income : flows.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0)
-  const expenses = fromSummary ? fromSummary.expense : Math.abs(flows.filter(tx => tx.amount < 0).reduce((s, tx) => s + tx.amount, 0))
-  const prev = months6[months6.length - 2]
-  const net = income - expenses
-  const rate = income > 0 ? (net / income) * 100 : null
   const balance = accounts.reduce((s, a) => s + a.balance, 0)
   const prevShort = formatMonth(prevMonth, 'short')
   const vsPrev = t('dashboard.kpi.vsMonth', { month: prevShort })
@@ -108,8 +113,6 @@ export function Dashboard() {
     const tone = dir === 'flat' ? 'neutral' : (dir === 'up') === upIsGood ? 'good' : 'bad'
     return { text: formatPercent(pct, 1), dir, tone, ref }
   }
-  const prevNet = prev && (prev.income || prev.expense) ? prev.income - prev.expense : undefined
-  const netDelta = delta(net, prevNet, true)
   const prevSnap = netWorth ? netWorth.snapshots.find(s => s.date.startsWith(prevMonth)) : undefined
   const balanceDelta = prevSnap ? delta(balance, prevSnap.total_accounts, true, t('dashboard.kpi.sinceMonthEnd', { month: prevShort })) : null
 
@@ -156,30 +159,16 @@ export function Dashboard() {
     <Page>
       {header}
       <div className="ft-dash">
-        <div className="ft-dash-grid">
-          <section className="ft-dash-kpis" aria-label={t('dashboard.kpi.label')}>
-            <KpiTile label={t('dashboard.kpi.balance')} value={kpiMoney(balance)} negative={balance < 0} delta={balanceDelta}
-              foot={<span className="ft-kpi__ref">{accounts.length ? t('dashboard.kpi.accounts', { count: accounts.length }) : t('dashboard.kpi.noAccounts')}</span>} />
-            <KpiTile label={t('dashboard.kpi.income')} value={kpiMoney(income)} delta={delta(income, prev?.income || undefined, true)}
-              foot={<span className="ft-kpi__ref">{t('dashboard.kpi.noComparison', { month: prevShort })}</span>} />
-            <KpiTile label={t('dashboard.kpi.expenses')} value={kpiMoney(expenses)} delta={delta(expenses, prev?.expense || undefined, false)}
-              foot={<span className="ft-kpi__ref">{t('dashboard.kpi.noComparison', { month: prevShort })}</span>} />
-            <KpiTile label={t('dashboard.kpi.net')} value={kpiMoney(net)} negative={net < 0} delta={netDelta}
-              foot={rate === null ? <span className="ft-kpi__ref">{t('dashboard.kpi.noIncome')}</span> : undefined}
-              extra={rate !== null
-                ? <span className="ft-kpi__ref">{t(netDelta ? 'dashboard.kpi.savedShort' : 'dashboard.kpi.savingsRate')} <strong className="ft-num" style={{ color: rate < 0 ? 'var(--red)' : 'var(--text-secondary)' }}>{formatPercent(rate, 0, false)}</strong></span>
-                : undefined} />
-          </section>
-
-          <MonthlyCard data={months6} currentMonth={currentMonth} />
-          {netWorth !== false && <NetWorthCard nw={netWorth} />}
-          <CashflowCard cashflow={cashflow} points={points} />
-          <div className="ft-dash-side">
-            <InsightCard insight={insight} loading={insightLoading} error={insightError} onRefresh={loadInsight} />
-            <AlertsCard alerts={alerts} loading={alertsLoading} error={alertsError} onRetry={reloadAlerts} />
-          </div>
+        <div className="ft-dash-grid ft-rise">
+          <FlowHero transactions={transactions} categories={categories} balance={balance} balanceDelta={balanceDelta}
+            accountsCount={accounts.length} prev={prevToDate} now={now} />
+          <PaceCard transactions={transactions} previousMonth={prevMonthTx} budgets={budgets} monthKey={currentMonth} now={now} />
+          <AlertsCard alerts={alerts} loading={alertsLoading} error={alertsError} onRetry={reloadAlerts} />
           <RecentCard transactions={recent} categories={categories} accounts={accounts} />
-          <BudgetsCard budgets={budgets ?? []} categories={categories} loading={budgets === null} />
+          <BudgetsCard budgets={budgets ?? []} categories={categories} loading={budgets === null} previousMonth={prevMonthTx} monthKey={currentMonth} now={now} />
+          <CashflowCard cashflow={cashflow} points={points} />
+          {netWorth !== false && <NetWorthCard nw={netWorth} />}
+          <InsightCard insight={insight} loading={insightLoading} error={insightError} onRefresh={loadInsight} />
         </div>
       </div>
     </Page>

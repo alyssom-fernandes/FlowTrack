@@ -150,7 +150,15 @@
         "copied_other": "{{count}} budgets copied from {{month}}",
         "copyError": "Couldn't copy the budgets.",
         "deleteError": "Couldn't delete the budget."
-      }
+      },
+      "restOf": "Spent {{spent}} of {{limit}} budgeted",
+      "paceBelow": "{{value}} under pace",
+      "paceAbove": "{{value}} over pace",
+      "paceOver": "Over budget",
+      "statusOk": "on pace",
+      "statusWarn": "over pace",
+      "statusOver": "over budget",
+      "free": "{{value}} left"
     }
   }
 }

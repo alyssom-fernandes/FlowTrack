@@ -386,8 +386,8 @@ route('GET', '/alerts', () => {
     const cur = goalCurrent(g)
     const pct = g.target_amount > 0 ? (cur / g.target_amount) * 100 : 0
     const remaining = r2(g.target_amount - cur)
-    if (pct >= 100) alerts.push({ type: 'danger', message: isEn() ? `Goal "${g.name}" exceeded by ${brl(Math.abs(remaining))}` : `Meta "${g.name}" excedida em ${brl(Math.abs(remaining))}`, category: 'budget', amount: Math.abs(remaining) })
-    else if (pct >= 75) alerts.push({ type: 'warning', message: isEn() ? `Goal "${g.name}" at ${pct.toFixed(0)}%, ${brl(remaining)} left` : `Meta "${g.name}" em ${pct.toFixed(0)}%, faltam ${brl(remaining)}`, category: 'budget', amount: remaining })
+    if (pct >= 100) alerts.push({ type: 'danger', message: isEn() ? `Goal “${g.name}” exceeded by ${brl(Math.abs(remaining))}` : `Meta “${g.name}” excedida em ${brl(Math.abs(remaining))}`, category: 'budget', amount: Math.abs(remaining) })
+    else if (pct >= 75) alerts.push({ type: 'warning', message: isEn() ? `Goal “${g.name}” at ${pct.toFixed(0)}%, ${brl(remaining)} left` : `Meta “${g.name}” em ${pct.toFixed(0)}%, faltam ${brl(remaining)}`, category: 'budget', amount: remaining })
   }
   for (const a of d.accounts.filter(x => x.is_active && x.balance < 0)) alerts.push({ type: 'danger', message: isEn() ? `Negative balance: ${a.name}` : `Saldo negativo: ${a.name}`, category: 'account', amount: a.balance })
 
@@ -400,9 +400,10 @@ route('GET', '/alerts', () => {
   for (const t of d.transactions.filter(x => x.is_recurring && x.transaction_date >= prev.start && x.transaction_date <= prev.end)) {
     const n = normalizeDesc(t.description)
     if (seen.has(n) || currNorms.has(n)) continue
+    if (now.getDate() < Number(t.transaction_date.slice(8, 10)) + 2) continue
     seen.add(n)
     if (seen.size > 5) break
-    alerts.push({ type: 'info', message: isEn() ? `Recurring "${t.description}" not seen this month` : `Recorrente "${t.description}" não apareceu este mês`, category: 'recurring' })
+    alerts.push({ type: 'info', message: isEn() ? `Recurring “${t.description}” not seen this month` : `Recorrente “${t.description}” não apareceu este mês`, category: 'recurring' })
   }
 
   const month = start.slice(0, 7)
@@ -412,8 +413,8 @@ route('GET', '/alerts', () => {
     const s = spent[b.category_id] || 0
     const pct = b.limit_amount > 0 ? (s / b.limit_amount) * 100 : 0
     const name = categoryLabel(d.categories.find(c => c.id === b.category_id), isEn() ? 'Category' : 'Categoria')
-    if (pct >= 100) alerts.push({ type: 'danger', message: isEn() ? `Budget "${name}" exceeded` : `Orçamento "${name}" estourado`, category: 'budget' })
-    else if (pct >= 80) alerts.push({ type: 'warning', message: isEn() ? `Budget "${name}" at ${pct.toFixed(0)}%, ${brl(b.limit_amount - s)} left` : `Orçamento "${name}" em ${pct.toFixed(0)}%, faltam ${brl(b.limit_amount - s)}`, category: 'budget', amount: r2(b.limit_amount - s) })
+    if (pct >= 100) alerts.push({ type: 'danger', message: isEn() ? `Budget “${name}” exceeded` : `Orçamento “${name}” estourado`, category: 'budget' })
+    else if (pct >= 80) alerts.push({ type: 'warning', message: isEn() ? `Budget “${name}” at ${pct.toFixed(0)}%, ${brl(b.limit_amount - s)} left` : `Orçamento “${name}” em ${pct.toFixed(0)}%, faltam ${brl(b.limit_amount - s)}`, category: 'budget', amount: r2(b.limit_amount - s) })
   }
   return { alerts, total: alerts.length }
 })
@@ -432,7 +433,7 @@ route('GET', '/cashflow/projection', () => {
   // (no mês corrente a demonstração comprime as datas até hoje)
   const thisMonth = iso(new Date(today.getFullYear(), today.getMonth(), 1))
   const byKey = new Map<string, Transaction>()
-  const recurring = d.transactions.filter(t => t.is_recurring && t.transaction_date >= lookback).sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
+  const recurring = d.transactions.filter(t => t.is_recurring && t.type !== 'transfer' && t.transaction_date >= lookback).sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
   for (const r of recurring) {
     const key = `${r.account_id}|${normalizeDesc(r.description)}`
     const cur = byKey.get(key)
@@ -483,7 +484,7 @@ route('GET', '/net-worth', () => {
 })
 
 route('GET', '/projections', () => {
-  const history = monthlyTotals(monthsAgoStart(5))
+  const history = monthlyTotals(monthsAgoStart(11))
   if (!history.length) return { history: [], projections: [], months_available: 0, avg_income: 0, avg_expense: 0 }
   // O mês corrente ainda está pela metade: entra no gráfico, mas não na conta
   const currentKey = monthsAgoStart(0).slice(0, 7)
@@ -507,6 +508,31 @@ route('GET', '/projections', () => {
   })
   return { history: history.map(h => ({ ...h, is_projection: false })), projections, months_available: n, avg_income: r2(avgIncome), avg_expense: r2(avgExpense) }
 })
+
+// Frase da reserva no resumo: mesma regra da tela de Metas (goals/helpers.ts, describeGoal):
+// atrasada quando o guardado está mais de 5 pontos abaixo da fração do prazo que já passou.
+function reserveSentence(g: GoalRow): string {
+  const now = new Date()
+  const { start, end } = goalRange(g)
+  const cur = goalCurrent(g)
+  const missing = r2(g.target_amount - cur)
+  const name = `“${g.name}”`
+  if (missing <= 0) return isEn() ? `${name} has been reached.` : `A meta ${name} já foi atingida.`
+  const s0 = new Date(start + 'T00:00:00').getTime(), e0 = new Date(end + 'T00:00:00').getTime()
+  const elapsed = Math.min(1, Math.max(0, (now.getTime() - s0) / (e0 - s0 + 86_400_000)))
+  const pct = (cur / g.target_amount) * 100
+  const monthsLeft = Math.max(1, (new Date(end).getFullYear() - now.getFullYear()) * 12 + new Date(end).getMonth() - now.getMonth() + 1)
+  const endLabel = new Intl.DateTimeFormat(isEn() ? 'en-US' : 'pt-BR', { month: 'long' }).format(new Date(end + 'T00:00:00'))
+  if (pct >= elapsed * 100 - 5) {
+    return isEn()
+      ? `${name} is on pace: ${pct.toFixed(0)}% saved with ${(elapsed * 100).toFixed(0)}% of the time gone.`
+      : `A meta ${name} está no ritmo: ${pct.toFixed(0)}% guardados com ${(elapsed * 100).toFixed(0)}% do prazo passado.`
+  }
+  const perMonth = brl(missing / monthsLeft)
+  return isEn()
+    ? `To finish ${name} by ${endLabel}, ${brl(missing)} is missing: about ${perMonth} a month.`
+    : `Para a meta ${name} fechar em ${endLabel}, faltam ${brl(missing)}: cerca de ${perMonth} por mês.`
+}
 
 route('POST', '/insights', async ({ body }) => {
   const { start_date, end_date } = body as { start_date: string; end_date: string }
@@ -534,13 +560,7 @@ route('POST', '/insights', async ({ body }) => {
         `Você guardou ${rate.toFixed(0)}% do que entrou no período: ${brl(income)} de receitas contra ${brl(expense)} de gastos.`,
         topName ? `${topName} foi a maior despesa, com ${brl(top![1])}, ${share}% do total.` : '',
       ]
-  if (reserve) {
-    const cur = goalCurrent(reserve)
-    const missing = reserve.target_amount - cur
-    const months = Math.ceil(missing / Math.max(income - expense, 1))
-    if (isEn()) parts.push(missing > 0 ? `At this pace, "${reserve.name}" is reached in about ${months} ${months === 1 ? 'month' : 'months'}.` : `"${reserve.name}" has already been reached.`)
-    else parts.push(missing > 0 ? `No ritmo atual, a meta "${reserve.name}" fica completa em cerca de ${months} ${months === 1 ? 'mês' : 'meses'}.` : `A meta "${reserve.name}" já foi atingida.`)
-  }
+  if (reserve) parts.push(reserveSentence(reserve))
   const text = parts.filter(Boolean).join(' ')
   const ts = nowIso()
   d.insight_cache[key] = { text, ts }

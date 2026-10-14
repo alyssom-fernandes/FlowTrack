@@ -55,7 +55,9 @@
       "noIncome": "Sem receitas no período",
       "vsPrevShort": "vs. período anterior",
       "pp": "{{value}} p.p.",
-      "transfersNote": "Transferências entre suas contas não entram nos totais."
+      "transfersNote": "Transferências entre suas contas não entram nos totais.",
+      "left": "Sobra do período",
+      "ofIncome": "{{pct}} do que entrou"
     },
     "delta": {
       "up": "{{value}} acima do período anterior",
@@ -113,7 +115,7 @@
       "new": "nova",
       "total": "Total",
       "emptyTitle": "Nenhum gasto no período",
-      "emptyText": "Só houve entradas nestas datas."
+      "emptyText": "Só houve receitas nestas datas."
     },
     "top": {
       "title": "Maiores gastos",

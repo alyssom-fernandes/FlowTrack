@@ -14,7 +14,7 @@
     "or": "or",
     "optional": "Optional...",
     "select": "Select...",
-    "noCategory": "No category",
+    "noCategory": "Uncategorized",
     "allAccounts": "All accounts",
     "allCategories": "All categories",
     "allTags": "All tags",
@@ -56,6 +56,11 @@
     "confirm": "Confirm",
     "crashTitle": "Something went wrong",
     "crashText": "This screen hit an unexpected error. Reloading usually fixes it; your data was not lost.",
-    "reload": "Reload"
+    "reload": "Reload",
+    "notFound": {
+      "title": "Page not found",
+      "text": "The address {{path}} doesn't exist in FlowTrack.",
+      "action": "Go to the dashboard"
+    }
   }
 }

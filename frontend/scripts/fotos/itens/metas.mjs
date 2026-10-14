@@ -29,9 +29,10 @@ export default [
     // Situações que a demonstração não tem de saída: limite estourado, limite perto do fim e meta concluída
     id: 'metas-situacoes', rota: '/goals',
     acao: async page => {
-      await mudarAlvo(page, 1, '250')
-      await mudarAlvo(page, 2, '1800')
-      await mudarAlvo(page, 3, '10000')
+      // Limites (Assinaturas e Lazer no ano) e a reserva: estourado, perto do limite e atingida
+      await mudarAlvo(page, 0, '1500')
+      await mudarAlvo(page, 1, '1300')
+      await mudarAlvo(page, 2, '10000')
       await page.locator('.ft-toast').last().waitFor({ state: 'hidden', timeout: 8000 }).catch(() => {})
       // Volta ao topo para o cabeçalho fixo não aparecer no meio da foto inteira
       await page.evaluate(() => window.scrollTo(0, 0))

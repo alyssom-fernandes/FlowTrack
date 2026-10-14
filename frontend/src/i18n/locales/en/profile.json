@@ -48,10 +48,10 @@
     },
     "data": {
       "title": "Data and session",
-      "restore": "Restore sample data",
+      "restore": "Reset sample data",
       "restoreHint": "Discards your changes and goes back to the original sample data.",
-      "restoreAction": "Restore",
-      "restoreConfirmTitle": "Restore sample data?",
+      "restoreAction": "Reset",
+      "restoreConfirmTitle": "Reset sample data?",
       "restoreConfirmText": "Accounts, transactions, goals and categories go back to their initial state. Changes made in this tab will be discarded.",
       "exitDemo": "Leave the demo",
       "exitDemoHint": "Clears this tab's data and returns to the sign-in screen.",

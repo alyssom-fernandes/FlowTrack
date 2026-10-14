@@ -23,6 +23,9 @@
     "skipToContent": "Pular para o conteúdo",
     "alertsError": "Não foi possível carregar os alertas.",
     "retry": "Tentar de novo",
-    "transactionsShort": "Transações"
+    "transactionsShort": "Transações",
+    "group_daily": "Dia a dia",
+    "group_plan": "Planejar",
+    "group_account": "Conta"
   }
 }

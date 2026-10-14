@@ -50,8 +50,12 @@ export default [
   { id: 'dashboard', rota: '/dashboard' },
   { id: 'dashboard-vazio', rota: '/dashboard', vazio: true },
   {
-    id: 'dashboard-dica-mensal', rota: '/dashboard', inteira: false,
-    acao: (page, { mobile }) => apontar(page, '[data-chart="mensal"]', 0.62, mobile),
+    // "Quanto ainda posso gastar": gasto do mês contra a linha do ritmo
+    id: 'dashboard-ritmo', rota: '/dashboard', inteira: false,
+    acao: async page => {
+      await page.locator('.ft-dash-pace [data-chart="ritmo"] svg').waitFor()
+      await centralizar(page.locator('.ft-dash-pace'))
+    },
   },
   {
     id: 'dashboard-dica-projecao', rota: '/dashboard', inteira: false,
@@ -62,10 +66,10 @@ export default [
     acao: (page, { mobile }) => apontar(page, '[data-chart="patrimonio"]', 0.5, mobile),
   },
   {
-    // Teclado: foco no gráfico e setas percorrem os meses
+    // Teclado: foco no gráfico da projeção e setas percorrem os dias
     id: 'dashboard-teclado', rota: '/dashboard', inteira: false, somente: 'desktop',
     acao: async page => {
-      const grafico = page.locator('.ft-chart:has([data-chart="mensal"])')
+      const grafico = page.locator('.ft-chart:has([data-chart="projecao"])')
       await grafico.focus()
       await page.keyboard.press('ArrowLeft')
       await page.keyboard.press('ArrowLeft')
@@ -129,20 +133,27 @@ At this pace, the emergency fund is complete in about 4 months.` }
     },
   },
   {
-    // Saldo baixo e o aluguel caindo no meio da janela: a projeção fica negativa
+    // Dia 20, saldo baixo e um gasto recorrente grande no dia 22, antes do salário (dia 5):
+    // a projeção fica negativa por alguns dias e o selo "Saldo negativo previsto" aparece
     id: 'dashboard-projecao-negativa', rota: '/dashboard', inteira: false,
     acao: async page => {
+      const h = new Date()
+      await page.clock.setFixedTime(new Date(h.getFullYear(), h.getMonth(), 20, 10, 0))
+      await page.evaluate(() => sessionStorage.removeItem('ft-demo-db'))
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.locator('.ft-dash-cashflow [data-chart="projecao"] svg').waitFor()
       await mexerNaBase(page, (db) => {
-        const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
         const hoje = new Date()
-        const alvo = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 13)
-        const aluguel = db.transactions.find(t => t.id === 'tx-0-1')
-        aluguel.transaction_date = iso(new Date(alvo.getFullYear(), alvo.getMonth() - 1, alvo.getDate()))
+        const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        const mesPassado = iso(new Date(hoje.getFullYear(), hoje.getMonth() - 1, 22))
+        const base = db.transactions.find(t => t.account_id === 'acc-nub')
+        db.transactions.unshift({ ...base, id: 'tx-seguro', description: 'Seguro do carro', amount: -2400, category_id: 'cat-2', transaction_date: mesPassado, is_recurring: true, installment_current: undefined, installment_total: undefined, type: 'debit', tags: undefined, notes: undefined })
         const saldos = { 'acc-nub': 900, 'acc-inter': 250, 'acc-sic': 50 }
         db.accounts.forEach(a => { a.balance = saldos[a.id] ?? a.balance })
       })
       const card = page.locator('.ft-dash-cashflow')
       await card.locator('[data-chart="projecao"] svg').waitFor()
+      await card.getByText(/saldo negativo previsto|negative balance expected/i).first().waitFor()
       await centralizar(card)
     },
   },

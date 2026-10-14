@@ -133,7 +133,7 @@ export function Login() {
           <h2 className="ent-heading">{t('login.demo.title')}</h2>
           <p className="ent-sub">{t('login.demo.text')}</p>
         </div>
-        <Button size="lg" block iconRight="arrowRight" loading={demoLoading} onClick={handleDemo}>{t('login.demo.cta')}</Button>
+        <Button size="lg" block iconRight="arrowRight" className="ent-cta" loading={demoLoading} onClick={handleDemo}>{t('login.demo.cta')}</Button>
         <p className="ent-hint">{t('login.demo.hint')}</p>
         {demoError && <Notice tone="red" icon="alertCircle">{t('login.demo.error')}</Notice>}
 

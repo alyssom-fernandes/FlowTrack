@@ -17,8 +17,14 @@ for (const [path, content] of Object.entries(files)) {
   Object.assign(resources[lang].translation, content)
 }
 
+// Escolha salva; na primeira visita, o idioma do navegador (português ou, fora isso, inglês)
 export function getSavedLanguage(): string {
-  try { return localStorage.getItem(LANG_KEY) || 'pt' } catch { return 'pt' }
+  try {
+    const saved = localStorage.getItem(LANG_KEY)
+    if (saved) return saved
+  } catch { /* ignora */ }
+  const nav = typeof navigator !== 'undefined' ? navigator.language || '' : ''
+  return !nav || nav.toLowerCase().startsWith('pt') ? 'pt' : 'en'
 }
 
 // Troca o idioma da interface e lembra a escolha

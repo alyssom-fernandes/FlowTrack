@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, EmptyState, Input, Page, PageHeader, Select, Skeleton, Tabs } from '../components/ui'
+import { Badge, Button, Card, EmptyState, Input, Page, PageHeader, Select, Skeleton, Tabs, Money } from '../components/ui'
 import { Icon, type IconName } from '../components/icons'
 import { accountsService, categoriesService, projectionsService, transactionsService } from '../services'
 import { useToastStore } from '../store'
@@ -107,17 +107,6 @@ function ExportMenu({ disabled, busy, onPick }: { disabled: boolean; busy: Expor
         </div>
       )}
     </div>
-  )
-}
-
-// ── Indicador do resumo ───────────────────────────────────
-function Kpi({ label, value, dot, color, foot }: { label: string; value: string; dot?: string; color?: string; foot: ReactNode }) {
-  return (
-    <Card className="rp-kpi">
-      <div className="rp-kpi__label">{dot && <span className="rp-kpi__dot" style={{ background: dot }} aria-hidden />}{label}</div>
-      <div className="rp-kpi__value" style={{ color }}>{value}</div>
-      <div className="rp-kpi__foot">{foot}</div>
-    </Card>
   )
 }
 
@@ -325,7 +314,7 @@ export function Reports() {
       <ReportTable caption={t(report.g === 'week' ? 'reports.flow.titleWeek' : 'reports.flow.titleMonth')} columns={flowCols} rows={flowRows} rowKey={b => b.key} totals={flowTotals} listBelow={showPrev ? 720 : 540} />
     )
 
-    const colorOf = (i: number) => report.categories.length <= 6 || i < 5 ? report.slices[i]?.color : 'var(--chart-8)'
+    const colorOf = (i: number) => report.categories.length <= 6 || i < 5 ? report.categories[i]?.color : 'var(--cat-other)'
     const catCols: Column<CategoryRow & { i: number }>[] = [
       { key: 'name', header: t('reports.table.category'), title: true, render: c => <span className="rp-cell-cat"><i style={{ background: colorOf(c.i) }} aria-hidden />{c.name}</span> },
       { key: 'count', header: t('reports.table.count'), align: 'right', hideMobile: true, render: c => c.count },
@@ -344,12 +333,32 @@ export function Reports() {
 
     body = (
       <div className="rp-body" aria-busy={loading || undefined}>
-        <section className="rp-kpis" aria-label={t('reports.kpi.label')}>
-          <Kpi label={t('reports.kpi.income')} dot="var(--chart-income)" value={formatCurrency(s.income)} foot={foot(pctChange(s.income, p.income), true)} />
-          <Kpi label={t('reports.kpi.expense')} dot="var(--chart-expense)" value={formatCurrency(s.expense)} foot={foot(pctChange(s.expense, p.expense), false)} />
-          <Kpi label={t('reports.kpi.balance')} value={formatCurrency(s.balance)} color={s.balance < 0 ? 'var(--red)' : undefined} foot={foot(pctChange(s.balance, p.balance), true)} />
-          <Kpi label={t('reports.kpi.savings')} value={s.savingsRate === null ? '—' : formatPercent(s.savingsRate, 1, false)}
-            foot={s.savingsRate === null ? <span>{t('reports.kpi.noIncome')}</span> : foot(p.savingsRate === null ? null : s.savingsRate - p.savingsRate, true, 'pp')} />
+        <section className="rp-kpis rp-kpis--strip ft-card ft-card--hero" aria-label={t('reports.kpi.label')}>
+          <div className="rp-kpis__main">
+            <span className="rp-kpi__label">{s.balance >= 0 ? t('reports.kpi.left') : t('reports.kpi.balance')}</span>
+            <Money value={s.balance} size="hero" className="rp-kpis__value" style={s.balance < 0 ? { color: 'var(--red)' } : undefined} />
+            <span className="rp-kpis__sub">
+              {s.savingsRate !== null && s.savingsRate >= 0 && <span>{t('reports.kpi.ofIncome', { pct: formatPercent(s.savingsRate, 0, false) })}</span>}
+              {foot(pctChange(s.balance, p.balance), true)}
+            </span>
+          </div>
+          <div className="rp-kpis__side">
+            <div className="rp-kpi">
+              <div className="rp-kpi__label"><span className="rp-kpi__dot" style={{ background: 'var(--chart-income)' }} aria-hidden />{t('reports.kpi.income')}</div>
+              <Money value={s.income} size="kpi" />
+              <div className="rp-kpi__foot">{foot(pctChange(s.income, p.income), true)}</div>
+            </div>
+            <div className="rp-kpi">
+              <div className="rp-kpi__label"><span className="rp-kpi__dot" style={{ background: 'var(--chart-spend)' }} aria-hidden />{t('reports.kpi.expense')}</div>
+              <Money value={s.expense} size="kpi" />
+              <div className="rp-kpi__foot">{foot(pctChange(s.expense, p.expense), false)}</div>
+            </div>
+            <div className="rp-kpi">
+              <div className="rp-kpi__label">{t('reports.kpi.savings')}</div>
+              <span className="ft-money ft-num">{s.savingsRate === null ? '—' : formatPercent(s.savingsRate, 1, false)}</span>
+              <div className="rp-kpi__foot">{s.savingsRate === null ? <span>{t('reports.kpi.noIncome')}</span> : foot(p.savingsRate === null ? null : s.savingsRate - p.savingsRate, true, 'pp')}</div>
+            </div>
+          </div>
         </section>
         <p className="rp-note"><Icon name="info" size={14} />{t('reports.kpi.transfersNote')}</p>
 
@@ -361,7 +370,7 @@ export function Reports() {
             <>
               <Legend items={[
                 { label: t('reports.legend.income'), color: 'var(--chart-income)' },
-                { label: t('reports.legend.expense'), color: 'var(--chart-expense)' },
+                { label: t('reports.legend.expense'), color: 'var(--chart-spend)' },
                 ...(showPrev ? [{ label: t('reports.legend.previousFaded'), color: 'var(--chart-neutral)', faded: true }] : []),
               ]} />
               <FlowBars buckets={report.buckets} prev={showPrev ? report.prevBuckets : undefined} ariaLabel={flowLabel} />
@@ -457,7 +466,7 @@ function ProjectionCard({ projection, view, onView }: { projection: ProjectionDa
         <>
           <Legend items={[
             { label: t('reports.legend.income'), color: 'var(--chart-income)', line: 'solid' },
-            { label: t('reports.legend.expense'), color: 'var(--chart-expense)', line: 'solid' },
+            { label: t('reports.legend.expense'), color: 'var(--chart-spend)', line: 'solid' },
             { label: t('reports.projection.dashed'), color: 'var(--text-muted)', line: 'dashed' },
             { label: t('reports.projection.range'), color: 'var(--text-muted)', line: 'band' },
           ]} />

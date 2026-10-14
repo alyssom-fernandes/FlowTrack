@@ -79,7 +79,7 @@ export default [
       await page.getByText(/nada encontrado|nothing found/i).waitFor()
     },
   },
-  { id: 'transacoes-pagina-2', rota: '/transactions?page=2', somente: 'desktop' },
+  { id: 'transacoes-pagina-2', rota: '/transactions?period=&page=2', somente: 'desktop' },
   { id: 'transacoes-nova', rota: '/transactions', inteira: false, acao: async page => { await page.getByRole('button', { name: nova }).first().click() } },
   {
     id: 'transacoes-nova-erros', rota: '/transactions', inteira: false,

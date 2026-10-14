@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, Component, type ButtonHTMLAttributes, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes, type HTMLAttributes, type ReactNode, type CSSProperties } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, Component, type ButtonHTMLAttributes, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes, type HTMLAttributes, type ReactNode, type CSSProperties } from 'react'
 import i18n from '../i18n'
 import { useToastStore } from '../store'
 import { Icon, type IconName } from './icons'
-import { formatCurrency, formatCurrencyCompact, formatSignedCurrency } from '../utils'
+import { currentLocale, formatCurrency, formatCurrencyCompact } from '../utils'
 import './ui.css'
 
 const t = (key: string, fallback: string) => (i18n.exists(key) ? i18n.t(key) : fallback)
@@ -269,8 +269,24 @@ export function Tabs<T extends string>({ items, value, onChange, block, label }:
     onChange(items[next].value)
     requestAnimationFrame(() => (e.currentTarget?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next])?.focus())
   }
+  // Indicador que desliza até a aba escolhida (mede a aba ativa; acompanha mudanças de tamanho)
+  const listRef = useRef<HTMLDivElement>(null)
+  const [thumb, setThumb] = useState<{ x: number; w: number } | null>(null)
+  useLayoutEffect(() => {
+    const list = listRef.current
+    if (!list) return
+    const measure = () => {
+      const el = list.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+      setThumb(el ? { x: el.offsetLeft, w: el.offsetWidth } : null)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(list)
+    return () => ro.disconnect()
+  }, [value, items.length])
   return (
-    <div role="tablist" aria-label={label} className={`ft-tabs${block ? ' ft-tabs--block' : ''}`} onKeyDown={onKeyDown}>
+    <div ref={listRef} role="tablist" aria-label={label} className={`ft-tabs${block ? ' ft-tabs--block' : ''}`} onKeyDown={onKeyDown}>
+      {thumb && <span className="ft-tabs__thumb" aria-hidden style={{ width: thumb.w, transform: `translateX(${thumb.x}px)` }} />}
       {items.map(item => (
         <button key={item.value} type="button" role="tab" aria-selected={item.value === value} tabIndex={item.value === value ? 0 : -1} className="ft-tab" onClick={() => onChange(item.value)}>
           {item.icon && <Icon name={item.icon} size={14} />}
@@ -296,24 +312,37 @@ export function EmptyState({ icon = 'inbox', title, description, action, compact
 
 // ── Progresso ─────────────────────────────────────────────
 // tone "spending": verde até 80%, âmbar até 100%, vermelho acima
-export function ProgressBar({ value, tone = 'accent', height = 6, label }: { value: number; tone?: 'spending' | 'accent' | 'green' | 'neutral'; height?: number; label?: string }) {
+export function ProgressBar({ value, tone = 'accent', height = 6, label, pace, color: forced }: { value: number; tone?: 'spending' | 'accent' | 'green' | 'neutral'; height?: number; label?: string; pace?: number; color?: string }) {
   // Vermelho só depois de passar do limite (em 100% exato ainda é "no limite")
   const color = tone === 'spending'
-    ? value > 100 ? 'var(--red)' : value >= 80 ? 'var(--amber)' : 'var(--green)'
+    ? value > 100 ? 'var(--red)' : value >= 80 ? 'var(--amber-fill)' : 'var(--green)'
     : tone === 'green' ? 'var(--green)' : tone === 'neutral' ? 'var(--chart-neutral)' : 'var(--accent-text)'
   return (
     <div className="ft-progress" style={{ height }} role="progressbar" aria-valuenow={Math.min(100, Math.max(0, Math.round(value)))} aria-valuetext={`${Math.round(value)}%`} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
-      <div className="ft-progress__bar" style={{ width: `${Math.max(0, Math.min(value, 100))}%`, background: color }} />
+      <div className="ft-progress__bar" style={{ width: `${Math.max(0, Math.min(value, 100))}%`, background: forced ?? color }} />
+      {pace !== undefined && <span className="ft-progress__pace" style={{ left: `${Math.max(0, Math.min(pace, 100))}%` }} />}
     </div>
   )
 }
 
 // ── Valores em dinheiro ───────────────────────────────────
 // tone "auto": verde para entradas, vermelho para saídas
-export function Money({ value, signed, compact, tone = 'none', style, className = '' }: { value: number; signed?: boolean; compact?: boolean; tone?: 'auto' | 'none'; style?: CSSProperties; className?: string }) {
-  const text = compact ? formatCurrencyCompact(value) : signed ? formatSignedCurrency(value) : formatCurrency(value)
+export function Money({ value, signed, compact, tone = 'none', size = 'row', style, className = '' }: { value: number; signed?: boolean; compact?: boolean; tone?: 'auto' | 'none'; size?: 'row' | 'kpi' | 'hero'; style?: CSSProperties; className?: string }) {
   const color = tone === 'auto' ? (value > 0 ? 'var(--green)' : value < 0 ? 'var(--red)' : 'var(--text-muted)') : undefined
-  return <span className={`ft-num ${className}`} style={{ color, whiteSpace: 'nowrap', ...style }} title={compact ? formatCurrency(value) : undefined}>{text}</span>
+  if (compact) {
+    const text = formatCurrencyCompact(value)
+    return <span className={`ft-money ft-num ${className}`} style={{ color, whiteSpace: 'nowrap', ...style }} title={formatCurrency(value)}>{text}</span>
+  }
+  // "R$ 2.223" + ",77": os centavos ficam menores (no destaque, elevados)
+  const parts = new Intl.NumberFormat(currentLocale(), { style: 'currency', currency: 'BRL', signDisplay: signed ? 'exceptZero' : 'auto', minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(value)
+  const cut = parts.findIndex(p => p.type === 'decimal')
+  const main = (cut === -1 ? parts : parts.slice(0, cut)).map(p => p.value).join('')
+  const cents = cut === -1 ? '' : parts.slice(cut).map(p => p.value).join('')
+  return (
+    <span className={`ft-money ft-money--${size} ft-num ${className}`} style={{ color, whiteSpace: 'nowrap', ...style }}>
+      {main}<span className="ft-money__cents">{cents}</span>
+    </span>
+  )
 }
 
 // ── Carregamento ──────────────────────────────────────────

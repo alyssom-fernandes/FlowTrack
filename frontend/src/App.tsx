@@ -14,6 +14,7 @@ const Investments   = lazy(() => import('./pages/Investments').then(m => ({ defa
 const Goals         = lazy(() => import('./pages/Goals').then(m => ({ default: m.Goals })))
 const Reports       = lazy(() => import('./pages/Reports').then(m => ({ default: m.Reports })))
 const Profile       = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })))
+const NotFound      = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })))
 
 // ── Root redirect — forward recovery codes to /reset-password
 function RootRedirect() {
@@ -69,7 +70,7 @@ export default function App() {
             </ProtectedRoute>
           } />
         ))}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Suspense fallback={<FullPageSpinner />}><NotFound /></Suspense>} />
       </Routes>
       <ToastContainer />
     </BrowserRouter>

@@ -6,6 +6,7 @@ import { Icon } from '../../components/icons'
 import { categoryLabel, formatPercent, formatSignedCurrency } from '../../utils'
 import type { Account, Category, Transaction } from '../../types'
 import { CategoryGlyph } from './CategoryGlyph'
+import { categoryColor } from '../../lib/categoryColor'
 import { dayHeading, groupByDay, isFlow, PAGE_SIZE, useIsMobile } from './shared'
 
 interface ListProps {
@@ -48,8 +49,8 @@ function CategoryCell({ txn, categories, onChange }: { txn: Transaction; categor
 
   return (
     <span className="tx-cat">
-      <span className={`tx-cat__chip${cat ? '' : ' tx-cat__chip--none'}`}>
-        {saving ? <Spinner size={10} /> : cat ? <span className="tx-cat__dot" style={{ background: cat.color }} /> : <Icon name="plus" size={12} />}
+      <span className={`tx-cat__chip${cat ? '' : ' tx-cat__chip--none'}`} style={cat ? { '--c': categoryColor(cat) } as React.CSSProperties : undefined}>
+        {saving ? <Spinner size={10} /> : cat ? <span className="tx-cat__dot" /> : <Icon name="plus" size={12} />}
         <span className="tx-cat__name">{cat ? categoryLabel(cat) : t('transactions.row.uncategorized')}</span>
         <Icon name="chevronDown" size={12} className="tx-cat__chev" />
         <select className="tx-cat__select" value={txn.category_id || ''} disabled={saving}
@@ -82,7 +83,7 @@ function RowMeta({ txn }: { txn: Transaction }) {
 
 function Amount({ txn }: { txn: Transaction }) {
   if (!isFlow(txn)) return <Money value={txn.amount} signed className="tx-amount" style={{ color: 'var(--text-secondary)' }} />
-  return <Money value={txn.amount} signed tone="auto" className="tx-amount" />
+  return <Money value={txn.amount} signed className="tx-amount" style={{ color: txn.amount > 0 ? 'var(--green)' : 'var(--text-primary)' }} />
 }
 
 function Description({ txn, onEdit }: { txn: Transaction; onEdit: () => void }) {

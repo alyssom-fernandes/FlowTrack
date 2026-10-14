@@ -3,17 +3,9 @@ import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatCurrency, formatSignedCurrency } from '../../utils'
 import { useActiveIndex, useWidth } from './hooks'
-import { axisMoney, dayMonth, monthLong, monthShort, niceTicks, weekdayDayMonth, type MonthTotals, type ProjectionPoint } from './data'
+import { axisMoney, dayMonth, monthShort, niceTicks, weekdayDayMonth, type ProjectionPoint } from './data'
 
 const AXIS_FONT = 11
-
-// Coluna com topo arredondado (4px) e base reta
-function barPath(x: number, y: number, w: number, base: number): string {
-  const h = base - y
-  if (h <= 0) return ''
-  const r = Math.min(4, w / 2, h)
-  return `M${x},${base}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${base}Z`
-}
 
 function gutterFor(labels: string[]): number {
   return Math.ceil(Math.max(...labels.map(l => l.length)) * 6.1) + 10
@@ -44,83 +36,6 @@ function TipRow({ color, label, value, strong }: { color?: string; label: string
     <div className={`ft-chart-tip__row${strong ? ' ft-chart-tip__row--total' : ''}`}>
       <span className="ft-chart-tip__label">{color && <span className="ft-chart-tip__key" style={{ background: color }} />}{label}</span>
       <span className="ft-chart-tip__value ft-num">{value}</span>
-    </div>
-  )
-}
-
-// ── Receitas × gastos por mês (colunas agrupadas) ─────────
-export function MonthlyChart({ data, currentMonth }: { data: MonthTotals[]; currentMonth: string }) {
-  const { t } = useTranslation()
-  const [boxRef, width] = useWidth<HTMLDivElement>()
-  const { active, setActive, ref, onKeyDown } = useActiveIndex(data.length)
-
-  const compact = width > 0 && width < 480
-  const plotH = compact ? 168 : 208
-  const axisH = 26
-  const max = Math.max(1, ...data.flatMap(d => [d.income, d.expense]))
-  const ticks = niceTicks(0, max, compact ? 3 : 4)
-  const top = ticks[ticks.length - 1]
-  const tickLabels = ticks.map(axisMoney)
-  const padL = gutterFor(tickLabels)
-  const padT = 8
-  const plotW = Math.max(0, width - padL)
-  const band = data.length ? plotW / data.length : 0
-  const barW = Math.max(6, Math.min(24, (band * 0.58 - 2) / 2))
-  const y = (v: number) => padT + (plotH - padT) * (1 - v / top)
-  const cx = (i: number) => padL + band * (i + 0.5)
-
-  const pick = (clientX: number, el: HTMLElement) => {
-    const x = clientX - el.getBoundingClientRect().left - padL
-    if (band <= 0) return
-    setActive(Math.max(0, Math.min(data.length - 1, Math.floor(x / band))))
-  }
-
-  const summary = data.map(d => t('dashboard.monthly.a11yMonth', { month: monthLong(d.month), income: formatCurrency(d.income), expense: formatCurrency(d.expense) })).join('; ')
-  const a = active !== null ? data[active] : null
-
-  return (
-    <div ref={ref} className="ft-chart" tabIndex={0} role="group" aria-label={t('dashboard.monthly.keyboardHint')} onKeyDown={onKeyDown}
-      onFocus={() => { if (active === null) setActive(data.length - 1) }} onBlur={() => setActive(null)}>
-      <div ref={boxRef} className="ft-chart__box" style={{ height: plotH + axisH }} data-chart="mensal"
-        onPointerMove={e => pick(e.clientX, e.currentTarget)}
-        onPointerDown={e => pick(e.clientX, e.currentTarget)}
-        onPointerLeave={e => { if (e.pointerType === 'mouse') setActive(null) }}>
-        {width > 0 && (
-          <svg width={width} height={plotH + axisH} role="img" aria-label={`${t('dashboard.monthly.title')}. ${summary}.`}>
-            {ticks.map((v, i) => (
-              <g key={v}>
-                <line x1={padL} x2={width} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--border-strong)' : 'var(--chart-grid)'} strokeWidth={1} shapeRendering="crispEdges" />
-                <text x={padL - 10} y={y(v) + 4} textAnchor="end" fontSize={AXIS_FONT} fill="var(--chart-axis)" className="ft-num">{tickLabels[i]}</text>
-              </g>
-            ))}
-            {active !== null && <rect x={padL + band * active + 2} y={padT - 4} width={band - 4} height={plotH - padT + 4} rx={6} fill="var(--bg-subtle)" />}
-            {data.map((d, i) => {
-              const dim = active !== null && active !== i ? 0.4 : 1
-              const x0 = cx(i) - 1 - barW
-              return (
-                <g key={d.month} opacity={dim} style={{ transition: 'opacity 0.15s ease' }}>
-                  <path d={barPath(x0, y(d.income), barW, y(0))} fill="var(--chart-income)" />
-                  <path d={barPath(cx(i) + 1, y(d.expense), barW, y(0))} fill="var(--chart-expense)" />
-                </g>
-              )
-            })}
-            {data.map((d, i) => (
-              <text key={d.month} x={cx(i)} y={plotH + 18} textAnchor="middle" fontSize={AXIS_FONT}
-                fill={d.month === currentMonth || active === i ? 'var(--text-secondary)' : 'var(--chart-axis)'} fontWeight={d.month === currentMonth ? 600 : 400}>
-                {monthShort(d.month)}
-              </text>
-            ))}
-          </svg>
-        )}
-        {a && active !== null && (
-          <Tip x={cx(active)} width={width}>
-            <div className="ft-chart-tip__title">{monthLong(a.month)}</div>
-            <TipRow color="var(--chart-income)" label={t('dashboard.monthly.income')} value={formatCurrency(a.income)} />
-            <TipRow color="var(--chart-expense)" label={t('dashboard.monthly.expenses')} value={formatCurrency(a.expense)} />
-            <TipRow strong label={t('dashboard.monthly.net')} value={<span style={{ color: a.income - a.expense < 0 ? 'var(--red)' : undefined }}>{formatSignedCurrency(a.income - a.expense)}</span>} />
-          </Tip>
-        )}
-      </div>
     </div>
   )
 }

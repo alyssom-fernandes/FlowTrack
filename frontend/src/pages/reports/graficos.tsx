@@ -140,8 +140,8 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
   for (let i = 0; i < n; i++) {
     const b = buckets[i], p = prev?.[i]
     const items: { v: number; color: string; faded?: boolean }[] = prev
-      ? [{ v: p?.income ?? 0, color: 'var(--chart-income)', faded: true }, { v: b.income, color: 'var(--chart-income)' }, { v: p?.expense ?? 0, color: 'var(--chart-expense)', faded: true }, { v: b.expense, color: 'var(--chart-expense)' }]
-      : [{ v: b.income, color: 'var(--chart-income)' }, { v: b.expense, color: 'var(--chart-expense)' }]
+      ? [{ v: p?.income ?? 0, color: 'var(--chart-income)', faded: true }, { v: b.income, color: 'var(--chart-income)' }, { v: p?.expense ?? 0, color: 'var(--chart-spend)', faded: true }, { v: b.expense, color: 'var(--chart-spend)' }]
+      : [{ v: b.income, color: 'var(--chart-income)' }, { v: b.expense, color: 'var(--chart-spend)' }]
     for (let j = 0, x = m.left + i * band + (band - groupW) / 2; j < items.length; j++) {
       const it = items[j]
       const top = y(it.v)
@@ -160,13 +160,13 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
     <>
       <div className="rp-tip__title">{a.longLabel}</div>
       <TipRow color="var(--chart-income)" label={t('reports.legend.income')} value={formatCurrency(a.income)} strong />
-      <TipRow color="var(--chart-expense)" label={t('reports.legend.expense')} value={formatCurrency(a.expense)} strong />
+      <TipRow color="var(--chart-spend)" label={t('reports.legend.expense')} value={formatCurrency(a.expense)} strong />
       <TipRow label={t('reports.legend.balance')} value={formatCurrency(a.income - a.expense)} />
       {prev && (
         <>
           <div className="rp-tip__title rp-tip__title--sub">{ap ? ap.longLabel : t('reports.legend.previous')}</div>
           <TipRow color="var(--chart-income)" faded label={t('reports.legend.income')} value={formatCurrency(ap?.income ?? 0)} />
-          <TipRow color="var(--chart-expense)" faded label={t('reports.legend.expense')} value={formatCurrency(ap?.expense ?? 0)} />
+          <TipRow color="var(--chart-spend)" faded label={t('reports.legend.expense')} value={formatCurrency(ap?.expense ?? 0)} />
         </>
       )}
     </>
@@ -209,31 +209,22 @@ export function CategoryDonut({ slices, total, compare, ariaLabel }: { slices: S
   const { t } = useTranslation()
   const [active, setActive] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
-  const S = 176, R = 74, SW = 20, cx = S / 2, cy = S / 2
-  const gapA = slices.length > 1 ? 2 / R : 0
-  const starts: number[] = []
-  for (let i = 0, acc = -Math.PI / 2; i < slices.length; i++) { starts.push(acc); acc += total > 0 ? (slices[i].value / total) * Math.PI * 2 : 0 }
-  const arcs = slices.map((sl, i) => {
-    const sweep = total > 0 ? (sl.value / total) * Math.PI * 2 : 0
-    const a0 = starts[i] + gapA / 2, a1 = starts[i] + sweep - gapA / 2
-    if (sweep >= Math.PI * 2 - 0.0001) return <circle key={sl.key} cx={cx} cy={cy} r={R} fill="none" stroke={sl.color} strokeWidth={SW} />
-    if (a1 <= a0) return null
-    const p = (a: number) => `${cx + R * Math.cos(a)},${cy + R * Math.sin(a)}`
-    return (
-      <path key={sl.key} d={`M${p(a0)}A${R},${R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${p(a1)}`} fill="none" stroke={sl.color} strokeWidth={active === i ? SW + 4 : SW}
-        opacity={active !== null && active !== i ? 0.4 : 1} onPointerEnter={() => setActive(i)} onPointerLeave={() => setActive(null)} style={{ transition: 'opacity .15s, stroke-width .15s' }} />
-    )
-  })
   const cur = active !== null ? slices[active] : null
 
   return (
     <div className={`rp-donut${compare ? ' rp-donut--compare' : ''}`}>
-      <div className="rp-donut__figure">
-        <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} role="img" aria-label={ariaLabel}>{arcs}</svg>
-        <div className="rp-donut__center" aria-hidden>
-          <span className="rp-donut__center-label">{cur ? cur.name : t('reports.categories.total')}</span>
-          <span className="rp-donut__center-value">{formatCurrencyCompact(cur ? cur.value : total)}</span>
-          {cur && <span className="rp-donut__center-share">{formatPercent(cur.share, 1, false)}</span>}
+      {/* Barra empilhada: comparar por comprimento é mais fácil que por ângulo (sem rosca) */}
+      <div className="rp-stack">
+        <div className="rp-stack__total" aria-hidden>
+          <span className="rp-stack__label">{cur ? cur.name : t('reports.categories.total')}</span>
+          <span className="rp-stack__value ft-num">{formatCurrencyCompact(cur ? cur.value : total)}</span>
+          {cur && <span className="rp-stack__share ft-num">{formatPercent(cur.share, 1, false)}</span>}
+        </div>
+        <div className="rp-stack__bar" role="img" aria-label={ariaLabel}>
+          {slices.map((sl, i) => (
+            <span key={sl.key} className="rp-stack__seg" style={{ flexGrow: Math.max(sl.value, total * 0.004), background: sl.color, opacity: active !== null && active !== i ? 0.32 : 1 }}
+              onPointerEnter={() => setActive(i)} onPointerLeave={() => setActive(null)} />
+          ))}
         </div>
       </div>
       <ul className="rp-cat-list">
@@ -374,7 +365,7 @@ export function ProjectionLines({ data, ariaLabel }: { data: ProjectionData; ari
     <>
       <div className="rp-tip__title">{cap(formatMonth(ap.month, 'long'))}{ap.is_projection && <span className="rp-tip__tag">{t('reports.projection.projected')}</span>}</div>
       <TipRow color="var(--chart-income)" label={t('reports.legend.income')} value={formatCurrency(ap.income)} strong />
-      <TipRow color="var(--chart-expense)" label={t('reports.legend.expense')} value={formatCurrency(ap.expense)} strong />
+      <TipRow color="var(--chart-spend)" label={t('reports.legend.expense')} value={formatCurrency(ap.expense)} strong />
       <TipRow label={t('reports.legend.balance')} value={formatCurrency(ap.income - ap.expense)} />
     </>
   )
@@ -398,10 +389,10 @@ export function ProjectionLines({ data, ariaLabel }: { data: ProjectionData; ari
               </g>
             ))}
             <path d={area('income', sdInc)} fill="var(--chart-income)" opacity={0.12} />
-            <path d={area('expense', sdExp)} fill="var(--chart-expense)" opacity={0.12} />
+            <path d={area('expense', sdExp)} fill="var(--chart-spend)" opacity={0.12} />
             {active !== null && <line x1={x(active)} x2={x(active)} y1={m.top} y2={m.top + plotH} stroke="var(--border-strong)" strokeWidth={1} />}
             {(['income', 'expense'] as const).map(k => {
-              const color = k === 'income' ? 'var(--chart-income)' : 'var(--chart-expense)'
+              const color = k === 'income' ? 'var(--chart-income)' : 'var(--chart-spend)'
               return (
                 <g key={k}>
                   {h > 0 && <path d={line(k, 0, h - 1)} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}

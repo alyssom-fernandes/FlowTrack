@@ -86,6 +86,20 @@
       "criptomoeda": "Criptomoeda",
       "outro": "Outro"
     },
-    "otherFolded": "Outros"
+    "otherFolded": "Outros",
+    "hero": {
+      "result": "{{value}} ({{pct}}) sobre o investido",
+      "positions": "Posições",
+      "types": "Tipos",
+      "inPeriod": "{{value}} no período",
+      "range": "Período do gráfico",
+      "a11y": "Evolução dos investimentos em {{count}} meses: de {{from}} para {{to}}.",
+      "ranges": {
+        "3m": "3M",
+        "6m": "6M",
+        "1y": "1A",
+        "all": "Tudo"
+      }
+    }
   }
 }

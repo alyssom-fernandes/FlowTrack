@@ -1,43 +1,56 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { Button, Card, ConfirmDialog, EmptyState, IconButton, ProgressBar, Skeleton } from '../../components/ui'
+import { Button, Card, ConfirmDialog, EmptyState, IconButton, Money, ProgressBar, Skeleton } from '../../components/ui'
 import { Icon } from '../../components/icons'
-import { budgetsService, categoriesService } from '../../services'
+import { budgetsService, categoriesService, transactionsService } from '../../services'
+import { categoryColor } from '../../lib/categoryColor'
+import { billsByCategory, expectedBy, monthDays, paceOf, PACE_COLOR, type Bill, type PaceStatus } from '../../lib/pace'
 import { useToastStore } from '../../store'
 import { categoryLabel, formatCurrency, formatPercent } from '../../utils'
-import type { Budget, Category } from '../../types'
-import { isSpendingCategory, monthKey, monthName, monthTitle, shiftMonth } from './helpers'
+import type { Budget, Category, Transaction } from '../../types'
+import { isSpendingCategory, monthBounds, monthKey, monthName, monthTitle, shiftMonth } from './helpers'
 import { BudgetModal } from './BudgetModal'
 
-function Summary({ budgets, daysLeft, future }: { budgets: Budget[]; daysLeft: number | null; future: boolean }) {
+type Paced = { budget: Budget; expected: number; status: PaceStatus; diff: number }
+
+function pace(budgets: Budget[], bills: Map<string, Bill[]>, month: string, today: Date): Paced[] {
+  const { dim, day } = monthDays(month, today)
+  return budgets.map(b => {
+    const expected = expectedBy(b.limit_amount, bills.get(b.category_id) ?? [], day, dim)
+    return { budget: b, expected, ...paceOf(b.spent, b.limit_amount, expected) }
+  })
+}
+
+function Summary({ budgets, paced, daysLeft, future }: { budgets: Budget[]; paced: Paced[]; daysLeft: number | null; future: boolean }) {
   const { t } = useTranslation()
   const limit = budgets.reduce((s, b) => s + b.limit_amount, 0)
   const spent = budgets.reduce((s, b) => s + b.spent, 0)
+  const expected = paced.reduce((s, p) => s + p.expected, 0)
   const rest = limit - spent
   const pct = limit > 0 ? (spent / limit) * 100 : 0
   const over = budgets.filter(b => b.spent > b.limit_amount).length
+  const total = paceOf(spent, limit, expected)
   return (
-    <Card className="gl-bsum">
-      <div className="gl-bsum__figs">
-        <div className="gl-fig gl-fig--budget">
-          <span className="gl-fig__label">{t('goals.budgets.budgeted')}</span>
-          <span className="gl-fig__value">{formatCurrency(limit)}</span>
-        </div>
-        <div className="gl-fig gl-fig--spent">
-          <span className="gl-fig__label">{t('goals.budgets.spent')}</span>
-          <span className="gl-fig__value">{formatCurrency(spent)}</span>
-        </div>
-        <div className="gl-fig gl-fig--rest">
+    <Card className="gl-bsum ft-card--hero">
+      <div className="gl-bsum__main">
+        <div>
           <span className="gl-fig__label">{rest >= 0 ? t('goals.budgets.remaining') : t('goals.budgets.overTotal')}</span>
-          <span className={`gl-fig__value${rest < 0 ? ' gl-neg' : ''}`}>{formatCurrency(Math.abs(rest))}</span>
+          <Money value={Math.abs(rest)} size="hero" className={`gl-bsum__rest${rest < 0 ? ' gl-neg' : ''}`} />
+          <span className="gl-bsum__of ft-num">{t('goals.budgets.restOf', { spent: formatCurrency(spent), limit: formatCurrency(limit) })}</span>
         </div>
+        {!future && (
+          <span className={`ft-pace__status ft-pace__status--${total.status}`}>
+            <Icon name={total.status === 'ok' ? 'checkCircle' : total.status === 'warn' ? 'alert' : 'alertCircle'} size={14} />
+            {total.status === 'over' ? t('goals.budgets.paceOver') : total.diff >= 0 ? t('goals.budgets.paceBelow', { value: formatCurrency(total.diff) }) : t('goals.budgets.paceAbove', { value: formatCurrency(-total.diff) })}
+          </span>
+        )}
       </div>
-      <ProgressBar value={pct} tone="spending" height={8} label={t('goals.budgets.usedPct', { pct: formatPercent(pct, 0, false) })} />
+      <ProgressBar value={pct} height={8} color={PACE_COLOR[total.status]} pace={!future && limit > 0 ? (expected / limit) * 100 : undefined}
+        label={t('goals.budgets.usedPct', { pct: formatPercent(pct, 0, false) })} />
       <div className="gl-bsum__foot ft-num">
+        <span className="gl-bsum__foot-item">{t('goals.budgets.usedPct', { pct: formatPercent(pct, 0, false) })}</span>
         <span className="gl-bsum__foot-item">
-          {t('goals.budgets.usedPct', { pct: formatPercent(pct, 0, false) })}
-          <span aria-hidden>·</span>
           {over > 0
             ? <span className="gl-neg">{t('goals.budgets.overCount', { count: over })}</span>
             : future ? t('goals.budgets.notStarted') : t('goals.budgets.allWithin')}
@@ -48,25 +61,31 @@ function Summary({ budgets, daysLeft, future }: { budgets: Budget[]; daysLeft: n
   )
 }
 
-function BudgetRow({ budget, category, onEdit, onDelete }: { budget: Budget; category?: Category; onEdit: () => void; onDelete: () => void }) {
+function BudgetRow({ paced, category, future, onEdit, onDelete }: { paced: Paced; category?: Category; future: boolean; onEdit: () => void; onDelete: () => void }) {
   const { t } = useTranslation()
+  const { budget, expected, status } = paced
   const name = category ? categoryLabel(category) : budget.category_name || '—'
   const rest = budget.limit_amount - budget.spent
   const pct = budget.limit_amount > 0 ? (budget.spent / budget.limit_amount) * 100 : 0
+  const statusText = status === 'over' ? t('goals.budgets.statusOver') : status === 'warn' ? t('goals.budgets.statusWarn') : t('goals.budgets.statusOk')
   return (
     <li className="gl-brow">
       <span className="gl-brow__name">
-        <span className="gl-dot" style={{ background: category?.color || budget.category_color || 'var(--chart-neutral)' }} aria-hidden />
+        <span className="gl-dot" style={{ background: category ? categoryColor(category) : budget.category_color || 'var(--chart-neutral)' }} aria-hidden />
         <span>{name}</span>
       </span>
-      <div className="gl-brow__bar"><ProgressBar value={pct} tone="spending" label={`${name}: ${formatPercent(pct, 0, false)}`} /></div>
+      <div className="gl-brow__bar">
+        <ProgressBar value={pct} color={PACE_COLOR[status]} pace={!future && budget.limit_amount > 0 ? (expected / budget.limit_amount) * 100 : undefined}
+          label={`${name}: ${formatPercent(pct, 0, false)}, ${statusText}`} />
+      </div>
       <span className="gl-brow__spent ft-num">
         {t('goals.budgets.spentOf', { spent: formatCurrency(budget.spent), limit: formatCurrency(budget.limit_amount) })}
       </span>
-      <span className={`gl-brow__left ft-num${rest < 0 ? ' gl-neg' : ''}`}>
-        {rest >= 0 ? t('goals.budgets.left', { value: formatCurrency(rest) }) : t('goals.budgets.overBy', { value: formatCurrency(-rest) })}
+      <span className={`gl-brow__left gl-free gl-free--${rest < 0 ? 'over' : 'ok'} ft-num`}>
+        {rest >= 0 ? t('goals.budgets.free', { value: formatCurrency(rest) }) : t('goals.budgets.overBy', { value: formatCurrency(-rest) })}
       </span>
-      <span className={`gl-brow__pct ft-num${pct > 100 ? ' gl-neg' : ''}`}>{formatPercent(pct, 0, false)}</span>
+      {future ? <span className="gl-brow__pct ft-num">{formatPercent(pct, 0, false)}</span>
+        : <span className={`gl-brow__pct ft-budget__status ft-budget__status--${status}`}>{statusText}</span>}
       <span className="gl-brow__actions">
         <IconButton icon="edit" label={t('goals.actions.edit', { name })} onClick={onEdit} />
         <IconButton icon="trash" label={t('goals.actions.delete', { name })} onClick={onDelete} />
@@ -106,6 +125,7 @@ export function BudgetsTab({ creating, onCreatingChange }: { creating: boolean; 
   const [budgets, setBudgets] = useState<Budget[] | null>(null)
   const [prevBudgets, setPrevBudgets] = useState<Budget[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [prevTx, setPrevTx] = useState<Transaction[]>([])
   const [failed, setFailed] = useState(false)
   const [editing, setEditing] = useState<Budget | null>(null)
   const [removing, setRemoving] = useState<Budget | null>(null)
@@ -121,13 +141,18 @@ export function BudgetsTab({ creating, onCreatingChange }: { creating: boolean; 
   const load = useCallback(async (key: string, isCurrent: () => boolean = () => true) => {
     setFailed(false)
     try {
-      const [res, cats] = await Promise.all([budgetsService.list(key), categoriesService.list()])
+      const bounds = monthBounds(shiftMonth(key, -1))
+      const [res, cats, prevRes] = await Promise.all([
+        budgetsService.list(key), categoriesService.list(),
+        transactionsService.list({ start_date: bounds.start, end_date: bounds.end, page_size: 500 }).catch(() => ({ transactions: [] as Transaction[] })),
+      ])
       // Mês vazio: vê se dá para copiar do anterior
       const before = res.budgets.length ? [] : (await budgetsService.list(shiftMonth(key, -1))).budgets
       if (!isCurrent()) return
       setBudgets(res.budgets)
       setPrevBudgets(before)
       setCategories(cats.categories || [])
+      setPrevTx(prevRes.transactions || [])
     } catch {
       if (isCurrent()) setFailed(true)
     }
@@ -181,6 +206,8 @@ export function BudgetsTab({ creating, onCreatingChange }: { creating: boolean; 
   const catById = new Map(categories.map(c => [c.id, c]))
   const sorted = [...(budgets || [])].sort((a, b) => b.spent / (b.limit_amount || 1) - a.spent / (a.limit_amount || 1))
   const taken = new Set((budgets || []).map(b => b.category_id))
+  const paced = budgets ? pace(budgets, billsByCategory(prevTx), month, today) : []
+  const pacedById = new Map(paced.map(p => [p.budget.id, p]))
   const daysLeft = month === current ? new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1 : null
   const removingName = removing ? (catById.get(removing.category_id) ? categoryLabel(catById.get(removing.category_id)) : removing.category_name || '') : ''
 
@@ -213,11 +240,11 @@ export function BudgetsTab({ creating, onCreatingChange }: { creating: boolean; 
         </Card>
       ) : (
         <>
-          <Summary budgets={budgets} daysLeft={daysLeft} future={month > current} />
+          <Summary budgets={budgets} paced={paced} daysLeft={daysLeft} future={month > current} />
           <Card padding="none">
             <ul className="gl-blist" aria-label={t('goals.budgets.listLabel')}>
               {sorted.map(b => (
-                <BudgetRow key={b.id} budget={b} category={catById.get(b.category_id)}
+                <BudgetRow key={b.id} paced={pacedById.get(b.id)!} category={catById.get(b.category_id)} future={month > current}
                   onEdit={() => { setEditing(b); onCreatingChange(false) }} onDelete={() => setRemoving(b)} />
               ))}
             </ul>

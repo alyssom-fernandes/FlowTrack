@@ -4,12 +4,14 @@ import { AfnBrand, IconButton, Input, Logo } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { getTheme, applyTheme, type Theme } from '../../lib/theme'
 import { LANGUAGES, setLanguage } from '../../i18n'
-import { ProductPreview } from './ProductPreview'
+import { CategoryChips, ProductPreview } from './ProductPreview'
 import './login.css'
+import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 // Tela dividida: apresentação do produto à esquerda, ações à direita.
 // No celular vira uma coluna; "compact" esconde a apresentação lá.
 export function AuthLayout({ children, compact = false }: { children: ReactNode; compact?: boolean }) {
+  useDocumentTitle()
   const { t } = useTranslation()
   return (
     <main className={`ent${compact ? ' ent--compact' : ''}`}>
@@ -19,7 +21,7 @@ export function AuthLayout({ children, compact = false }: { children: ReactNode;
           <h1 className="ent-title">{t('login.hero.title')} <span>{t('login.hero.titleMuted')}</span></h1>
           <p className="ent-lead">{t('login.hero.text')}</p>
         </div>
-        <div className="ent-preview"><ProductPreview /></div>
+        <div className="ent-preview"><CategoryChips /><ProductPreview /></div>
       </div>
       <div className="ent-side">
         <div className="ent-bar"><Preferences /></div>

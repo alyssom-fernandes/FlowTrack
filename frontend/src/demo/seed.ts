@@ -5,7 +5,7 @@ import type { Account, AuditLogEntry, Category, Investment, NetWorthSnapshot, Tr
 
 export const DEMO_EMAIL = 'demo@flowtrack.app'
 export const DEMO_USER_ID = 'demo-user'
-export const DB_VERSION = 2
+export const DB_VERSION = 4
 
 export interface GoalRow {
   id: string
@@ -81,7 +81,7 @@ const EN: Record<string, string> = {
   'Notebook Dell': 'Dell laptop', 'Passagem Lisboa — TAP': 'Lisbon flight — TAP', 'Viagem de férias em janeiro': 'Holiday trip in January',
   'estudos': 'studies', 'saúde': 'health', 'trabalho': 'work', 'viagem': 'travel',
   'Sicredi Poupança': 'Sicredi Savings',
-  'Limite de alimentação': 'Food limit', 'Reserva de emergência': 'Emergency fund', 'Limite de transporte': 'Transport limit', 'Assinaturas no ano': 'Subscriptions this year',
+  'Reserva de emergência': 'Emergency fund', 'Assinaturas no ano': 'Subscriptions this year', 'Lazer no ano': 'Leisure this year',
   'Vencimento em 2029, indexado ao IPCA': 'Matures in 2029, indexed to inflation (IPCA)', 'Liquidez diária': 'Daily liquidity',
   'Isenta de IR, vence em 12 meses': 'Tax-exempt, matures in 12 months', 'Dividendos mensais': 'Monthly dividends',
   'Posição pequena, de longo prazo': 'Small long-term position', 'Estorno compra': 'Purchase refund',
@@ -99,18 +99,19 @@ function tr(text: string | undefined): string | undefined {
 
 // ── Categorias (iguais às do schema.sql) ──────────────────
 const CATEGORY_DEFS: [string, string, string][] = [
-  ['Alimentação', 'utensils', '#e06c75'],
-  ['Transporte', 'car', '#e09c4c'],
-  ['Moradia', 'home', '#61afef'],
-  ['Saúde', 'heart', '#98c379'],
-  ['Educação', 'book', '#c678dd'],
-  ['Lazer', 'music', '#56b6c2'],
-  ['Vestuário', 'shirt', '#e5c07b'],
-  ['Assinaturas', 'repeat', '#abb2bf'],
-  ['Investimentos', 'trending-up', '#4caf7d'],
-  ['Receita', 'dollar-sign', '#4caf7d'],
-  ['Transferência', 'arrow-right', '#61afef'],
-  ['Outros', 'more-horizontal', '#606060'],
+  // Cores do tema claro da paleta de categorias (src/lib/categoryColor.ts)
+  ['Alimentação', 'utensils', '#eb6834'],
+  ['Transporte', 'car', '#eda100'],
+  ['Moradia', 'home', '#2a78d6'],
+  ['Saúde', 'heart', '#e87ba4'],
+  ['Educação', 'book', '#008300'],
+  ['Lazer', 'music', '#1baf7a'],
+  ['Vestuário', 'shirt', '#e34948'],
+  ['Assinaturas', 'repeat', '#4a3aa7'],
+  ['Investimentos', 'trending-up', '#9D2449'],
+  ['Receita', 'dollar-sign', '#2ca470'],
+  ['Transferência', 'arrow-right', '#8e8e99'],
+  ['Outros', 'more-horizontal', '#8e8e99'],
 ]
 
 interface TxSpec {
@@ -147,18 +148,16 @@ export function buildSeed(now = new Date()): DemoDB {
   const transactions: Transaction[] = []
   const today = now.getDate()
 
-  // k = meses atrás (11 … 0). No mês corrente os dias são comprimidos até hoje.
+  // k = meses atrás (11 … 0). O mês corrente fica parcial, como na vida real:
+  // só entra o que tem dia até hoje (nada de espremer o mês inteiro nos primeiros dias).
   for (let k = 11; k >= 0; k--) {
     const y = new Date(now.getFullYear(), now.getMonth() - k, 1).getFullYear()
     const m = new Date(now.getFullYear(), now.getMonth() - k, 1).getMonth()
     const dim = daysInMonth(y, m)
-    const dayOf = (d: number) => {
-      if (k > 0) return Math.min(d, dim)
-      return 1 + Math.floor(((Math.min(d, 28) - 1) * (today - 1)) / 27)
-    }
+    const dayOf = (d: number) => Math.min(d, dim)
 
     const specs: TxSpec[] = [
-      { acc: 'nub', desc: 'Salário', amount: 6200, day: 5, cat: 'Receita', recurring: true, by: 'rule' },
+      { acc: 'nub', desc: 'Salário', amount: k >= 6 ? 5800 : 6200, day: 5, cat: 'Receita', recurring: true, by: 'rule' },
       { acc: 'nub', desc: 'Aluguel', amount: -1650, day: 6, cat: 'Moradia', recurring: true, by: 'rule' },
       { acc: 'nub', desc: 'Condomínio', amount: -380, day: 6, cat: 'Moradia', recurring: true, by: 'rule' },
       { acc: 'nub', desc: 'Enel Energia', amount: -vary(168, k, 1, 0.18), day: 12, cat: 'Moradia', recurring: true, by: 'cache', conf: 0.98 },
@@ -181,7 +180,7 @@ export function buildSeed(now = new Date()): DemoDB {
       { acc: 'nub', desc: 'Drogasil', amount: -vary(58, k, 13, 0.3), day: 11, cat: 'Saúde', by: 'ai', conf: 0.9, tags: ['saúde'] },
       { acc: 'inter', desc: k % 2 ? 'Cinemark' : 'Steam', amount: -vary(k % 2 ? 64 : 59.9, k, 14, 0.05), day: 22, cat: 'Lazer', by: 'ai', conf: 0.87 },
       // Reserva: sai do Nubank e entra na poupança (transferência entre contas)
-      { acc: 'nub', desc: 'Transferência para Sicredi Poupança', amount: -1000, day: 7, cat: 'Transferência', recurring: true, type: 'transfer', by: 'rule' },
+      { acc: 'nub', desc: 'Transferência para Sicredi Poupança', amount: -1000, day: 7, cat: 'Investimentos', recurring: true, type: 'transfer', by: 'rule' },
       { acc: 'sic', desc: 'Aporte na reserva', amount: 1000, day: 7, cat: 'Investimentos', recurring: true, type: 'transfer', by: 'rule' },
       { acc: 'sic', desc: 'Rendimento da poupança', amount: vary(92, k, 15, 0.1), day: 28, cat: 'Investimentos', by: 'rule' },
     ]
@@ -210,6 +209,7 @@ export function buildSeed(now = new Date()): DemoDB {
     }
 
     specs.forEach((s, i) => {
+      if (k === 0 && s.day > today) return
       const d = new Date(y, m, dayOf(s.day))
       const id = `tx-${k}-${i}`
       transactions.push({
@@ -240,11 +240,11 @@ export function buildSeed(now = new Date()): DemoDB {
   transactions.sort((a, b) => (a.transaction_date < b.transaction_date ? 1 : -1))
 
   const monthStart = iso(new Date(now.getFullYear(), now.getMonth(), 1))
+  // Metas: uma de economia (a reserva) e limites anuais; os limites do mês ficam nos orçamentos
   const goals: GoalRow[] = [
-    { id: 'goal-1', user_id: DEMO_USER_ID, category_id: cat('Alimentação'), name: tr('Limite de alimentação'), type: 'spending_limit', target_amount: 1300, current_amount: 0, currency: 'BRL', period: 'monthly', start_date: monthStart, is_active: true, created_at: createdAt, updated_at: createdAt },
     { id: 'goal-2', user_id: DEMO_USER_ID, category_id: cat('Investimentos'), name: tr('Reserva de emergência'), type: 'savings_target', target_amount: 15000, current_amount: 0, currency: 'BRL', period: 'custom', start_date: `${now.getFullYear()}-01-01`, end_date: `${now.getFullYear()}-12-31`, is_active: true, created_at: createdAt, updated_at: createdAt },
-    { id: 'goal-3', user_id: DEMO_USER_ID, category_id: cat('Transporte'), name: tr('Limite de transporte'), type: 'spending_limit', target_amount: 500, current_amount: 0, currency: 'BRL', period: 'monthly', start_date: monthStart, is_active: true, created_at: createdAt, updated_at: createdAt },
     { id: 'goal-4', user_id: DEMO_USER_ID, category_id: cat('Assinaturas'), name: tr('Assinaturas no ano'), type: 'spending_limit', target_amount: 2400, current_amount: 0, currency: 'BRL', period: 'yearly', start_date: `${now.getFullYear()}-01-01`, is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'goal-5', user_id: DEMO_USER_ID, category_id: cat('Lazer'), name: tr('Lazer no ano'), type: 'spending_limit', target_amount: 4800, current_amount: 0, currency: 'BRL', period: 'yearly', start_date: `${now.getFullYear()}-01-01`, is_active: true, created_at: createdAt, updated_at: createdAt },
   ]
 
   const investments: DemoDB['investments'] = [
@@ -255,18 +255,24 @@ export function buildSeed(now = new Date()): DemoDB {
     { id: 'inv-5', user_id: DEMO_USER_ID, name: 'Bitcoin', type: 'criptomoeda', institution: 'Mercado Bitcoin', total_invested: 1500, current_value: 1854.6, currency: 'BRL', notes: tr('Posição pequena, de longo prazo'), is_active: true, created_at: createdAt, updated_at: createdAt },
   ]
 
-  // Orçamentos do mês corrente: limites escolhidos para mostrar faixas diferentes
+  // Orçamentos dos últimos 3 meses. O limite sai do gasto de um mês fechado (o anterior),
+  // escolhido para mostrar faixas diferentes no fim do mês: Lazer estoura, Saúde sobra.
   const month = monthStart.slice(0, 7)
-  const spentIn = (catName: string) => transactions
-    .filter(t => t.transaction_date.startsWith(month) && t.category_id === cat(catName) && t.amount < 0)
+  const prevMonth = iso(new Date(now.getFullYear(), now.getMonth() - 1, 1)).slice(0, 7)
+  const spentIn = (catName: string, mon: string) => transactions
+    .filter(t => t.transaction_date.startsWith(mon) && t.category_id === cat(catName) && t.amount < 0)
     .reduce((s, t) => s + Math.abs(t.amount), 0)
-  const limitFor = (catName: string, pct: number) => Math.max(50, Math.round(spentIn(catName) / pct / 50) * 50)
-  const budgets: BudgetRow[] = [
-    ['Moradia', 0.97], ['Alimentação', 0.86], ['Transporte', 0.64], ['Assinaturas', 0.9], ['Lazer', 1.06], ['Saúde', 0.45],
-  ].map(([name, pct], i) => ({
-    id: `bud-${i + 1}`, user_id: DEMO_USER_ID, category_id: cat(name as string)!, month,
-    limit_amount: limitFor(name as string, pct as number), created_at: createdAt,
-  }))
+  const limitFor = (catName: string, pct: number) => Math.max(50, Math.round(spentIn(catName, prevMonth) / pct / 50) * 50)
+  const budgetDefs: [string, number][] = [
+    ['Moradia', 0.97], ['Alimentação', 0.88], ['Transporte', 0.7], ['Assinaturas', 0.9], ['Lazer', 1.06], ['Saúde', 0.6],
+  ]
+  const budgets: BudgetRow[] = [2, 1, 0].flatMap(back => {
+    const mon = iso(new Date(now.getFullYear(), now.getMonth() - back, 1)).slice(0, 7)
+    return budgetDefs.map(([name, pct], i) => ({
+      id: `bud-${back}-${i + 1}`, user_id: DEMO_USER_ID, category_id: cat(name)!, month: mon,
+      limit_amount: limitFor(name, pct), created_at: createdAt,
+    }))
+  })
 
   // Patrimônio: 12 fotos de fim de mês, crescendo até o valor atual
   const totalAcc = accounts.reduce((s, a) => s + a.balance, 0)
@@ -274,8 +280,8 @@ export function buildSeed(now = new Date()): DemoDB {
   const snapshots: NetWorthSnapshot[] = []
   for (let k = 11; k >= 0; k--) {
     const d = k === 0 ? now : new Date(now.getFullYear(), now.getMonth() - k + 1, 0)
-    const a = Math.round((totalAcc - k * 520 + vary(1, k, 20, 0.5) * 180 - 180) * 100) / 100
-    const inv = Math.round((totalInv - k * 610 + vary(1, k, 21, 0.5) * 120 - 120) * 100) / 100
+    const a = Math.round((totalAcc - k * 520 + (vary(1, k, 20, 0.9) - 1) * 900) * 100) / 100
+    const inv = Math.round((totalInv - k * 610 + (vary(1, k, 21, 0.9) - 1) * 700 - (k === 4 ? 950 : 0)) * 100) / 100
     snapshots.push({ date: iso(d), total_accounts: k === 0 ? totalAcc : a, total_investments: k === 0 ? totalInv : inv, net_worth: Math.round(((k === 0 ? totalAcc : a) + (k === 0 ? totalInv : inv)) * 100) / 100 })
   }
 
@@ -287,10 +293,10 @@ export function buildSeed(now = new Date()): DemoDB {
   if (recent[1]) audit.push({ id: 'aud-2', user_id: DEMO_USER_ID, entity_type: 'transaction', entity_id: recent[1].id, action: 'update', old_values: { ...recent[1], amount: Math.round((recent[1].amount - 10) * 100) / 100 } as Record<string, unknown>, new_values: { amount: recent[1].amount }, undone: false, created_at: hoursAgo(5) })
   audit.push({
     id: 'aud-3', user_id: DEMO_USER_ID, entity_type: 'transaction', entity_id: 'tx-removed-1', action: 'delete',
-    old_values: { id: 'tx-removed-1', user_id: DEMO_USER_ID, account_id: 'acc-nub', category_id: cat('Assinaturas'), description: 'Globoplay', amount: -24.9, currency: 'BRL', transaction_date: iso(now), type: 'debit', is_recurring: false, sync_status: 'synced', categorized_by: 'rule', confidence_score: 1 },
+    old_values: { id: 'tx-removed-1', user_id: DEMO_USER_ID, account_id: 'acc-nub', category_id: cat('Assinaturas'), description: 'Globoplay', amount: -24.9, currency: 'BRL', transaction_date: iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3)), type: 'debit', is_recurring: false, sync_status: 'synced', categorized_by: 'rule', confidence_score: 1 },
     undone: false, created_at: hoursAgo(26),
   })
-  if (recent[2]) audit.push({ id: 'aud-4', user_id: DEMO_USER_ID, entity_type: 'transaction', entity_id: recent[2].id, action: 'create', new_values: { ...recent[2] } as Record<string, unknown>, undone: true, created_at: hoursAgo(49) })
+  if (recent[2]) audit.push({ id: 'aud-4', user_id: DEMO_USER_ID, entity_type: 'transaction', entity_id: recent[2].id, action: 'delete', old_values: { ...recent[2] } as Record<string, unknown>, undone: true, created_at: hoursAgo(49) })
 
   return {
     version: DB_VERSION,

@@ -3,7 +3,7 @@
 // barras desenhado com as primitivas da própria biblioteca.
 import i18n from '../../i18n'
 import { buildXlsx, type XlsxColumn, type XlsxValue } from '../../lib/xlsx'
-import { buildCsv, downloadBlob } from '../../lib/export'
+import { buildCsv, downloadBlob, generatedAt as generatedAtFor } from '../../lib/export'
 import { categoryLabel, currentLocale, formatCurrency, formatPercent } from '../../utils'
 import type { Account, Category, Transaction } from '../../types'
 import { axisMoney, niceTicks, type Bucket, type CategoryRow, type Granularity, type Range, type Summary, type TopRow } from './dados'
@@ -32,9 +32,7 @@ export function fileBase(r: Range) {
   return `flowtrack-${t('export.fileBase')}-${r.start}-${r.end}`
 }
 
-function generatedAt() {
-  return new Intl.DateTimeFormat(currentLocale(), { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date())
-}
+const generatedAt = () => generatedAtFor(currentLocale())
 
 const pct = (v: number | null) => (v === null || !Number.isFinite(v) ? null : v)
 
@@ -44,12 +42,13 @@ const C = {
   ink: [17, 17, 19] as RGB, text: [44, 44, 49] as RGB, muted: [85, 85, 95] as RGB, hint: [111, 111, 120] as RGB,
   line: [228, 228, 232] as RGB, lineStrong: [201, 201, 207] as RGB, grid: [236, 236, 239] as RGB, card: [246, 246, 247] as RGB,
   wine: [157, 36, 73] as RGB, brand: [107, 31, 42] as RGB, brandGray: [80, 80, 80] as RGB,
-  income: [44, 164, 112] as RGB, expense: [154, 41, 41] as RGB, // marcas: --chart-income / --chart-expense (claro)
+  income: [44, 164, 112] as RGB, expense: [142, 142, 153] as RGB, // marcas: --chart-income / --chart-spend (claro): gasto em cinza, como na tela
   incomeText: [19, 132, 79] as RGB, expenseText: [198, 47, 69] as RGB, // texto: --green / --red (claro, contraste AA)
 }
 // Mesma ordem das cores dos gráficos no tema claro
 // Mesma ordem de --chart-1..8 no tema claro (paleta validada)
 const SERIES: RGB[] = [[42, 120, 214], [235, 104, 52], [27, 175, 122], [237, 161, 0], [232, 123, 164], [0, 131, 0], [74, 58, 167], [142, 142, 153]]
+const hexRgb = (hex: string): RGB => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)) as RGB
 const tint = (c: RGB, k = 0.62): RGB => c.map(v => Math.round(v + (255 - v) * k)) as RGB
 
 // As fontes padrão do PDF usam a tabela WinAnsi: troca espaços finos e sinais fora dela
@@ -234,7 +233,7 @@ export async function exportPdf(model: ReportModel) {
       ? [{ header: t('table.category'), width: 62 }, { header: t('table.count'), width: 22, align: 'right' }, { header: t('table.value'), width: 30, align: 'right' }, { header: t('table.share'), width: 18, align: 'right' }, { header: t('table.previous'), width: 26, align: 'right' }, { header: t('table.change'), width: 20, align: 'right' }]
       : [{ header: t('table.category'), width: 96 }, { header: t('table.count'), width: 24, align: 'right' }, { header: t('table.value'), width: 34, align: 'right' }, { header: t('table.share'), width: 24, align: 'right' }]
     const rows: Cell[][] = model.categories.map((c, i) => {
-      const base: Cell[] = [{ text: c.name, swatch: model.categories.length <= 6 || i < 5 ? SERIES[i] : SERIES[7] }, String(c.count), formatCurrency(c.value), formatPercent(c.share, 1, false)]
+      const base: Cell[] = [{ text: c.name, swatch: model.categories.length <= 6 || i < 5 ? hexRgb(c.printHex) : SERIES[7] }, String(c.count), formatCurrency(c.value), formatPercent(c.share, 1, false)]
       return model.compare ? [...base, c.prev ? formatCurrency(c.prev) : '—', c.prev ? changeCell(c.change, false) : { text: t('categories.new'), color: C.hint }] : base
     })
     const totalCount = model.categories.reduce((a, c) => a + c.count, 0)

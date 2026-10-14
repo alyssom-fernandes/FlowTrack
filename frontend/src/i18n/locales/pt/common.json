@@ -56,6 +56,11 @@
     "confirm": "Confirmar",
     "crashTitle": "Algo saiu do lugar",
     "crashText": "A tela encontrou um erro inesperado. Recarregar costuma resolver; seus dados não foram perdidos.",
-    "reload": "Recarregar"
+    "reload": "Recarregar",
+    "notFound": {
+      "title": "Página não encontrada",
+      "text": "O endereço {{path}} não existe no FlowTrack.",
+      "action": "Ir para o painel"
+    }
   }
 }

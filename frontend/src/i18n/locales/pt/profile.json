@@ -177,8 +177,8 @@
         "is_recurring": "Recorrente"
       },
       "types": {
-        "debit": "Saída",
-        "credit": "Entrada",
+        "debit": "Gasto",
+        "credit": "Receita",
         "transfer": "Transferência"
       },
       "changeLabel": "{{field}}: de {{from}} para {{to}}"

@@ -283,8 +283,15 @@
       "search": "Search: “{{value}}”",
       "generated": "Created on {{date}}",
       "total": "Total",
-      "totals": "Income {{income}} · Expenses {{expense}} · transfers excluded",
-      "net": "Net"
+      "net": "Net",
+      "totalIncome": "Total income",
+      "totalExpense": "Total expenses",
+      "fileBase": "transactions"
+    },
+    "month": {
+      "label": "Month",
+      "prev": "Go to {{month}}",
+      "next": "Go to {{month}}"
     }
   }
 }

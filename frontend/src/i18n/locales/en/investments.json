@@ -86,6 +86,20 @@
       "criptomoeda": "Crypto",
       "outro": "Other"
     },
-    "otherFolded": "Other"
+    "otherFolded": "Other",
+    "hero": {
+      "result": "{{value}} ({{pct}}) over the amount invested",
+      "positions": "Positions",
+      "types": "Types",
+      "inPeriod": "{{value}} in the period",
+      "range": "Chart period",
+      "a11y": "Investments over {{count}} months: from {{from}} to {{to}}.",
+      "ranges": {
+        "3m": "3M",
+        "6m": "6M",
+        "1y": "1Y",
+        "all": "All"
+      }
+    }
   }
 }

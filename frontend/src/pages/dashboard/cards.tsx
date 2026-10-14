@@ -2,17 +2,19 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, CardHeader, EmptyState, IconButton, ProgressBar, Skeleton } from '../../components/ui'
+import { Badge, Button, Card, CardHeader, EmptyState, IconButton, Money, ProgressBar, Skeleton } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { alertHref, categoryLabel, formatCurrency, formatPercent, formatRelative, formatSignedCurrency } from '../../utils'
 import type { Account, Alert, Budget, Category, CashflowProjection, InsightResponse, NetWorth, Transaction } from '../../types'
-import { CashflowChart, MonthlyChart, Sparkline } from './charts'
+import { CashflowChart, Sparkline } from './charts'
 import { CategoryIcon } from './CategoryIcon'
-import { dayMonth, insightBlocks, splitHighlights, type MonthTotals, type ProjectionPoint } from './data'
+import { categoryColor } from '../../lib/categoryColor'
+import { billsByCategory, expectedBy, monthDays, paceOf, PACE_COLOR, type PaceStatus } from '../../lib/pace'
+import { dayMonth, insightBlocks, splitHighlights, type ProjectionPoint } from './data'
 
 // Link de texto do cabeçalho dos cartões ("Ver todas", "Gerenciar")
 export function CardLink({ to, children }: { to: string; children: ReactNode }) {
-  return <Link to={to} className="ft-dash-link">{children}<Icon name="arrowRight" size={14} /></Link>
+  return <Link to={to} className="ft-dash-link">{children}</Link>
 }
 
 // ── Métrica do topo ───────────────────────────────────────
@@ -36,31 +38,6 @@ export function KpiTile({ label, value, delta, foot, extra, negative }: { label:
         {!delta && foot}
         {extra && <span className="ft-kpi__extra">{extra}</span>}
       </span>
-    </Card>
-  )
-}
-
-// ── Evolução mensal ───────────────────────────────────────
-export function MonthlyCard({ data, currentMonth }: { data: MonthTotals[]; currentMonth: string }) {
-  const { t } = useTranslation()
-  const withData = data.filter(d => d.income || d.expense)
-  const avgNet = withData.length ? withData.reduce((s, d) => s + d.income - d.expense, 0) / withData.length : 0
-  return (
-    <Card className="ft-dash-monthly">
-      <CardHeader title={t('dashboard.monthly.title')} subtitle={t('dashboard.monthly.subtitle')}
-        action={
-          <div className="ft-legend" aria-hidden>
-            <span><i style={{ background: 'var(--chart-income)' }} />{t('dashboard.monthly.income')}</span>
-            <span><i style={{ background: 'var(--chart-expense)' }} />{t('dashboard.monthly.expenses')}</span>
-          </div>
-        } />
-      <MonthlyChart data={data} currentMonth={currentMonth} />
-      {withData.length > 1 && (
-        <p className="ft-dash-note">
-          {t('dashboard.monthly.avgNet', { count: withData.length })}{' '}
-          <strong className="ft-num" style={{ color: avgNet < 0 ? 'var(--red)' : 'var(--text-primary)' }}>{formatSignedCurrency(avgNet)}</strong>
-        </p>
-      )}
     </Card>
   )
 }
@@ -203,8 +180,8 @@ export function NetWorthCard({ nw }: { nw: NetWorth | null }) {
   const accPct = total ? (Math.max(0, nw.total_accounts) / total) * 100 : 0
   const invPct = total ? 100 - accPct : 0
   const parts = [
-    { key: 'accounts', label: t('dashboard.netWorth.accounts'), value: nw.total_accounts, pct: accPct, color: 'var(--chart-2)' },
-    { key: 'investments', label: t('dashboard.netWorth.investments'), value: nw.total_investments, pct: invPct, color: 'var(--chart-1)' },
+    { key: 'accounts', label: t('dashboard.netWorth.accounts'), value: nw.total_accounts, pct: accPct, color: 'var(--chart-neutral)' },
+    { key: 'investments', label: t('dashboard.netWorth.investments'), value: nw.total_investments, pct: invPct, color: 'var(--accent)' },
   ]
 
   return (
@@ -256,7 +233,12 @@ export function AlertsCard({ alerts, loading, error, onRetry }: { alerts: Alert[
   const { t } = useTranslation()
   const [all, setAll] = useState(false)
   const order = { danger: 0, warning: 1, info: 2 }
-  const sorted = [...alerts].sort((a, b) => order[a.type] - order[b.type])
+  const recurring = alerts.filter(a => a.category === 'recurring')
+  const names = recurring.map(a => /[“"]([^”"]+)[”"]/.exec(a.message)?.[1]).filter(Boolean) as string[]
+  const grouped: Alert[] = recurring.length > 1
+    ? [...alerts.filter(a => a.category !== 'recurring'), { type: 'info', category: 'recurring', message: t('dashboard.alerts.recurringGroup', { count: recurring.length, names: names.join(', ') }) }]
+    : alerts
+  const sorted = [...grouped].sort((a, b) => order[a.type] - order[b.type])
   const visible = all ? sorted : sorted.slice(0, 5)
   return (
     <Card className="ft-dash-alerts" aria-busy={(loading && !alerts.length) || undefined}>
@@ -307,7 +289,7 @@ export function AlertsCard({ alerts, loading, error, onRetry }: { alerts: Alert[
 }
 
 // ── Orçamentos do mês ─────────────────────────────────────
-export function BudgetsCard({ budgets, categories, loading }: { budgets: Budget[]; categories: Category[]; loading: boolean }) {
+export function BudgetsCard({ budgets, categories, loading, previousMonth, monthKey, now }: { budgets: Budget[]; categories: Category[]; loading: boolean; previousMonth: Transaction[] | null; monthKey: string; now: Date }) {
   const { t } = useTranslation()
   const manage = '/goals?aba=orcamentos'
   if (loading) {
@@ -320,7 +302,14 @@ export function BudgetsCard({ budgets, categories, loading }: { budgets: Budget[
       </Card>
     )
   }
-  const sorted = [...budgets].sort((a, b) => b.percent - a.percent)
+  const { dim, day } = monthDays(monthKey, now)
+  const bills = billsByCategory(previousMonth ?? [])
+  const rank: Record<PaceStatus, number> = { over: 0, warn: 1, ok: 2 }
+  const withPace = budgets.map(b => {
+    const expected = expectedBy(b.limit_amount, bills.get(b.category_id) ?? [], day, dim)
+    return { b, expected, ...paceOf(b.spent, b.limit_amount, expected) }
+  }).sort((x, y) => rank[x.status] - rank[y.status] || x.diff - y.diff)
+  const sorted = withPace.slice(0, 4)
   const spent = budgets.reduce((s, b) => s + b.spent, 0)
   const limit = budgets.reduce((s, b) => s + b.limit_amount, 0)
   const catById = new Map(categories.map(c => [c.id, c]))
@@ -335,18 +324,18 @@ export function BudgetsCard({ budgets, categories, loading }: { budgets: Budget[
           action={<Link to={manage} className="ft-btn ft-btn--secondary ft-btn--sm">{t('dashboard.budgets.emptyAction')}</Link>} />
       ) : (
         <ul className="ft-budget-list">
-          {sorted.map(b => {
+          {sorted.map(({ b, expected, status }) => {
             const cat = catById.get(b.category_id)
             const name = categoryLabel(cat ?? (b.category_name ? { name: b.category_name } : null), t('dashboard.recent.uncategorized'))
             const over = b.spent > b.limit_amount
-            const pctColor = b.percent >= 100 ? 'var(--red)' : b.percent >= 80 ? 'var(--amber)' : 'var(--text-muted)'
+            const statusText = status === 'over' ? t('dashboard.budgets.statusOver') : status === 'warn' ? t('dashboard.budgets.statusWarn') : t('dashboard.budgets.statusOk')
             return (
               <li key={b.id}>
                 <div className="ft-budget__top">
-                  <span className="ft-budget__name"><span className="ft-dot" style={{ background: b.category_color || cat?.color || 'var(--chart-neutral)' }} />{name}</span>
-                  <span className="ft-budget__pct ft-num" style={{ color: pctColor }}>{formatPercent(b.percent, 0, false)}</span>
+                  <span className="ft-budget__name"><span className="ft-dot" style={{ background: cat ? categoryColor(cat) : b.category_color || 'var(--chart-neutral)' }} />{name}</span>
+                  <span className={`ft-budget__status ft-budget__status--${status}`}>{statusText}</span>
                 </div>
-                <ProgressBar value={b.percent} tone="spending" label={name} />
+                <ProgressBar value={b.percent} label={name} color={PACE_COLOR[status]} pace={b.limit_amount > 0 ? (expected / b.limit_amount) * 100 : undefined} />
                 <div className="ft-budget__bottom ft-num">
                   <span>{t('dashboard.budgets.of', { spent: formatCurrency(b.spent), limit: formatCurrency(b.limit_amount) })}</span>
                   <span style={{ color: over ? 'var(--red)' : undefined }}>
@@ -358,6 +347,7 @@ export function BudgetsCard({ budgets, categories, loading }: { budgets: Budget[
           })}
         </ul>
       )}
+      {budgets.length > sorted.length && <p className="ft-dash-note">{t('dashboard.budgets.more', { count: budgets.length - sorted.length })}</p>}
     </Card>
   )
 }
@@ -382,7 +372,7 @@ export function RecentCard({ transactions, categories, accounts }: { transaction
             const acc = accById.get(tx.account_id)
             return (
               <li key={tx.id} className="ft-row">
-                <span className="ft-recent__icon" style={{ '--cat': transfer ? 'var(--chart-neutral)' : cat?.color || 'var(--chart-neutral)' } as React.CSSProperties}>
+                <span className="ft-recent__icon" style={{ '--cat': transfer || !cat ? 'var(--chart-neutral)' : categoryColor(cat) } as React.CSSProperties}>
                   {transfer ? <Icon name="transfer" size={16} /> : <CategoryIcon name={cat?.icon} size={16} />}
                 </span>
                 <div className="ft-recent__main">
@@ -396,15 +386,12 @@ export function RecentCard({ transactions, categories, accounts }: { transaction
                     ) : null}
                   </div>
                   <div className="ft-recent__meta">
-                    <span>{label}</span>
-                    <span aria-hidden className="ft-recent__sep">·</span>
+                    <span className={`ft-catpill${!cat && !transfer ? ' ft-catpill--none' : ''}`} style={{ '--c': transfer || !cat ? 'var(--chart-neutral)' : categoryColor(cat) } as React.CSSProperties}>{label}</span>
                     <span>{dayMonth(tx.transaction_date)}</span>
                     {acc && <span className="ft-recent__acc"><span aria-hidden className="ft-recent__sep">·</span>{acc.name}</span>}
                   </div>
                 </div>
-                <span className="ft-recent__amount ft-num" style={{ color: transfer ? 'var(--text-muted)' : tx.amount > 0 ? 'var(--green)' : 'var(--text-primary)' }}>
-                  {formatSignedCurrency(tx.amount)}
-                </span>
+                <Money value={tx.amount} signed className="ft-recent__amount" style={{ color: transfer ? 'var(--text-muted)' : tx.amount > 0 ? 'var(--green)' : 'var(--text-primary)' }} />
               </li>
             )
           })}

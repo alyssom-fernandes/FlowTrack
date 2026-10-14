@@ -76,7 +76,9 @@
       "allGood": "Tudo em ordem",
       "allGoodText": "Nenhum orçamento estourado nem saldo negativo.",
       "showAll": "Mostrar todos ({{count}})",
-      "showLess": "Mostrar menos"
+      "showLess": "Mostrar menos",
+      "recurringGroup_one": "{{count}} recorrente não apareceu este mês: {{names}}",
+      "recurringGroup_other": "{{count}} recorrentes não apareceram este mês: {{names}}"
     },
     "budgets": {
       "title": "Orçamentos do mês",
@@ -87,7 +89,12 @@
       "over": "{{value}} acima do limite",
       "emptyTitle": "Nenhum orçamento neste mês",
       "emptyText": "Defina um limite por categoria para acompanhar os gastos.",
-      "emptyAction": "Definir orçamento"
+      "emptyAction": "Definir orçamento",
+      "statusOk": "no ritmo",
+      "statusWarn": "acima do ritmo",
+      "statusOver": "estourou",
+      "more_one": "E mais {{count}} orçamento.",
+      "more_other": "E mais {{count}} orçamentos."
     },
     "recent": {
       "title": "Últimas transações",
@@ -143,6 +150,47 @@
     "actions": {
       "import": "Importar extrato",
       "newTransaction": "Nova transação"
+    },
+    "flow": {
+      "title": "{{month}} até o dia {{day}}",
+      "in": "Receitas",
+      "out": "Gastos",
+      "left": "Sobra",
+      "short": "Falta",
+      "vsSameDays_one": "1º de {{month}}",
+      "vsSameDays_other": "1 a {{day}} de {{month}}",
+      "rate": "{{pct}} do que entrou",
+      "uncategorized": "Sem categoria",
+      "others": "Outras {{count}}",
+      "see": "{{name}}: {{value}}, {{pct}} do que entrou. Ver lançamentos",
+      "plotLabel": "Para onde foi o dinheiro do mês",
+      "empty": "Nenhuma receita ou gasto neste mês até agora.",
+      "compared": "Comparado com {{range}}",
+      "showValues": "Mostrar valores",
+      "hideValues": "Ocultar valores",
+      "showMore_one": "Ver a outra categoria",
+      "showMore_other": "Ver as outras {{count}}",
+      "showLess": "Ver menos"
+    },
+    "pace": {
+      "title": "Quanto ainda posso gastar",
+      "subtitle_one": "Somando {{count}} orçamento: {{total}}",
+      "subtitle_other": "Somando {{count}} orçamentos: {{total}}",
+      "freeUntil": "livres até {{date}}",
+      "overTotal": "acima do total dos orçamentos",
+      "below": "{{value}} abaixo do ritmo",
+      "above": "{{value}} acima do ritmo",
+      "over": "Orçamentos estourados em {{value}}",
+      "ceiling": "Orçamentos: {{value}}",
+      "today": "hoje",
+      "legendSpent": "Gasto até hoje",
+      "legendPace": "Ritmo esperado",
+      "howTitle": "Como calculamos",
+      "howText": "Somamos os orçamentos do mês. As contas fixas (os gastos recorrentes do mês passado) entram no dia em que vencem, e o resto do limite se espalha pelos dias. A linha tracejada é onde o gasto deveria estar a cada dia.",
+      "a11y": "Gasto de {{spent}} até hoje, contra {{expected}} esperados pelo ritmo e {{limit}} de orçamento no mês.",
+      "emptyTitle": "Veja seu ritmo do mês",
+      "emptyText": "Crie orçamentos por categoria para saber quanto ainda pode gastar até o fim do mês.",
+      "emptyAction": "Criar orçamentos"
     }
   }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react'
+import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore, useAlertsStore } from '../store'
@@ -10,14 +11,17 @@ import { IconButton, Logo, Modal, Spinner } from './ui'
 import type { Alert } from '../types'
 import './layout.css'
 
-const NAV: { path: string; key: string; mobileKey: string; icon: IconName }[] = [
-  { path: '/dashboard',    key: 'dashboard',    mobileKey: 'home',         icon: 'dashboard' },
-  { path: '/transactions', key: 'transactions', mobileKey: 'transactionsShort', icon: 'list' },
-  { path: '/investments',  key: 'investments',  mobileKey: 'invest',       icon: 'trendUp' },
-  { path: '/goals',        key: 'goals',        mobileKey: 'goals',        icon: 'target' },
-  { path: '/reports',      key: 'reports',      mobileKey: 'reports',      icon: 'pie' },
-  { path: '/profile',      key: 'profile',      mobileKey: 'profile',      icon: 'user' },
+// Barra lateral em dois grupos por intenção; no celular, 5 itens (o Perfil fica no avatar do topo)
+type Group = 'daily' | 'plan' | 'account'
+const NAV: { path: string; key: string; mobileKey: string; icon: IconName; group: Group }[] = [
+  { path: '/dashboard',    key: 'dashboard',    mobileKey: 'home',              icon: 'dashboard', group: 'daily' },
+  { path: '/transactions', key: 'transactions', mobileKey: 'transactionsShort', icon: 'list',      group: 'daily' },
+  { path: '/goals',        key: 'goals',        mobileKey: 'goals',             icon: 'target',    group: 'plan' },
+  { path: '/investments',  key: 'investments',  mobileKey: 'invest',            icon: 'trendUp',   group: 'plan' },
+  { path: '/reports',      key: 'reports',      mobileKey: 'reports',           icon: 'pie',       group: 'plan' },
+  { path: '/profile',      key: 'profile',      mobileKey: 'profile',           icon: 'user',      group: 'account' },
 ]
+const MOBILE_NAV = ['/dashboard', '/transactions', '/goals', '/reports', '/investments'].map(p => NAV.find(n => n.path === p)!)
 
 const ALERT_LOOK: Record<Alert['type'], { icon: IconName; color: string }> = {
   danger:  { icon: 'alertCircle', color: 'var(--red)' },
@@ -119,11 +123,16 @@ export function Sidebar() {
         </div>
 
         <nav className="ft-sidebar__nav">
-          {NAV.map(item => (
-            <Link key={item.path} to={item.path} className="ft-nav-link" aria-current={location.pathname === item.path ? 'page' : undefined}>
-              <Icon name={item.icon} size={18} />
-              {t(`nav.${item.key}`)}
-            </Link>
+          {(['daily', 'plan', 'account'] as Group[]).map(group => (
+            <div key={group} className="ft-nav-group" role="group" aria-labelledby={`nav-group-${group}`}>
+              <span id={`nav-group-${group}`} className="ft-nav-group__label">{t(`nav.group_${group}`)}</span>
+              {NAV.filter(item => item.group === group).map(item => (
+                <Link key={item.path} to={item.path} className="ft-nav-link" aria-current={location.pathname === item.path ? 'page' : undefined}>
+                  <Icon name={item.icon} size={18} />
+                  {t(`nav.${item.key}`)}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
 
@@ -145,6 +154,7 @@ function MobileTopBar() {
   const { t } = useTranslation()
   const location = useLocation()
   const { load } = useAlertsStore()
+  const { initial } = useDisplayName()
   const [open, setOpen] = useState(false)
 
   useEffect(() => { load() }, [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -152,7 +162,10 @@ function MobileTopBar() {
   return (
     <header className="ft-mobile-top">
       <Link to="/dashboard" aria-label="FlowTrack"><Logo height={20} /></Link>
-      <BellButton onClick={() => setOpen(true)} />
+      <div className="ft-mobile-top__actions">
+        <BellButton onClick={() => setOpen(true)} />
+        <Link to="/profile" className="ft-avatar ft-avatar--link" aria-label={t('nav.profile')} aria-current={location.pathname === '/profile' ? 'page' : undefined}>{initial}</Link>
+      </div>
       <Modal open={open} onClose={() => setOpen(false)} title={t('nav.alerts')}>
         <AlertsList onNavigate={() => setOpen(false)} />
       </Modal>
@@ -165,8 +178,10 @@ export function BottomNavbar() {
   const { t } = useTranslation()
   const location = useLocation()
   return (
-    <nav className="ft-bottom" aria-label={t('nav.menu')}>
-      {NAV.map(item => (
+    <nav className="ft-bottom" aria-label={t('nav.menu')} style={{ '--active': Math.max(0, MOBILE_NAV.findIndex(n => n.path === location.pathname)), '--count': MOBILE_NAV.length } as React.CSSProperties}>
+      {/* Pílula atrás do ícone ativo, que desliza entre os itens */}
+      {MOBILE_NAV.some(n => n.path === location.pathname) && <span className="ft-bottom__pill" aria-hidden />}
+      {MOBILE_NAV.map(item => (
         <Link key={item.path} to={item.path} className="ft-bottom__link" aria-current={location.pathname === item.path ? 'page' : undefined}>
           <Icon name={item.icon} size={20} strokeWidth={location.pathname === item.path ? 2 : 1.75} />
           <span>{t(`nav.${item.mobileKey}`)}</span>
@@ -239,6 +254,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
   const location = useLocation()
   useEffect(() => { window.scrollTo(0, 0) }, [location.pathname])
+  const current = NAV.find(n => location.pathname.startsWith(n.path))
+  useDocumentTitle(current ? t(`nav.${current.key}`) : undefined)
   return (
     <div className="ft-shell">
       <a href="#conteudo" className="ft-skip">{t('nav.skipToContent')}</a>

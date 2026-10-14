@@ -8,12 +8,13 @@ import { formatCurrency, formatDate } from '../utils'
 import type { Account, Category, Transaction } from '../types'
 import { FilterBar } from './transactions/FilterBar'
 import { SummaryStrip } from './transactions/SummaryStrip'
+import { MonthNav } from './transactions/MonthNav'
 import { ListSkeleton, TransactionList } from './transactions/TransactionList'
 import { TransactionModal, type SavedKind } from './transactions/TransactionModal'
 import { ImportModal } from './transactions/ImportModal'
 import { ExportMenu } from './transactions/ExportMenu'
 import { describeFilters, exportTransactions, type ExportFormat } from './transactions/exportFile'
-import { EMPTY_FILTERS, fetchAll, filtersFromParams, filtersToParams, hasAnyFilter, NO_CATEGORY, PAGE_SIZE, toQuery, type Filters } from './transactions/shared'
+import { DEFAULT_FILTERS, fetchAll, filtersFromParams, filtersToParams, hasAnyFilter, NO_CATEGORY, PAGE_SIZE, toQuery, type Filters } from './transactions/shared'
 import './transactions/transactions.css'
 
 interface ListState { items: Transaction[]; total: number; pages: number }
@@ -58,7 +59,7 @@ export function Transactions() {
   const closeImport = () => { setImporting(false); setPendingAction(null) }
 
   const updateFilters = (patch: Partial<Filters>) => { setFiltersState(f => ({ ...f, ...patch })); setPage(1) }
-  const clearFilters = () => { setFiltersState({ ...EMPTY_FILTERS }); setPage(1) }
+  const clearFilters = () => { setFiltersState({ ...DEFAULT_FILTERS }); setPage(1) }
 
   useEffect(() => {
     const wanted = filtersToParams(filters, page)
@@ -210,6 +211,7 @@ export function Transactions() {
         <>
           <p className="tx-print-only">{describeFilters(filters, accounts, categories)}</p>
           <FilterBar filters={filters} onChange={updateFilters} onClear={clearFilters} accounts={accounts} categories={categories} tags={tags} />
+          <MonthNav filters={filters} onChange={updateFilters} />
           {list.total > 0 && <SummaryStrip data={all} onShowPending={filters.category_id === NO_CATEGORY ? undefined : () => updateFilters({ category_id: NO_CATEGORY })} />}
           <div ref={listTop} className="tx-anchor" />
           <Card padding="none" className="tx-list-card">

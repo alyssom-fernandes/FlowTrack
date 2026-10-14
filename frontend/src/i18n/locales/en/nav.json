@@ -18,11 +18,14 @@
     "demoUserSub": "Demo",
     "demoBanner": "Demo: the data is fictional and stays in this tab only. Nothing is sent.",
     "demoBannerShort": "Demo · fictional data",
-    "demoRestore": "Reset data",
+    "demoRestore": "Reset sample data",
     "demoExit": "Exit",
     "skipToContent": "Skip to content",
     "alertsError": "Couldn't load alerts.",
     "retry": "Try again",
-    "transactionsShort": "Activity"
+    "transactionsShort": "Activity",
+    "group_daily": "Day to day",
+    "group_plan": "Plan",
+    "group_account": "Account"
   }
 }

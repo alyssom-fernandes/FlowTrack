@@ -52,8 +52,11 @@ export function toQuery(f: Filters): TransactionFilters {
 }
 
 // Filtros escondidos atrás do botão "Filtros" (a busca fica sempre à vista)
+// O mês corrente é a vista padrão, não conta como filtro
+export const DEFAULT_FILTERS: Filters = { ...EMPTY_FILTERS, period: 'this_month' }
+
 export function activeFilterCount(f: Filters): number {
-  return [f.account_id, f.category_id, f.type, f.period, f.tag].filter(Boolean).length
+  return [f.account_id, f.category_id, f.type, f.period === 'this_month' ? '' : f.period, f.tag].filter(Boolean).length
 }
 
 export function hasAnyFilter(f: Filters): boolean {
@@ -159,6 +162,8 @@ export function filtersFromParams(p: URLSearchParams): Filters {
   if (!PERIODS.includes(f.period)) f.period = ''
   // Datas soltas na URL viram período personalizado
   if (!f.period && (f.start_date || f.end_date)) f.period = 'custom'
+  // Sem nenhum filtro no endereço, a tela abre no mês corrente (navegação por mês)
+  if (!URL_KEYS.some(k => p.has(k))) f.period = 'this_month'
   return f
 }
 

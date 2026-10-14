@@ -4,6 +4,7 @@
 import { transactionsService } from '../../services'
 import { categoryLabel, currentLocale, formatMonth, toISODate } from '../../utils'
 import type { Category, Transaction } from '../../types'
+import { categoryColor, categoryPrintHex } from '../../lib/categoryColor'
 
 export type PeriodKey = 'thisMonth' | 'lastMonth' | '3m' | '6m' | '12m' | 'year' | 'custom'
 export const PERIOD_KEYS: PeriodKey[] = ['thisMonth', 'lastMonth', '3m', '6m', '12m', 'year', 'custom']
@@ -16,18 +17,32 @@ const r2 = (v: number) => Math.round(v * 100) / 100
 const day = (y: number, m: number, d: number) => toISODate(new Date(y, m, d))
 const addDays = (iso: string, n: number) => { const d = parse(iso); d.setDate(d.getDate() + n); return toISODate(d) }
 
+// Períodos que incluem o mês corrente terminam hoje: o resto do mês ainda não aconteceu
 export function periodRange(key: PeriodKey, custom: Range, now = new Date()): Range {
   const y = now.getFullYear(), m = now.getMonth()
+  const today = toISODate(now)
   switch (key) {
-    case 'thisMonth': return { start: day(y, m, 1), end: day(y, m + 1, 0) }
+    case 'thisMonth': return { start: day(y, m, 1), end: today }
     case 'lastMonth': return { start: day(y, m - 1, 1), end: day(y, m, 0) }
-    case '3m': return { start: day(y, m - 2, 1), end: day(y, m + 1, 0) }
-    case '6m': return { start: day(y, m - 5, 1), end: day(y, m + 1, 0) }
-    case '12m': return { start: day(y, m - 11, 1), end: day(y, m + 1, 0) }
-    case 'year': return { start: day(y, 0, 1), end: day(y, m + 1, 0) }
+    case '3m': return { start: day(y, m - 2, 1), end: today }
+    case '6m': return { start: day(y, m - 5, 1), end: today }
+    case '12m': return { start: day(y, m - 11, 1), end: today }
+    case 'year': return { start: day(y, 0, 1), end: today }
     default: return custom
   }
 }
+
+// Mesmo dia, n meses antes (o último dia do mês continua sendo o último dia)
+function shiftMonths(iso: string, n: number): string {
+  const d = parse(iso)
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  const targetLast = new Date(d.getFullYear(), d.getMonth() + n + 1, 0).getDate()
+  const dd = d.getDate() === last ? targetLast : Math.min(d.getDate(), targetLast)
+  return day(d.getFullYear(), d.getMonth() + n, dd)
+}
+
+// Quantos meses cada período anda para trás na comparação
+const SHIFT: Partial<Record<PeriodKey, number>> = { thisMonth: 1, lastMonth: 1, '3m': 3, '6m': 6, '12m': 12, year: 12 }
 
 export function daysIn(r: Range): number {
   return Math.round((parse(r.end).getTime() - parse(r.start).getTime()) / 86_400_000) + 1
@@ -41,13 +56,12 @@ function wholeMonths(r: Range): number | null {
   return (e.getFullYear() - s.getFullYear()) * 12 + e.getMonth() - s.getMonth() + 1
 }
 
-// Período anterior de mesmo tamanho; "este ano" compara com o mesmo trecho do ano passado
+// Período anterior comparável: o mesmo trecho deslocado (1 a 14 de outubro → 1 a 14 de setembro;
+// este ano até hoje → o mesmo trecho do ano passado). Personalizado: período de mesmo tamanho.
 export function previousRange(key: PeriodKey, r: Range): Range {
   const s = parse(r.start)
-  if (key === 'year') {
-    const e = parse(r.end)
-    return { start: day(s.getFullYear() - 1, 0, 1), end: day(e.getFullYear() - 1, e.getMonth() + 1, 0) }
-  }
+  const shift = SHIFT[key]
+  if (shift) return { start: shiftMonths(r.start, -shift), end: shiftMonths(r.end, -shift) }
   const months = wholeMonths(r)
   if (months) return { start: day(s.getFullYear(), s.getMonth() - months, 1), end: addDays(r.start, -1) }
   const end = addDays(r.start, -1)
@@ -170,6 +184,8 @@ export interface CategoryRow {
   prev: number           // mesmo grupo no período anterior
   change: number | null  // variação %
   count: number
+  color: string          // cor fixa da categoria (CSS)
+  printHex: string       // a mesma cor no tema claro, para PDF e Excel
 }
 
 export function byCategory(txs: Transaction[], prevTxs: Transaction[], categories: Category[], noCategory: string): CategoryRow[] {
@@ -198,6 +214,8 @@ export function byCategory(txs: Transaction[], prevTxs: Transaction[], categorie
         prev: r2(p),
         change: pctChange(v.value, p),
         count: v.count,
+        color: id === '__none__' ? 'var(--text-hint)' : categoryColor(catMap.get(id)),
+        printHex: id === '__none__' ? '#8e8e99' : categoryPrintHex(catMap.get(id)),
       }
     })
     .sort((a, b) => b.value - a.value)
@@ -252,16 +270,16 @@ export function axisMoney(v: number): string {
 // ── Fatias da rosca ───────────────────────────────────────
 export interface Slice { key: string; name: string; value: number; share: number; color: string; prev: number; change: number | null; children?: CategoryRow[] }
 
-// Até 6 fatias: as 5 maiores com cor própria (pela ordem de tamanho) e o resto agrupado em cinza
+// Até 6 fatias: as 5 maiores com a cor fixa da categoria (a mesma em todas as telas e no PDF)
+// e o resto agrupado em cinza
 export function toSlices(rows: CategoryRow[], othersLabel: (count: number) => string): Slice[] {
-  const palette = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-6)']
   const main = rows.length <= 6 ? rows : rows.slice(0, 5)
   const rest = rows.length <= 6 ? [] : rows.slice(5)
-  const slices: Slice[] = main.map((r, i) => ({ key: r.id, name: r.name, value: r.value, share: r.share, color: palette[i], prev: r.prev, change: r.change }))
+  const slices: Slice[] = main.map(r => ({ key: r.id, name: r.name, value: r.value, share: r.share, color: r.color, prev: r.prev, change: r.change }))
   if (rest.length) {
     const value = r2(rest.reduce((s, r) => s + r.value, 0))
     const prev = r2(rest.reduce((s, r) => s + r.prev, 0))
-    slices.push({ key: '__others__', name: othersLabel(rest.length), value, share: rest.reduce((s, r) => s + r.share, 0), color: 'var(--chart-8)', prev, change: pctChange(value, prev), children: rest })
+    slices.push({ key: '__others__', name: othersLabel(rest.length), value, share: rest.reduce((s, r) => s + r.share, 0), color: 'var(--cat-other)', prev, change: pctChange(value, prev), children: rest })
   }
   return slices
 }

@@ -7,10 +7,10 @@
     },
     "preview": {
       "title": "Extrato importado",
-      "source": "Nubank · {{n}} transações",
+      "source": "Nubank, {{n}} transações",
       "categorizing": "Categorizando…",
       "ai": "IA · {{pct}}",
-      "budget": "Orçamento · {{category}}",
+      "budget": "Orçamento de {{category}}",
       "spent": "{{spent}} de {{limit}}",
       "aria": "Prévia do FlowTrack: extrato do Nubank importado. {{first}} categorizado como {{firstCat}} pela IA, com {{firstPct}} de confiança; {{second}} como {{secondCat}}, com {{secondPct}}. Orçamento de {{category}} em {{pct}}."
     },

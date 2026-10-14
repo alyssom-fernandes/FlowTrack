@@ -150,7 +150,15 @@
         "copied_other": "{{count}} orçamentos copiados de {{month}}",
         "copyError": "Não foi possível copiar os orçamentos.",
         "deleteError": "Não foi possível excluir o orçamento."
-      }
+      },
+      "restOf": "Gasto {{spent}} de {{limit}} orçados",
+      "paceBelow": "{{value}} abaixo do ritmo",
+      "paceAbove": "{{value}} acima do ritmo",
+      "paceOver": "Orçamentos estourados",
+      "statusOk": "no ritmo",
+      "statusWarn": "acima do ritmo",
+      "statusOver": "estourou",
+      "free": "{{value}} livres"
     }
   }
 }

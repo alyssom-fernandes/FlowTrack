@@ -217,7 +217,7 @@
   body:has(.rp-root) .ft-toasts { display: none !important; }
   :root, [data-theme='light'], [data-theme='dark'] {
     color-scheme: light;
-    --chart-income: #2ca470; --chart-expense: #9a2929;
+    --chart-income: #2ca470; --chart-expense: #9a2929; --chart-spend: #8e8e99;
     --chart-1: #2a78d6; --chart-2: #eb6834; --chart-3: #1baf7a; --chart-4: #eda100;
     --chart-5: #e87ba4; --chart-6: #008300; --chart-7: #4a3aa7; --chart-8: #8e8e99;
     --chart-axis: #6f6f78; --chart-grid: rgba(0, 0, 0, 0.08); --bg-subtle: #f6f6f7;
@@ -235,8 +235,19 @@
   .rp-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 8px !important; }
   .rp-kpi__value { font-size: 17px !important; }
   .rp-kpi__foot, .rp-kpi__foot .rp-delta { font-size: 10px; white-space: nowrap; }
-  .rp-kpi__foot { gap: 0.25rem; }
+  .rp-kpi__foot { gap: 0.25rem; flex-wrap: nowrap; }
   .rp-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  /* Na folha a tabela por mês fica sempre em tabela (o modo lista é só para telas estreitas) */
+  .rp-table-wrap--list .rp-table { display: table; }
+  .rp-table-wrap--list .rp-table thead { display: table-header-group; }
+  .rp-table-wrap--list .rp-table tbody { display: table-row-group; }
+  .rp-table-wrap--list .rp-table tfoot { display: table-footer-group; }
+  .rp-table-wrap--list .rp-table tr { display: table-row; padding: 0; border: none; }
+  .rp-table-wrap--list .rp-table td { display: table-cell; padding: 5px 8px; border-bottom: 1px solid var(--border-subtle); font-size: inherit; color: var(--text-secondary); font-weight: 400; }
+  .rp-table-wrap--list .rp-table td.is-title, .rp-table-wrap--list .rp-table td.is-primary { color: var(--text-primary); font-size: inherit; }
+  .rp-table-wrap--list .rp-table tfoot td { border-bottom: none; border-top: 1px solid var(--border-strong); color: var(--text-primary); font-weight: 600; }
+  .rp-table-wrap--list .rp-table td::before { content: none; }
+  .rp-table-wrap--list .rp-table .is-hide-mobile { display: table-cell; }
   .rp-donut { grid-template-columns: auto minmax(0, 1fr) !important; }
   .rp-tip, .rp-readout, .rp-cat-row__chev { display: none !important; }
   .rp-body[aria-busy='true'] { opacity: 1; }
@@ -245,3 +256,44 @@
   .rp-print-table { break-inside: auto; }
   .ft-page-footer { break-inside: avoid; border-top-color: #dcdce0; }
 }
+
+/* ── Acabamento visual (direção de outubro de 2026) ── */
+/* Gastos por categoria: barra empilhada em cima, lista ordenada embaixo */
+.rp-donut { display: flex !important; flex-direction: column; gap: 1.125rem; }
+.rp-stack { display: flex; flex-direction: column; gap: 0.625rem; }
+.rp-stack__total { display: flex; align-items: baseline; gap: 0.625rem; min-height: 2rem; }
+.rp-stack__label { font-size: var(--font-size-sm); color: var(--text-muted); }
+.rp-stack__value { font-size: var(--font-size-2xl); font-weight: 500; letter-spacing: -0.02em; color: var(--text-primary); }
+.rp-stack__share { font-size: var(--font-size-sm); color: var(--text-muted); }
+.rp-stack__bar { display: flex; gap: 2px; height: 0.875rem; border-radius: var(--radius-full); overflow: hidden; }
+.rp-stack__seg { min-width: 3px; transition: opacity var(--dur-1) ease; transform-origin: left center; }
+@media (prefers-reduced-motion: no-preference) {
+  .rp-stack__bar { animation: ft-grow-x var(--dur-4) var(--ease-out) both; transform-origin: left center; }
+}
+
+/* Resumo: a sobra domina; receitas, gastos e taxa ficam ao lado */
+.rp-kpis--strip { display: grid !important; grid-template-columns: minmax(0, 1.3fr) minmax(0, 2fr); gap: 1.25rem 2rem; padding: 1.5rem 1.75rem; align-items: end; }
+.rp-kpis__main { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.rp-kpis__value { font-size: clamp(2.25rem, 4.2vw, 3.25rem); font-weight: 300; letter-spacing: -0.04em; line-height: 1.05; color: var(--text-primary); }
+.rp-kpis__sub { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; font-size: var(--font-size-sm); color: var(--text-muted); margin-top: 0.25rem; }
+.rp-kpis__side { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.rp-kpis__side .rp-kpi { padding-left: 1rem; border-left: 1px solid var(--border-subtle); background: none; border-top: none; border-right: none; border-bottom: none; box-shadow: none; border-radius: 0; }
+.rp-kpis__side .rp-kpi .ft-money { font-size: var(--font-size-xl); font-weight: 500; letter-spacing: -0.02em; color: var(--text-primary); }
+@media (max-width: 900px) {
+  .rp-kpis--strip { grid-template-columns: minmax(0, 1fr); padding: 1.25rem; }
+}
+@media (max-width: 599px) {
+  .rp-kpis__side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rp-kpis__side .rp-kpi:nth-child(3) { grid-column: 1 / -1; border-left: none; padding-left: 0; }
+}
+@media print {
+  .rp-kpis--strip { grid-template-columns: minmax(0, 1fr) !important; gap: 8px !important; padding: 10px 12px !important; background: #fff !important; }
+  .rp-kpis__value { font-size: 26px !important; }
+  .rp-kpis__side { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .rp-kpis__side .rp-kpi { min-width: 0; padding-left: 8px; }
+  .rp-kpis__side .rp-kpi .ft-money { font-size: 15px !important; }
+  .rp-kpi__foot { flex-wrap: wrap !important; }
+}
+
+.rp-donut { align-items: stretch !important; justify-content: flex-start !important; }
+.rp-donut > *, .rp-donut .rp-cat-list { width: 100%; max-width: none; }

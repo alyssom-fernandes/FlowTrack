@@ -60,7 +60,7 @@
 
 /* ── Lista ── */
 .tx-anchor { scroll-margin-top: 4rem; height: 0; margin-top: -1rem; }
-.tx-list-card { overflow: hidden; }
+.tx-list-card { overflow: clip; }  /* clip (e não hidden): o cabeçalho do dia fica fixo ao rolar */
 .tx-list { transition: opacity var(--transition); }
 .tx-list--busy { opacity: 0.55; pointer-events: none; }
 .tx-ul { list-style: none; }
@@ -301,3 +301,44 @@ section + section .tx-day__head { border-top: 1px solid var(--border-subtle); }
   .tx-row, .tx-card, .tx-day__head { break-inside: avoid; }
   .tx-list--busy { opacity: 1; }
 }
+
+/* ── Acabamento visual (direção de outubro de 2026) ── */
+/* Categoria em pílula colorida: a mesma cor da categoria em todas as telas */
+.tx-cat__chip:not(.tx-cat__chip--none) {
+  margin-left: 0; border-radius: var(--radius-full); padding: 0 0.625rem 0 0.5rem; height: 1.625rem; font-weight: 500;
+  background: color-mix(in srgb, var(--c) 14%, transparent); color: color-mix(in srgb, var(--c) 72%, var(--text-primary));
+}
+[data-theme='light'] .tx-cat__chip:not(.tx-cat__chip--none) { color: color-mix(in srgb, var(--c) 70%, #000); }
+.tx-cat__chip:not(.tx-cat__chip--none):hover { background: color-mix(in srgb, var(--c) 22%, transparent); border-color: transparent; }
+.tx-cat__chip:not(.tx-cat__chip--none) .tx-cat__dot { background: var(--c); }
+.tx-cat__chip--none { border-radius: var(--radius-full); background: transparent; border: 1px dashed color-mix(in srgb, var(--amber) 60%, transparent); }
+.tx-cat__chip--none:hover { background: var(--amber-soft); }
+
+/* Cabeçalho do dia fixo ao rolar, com o total do dia */
+.tx-day__head { position: sticky; top: 0; z-index: 2; background: linear-gradient(var(--bg-subtle), var(--bg-subtle)), var(--bg-card); }
+@media (max-width: 767px) { .tx-day__head { top: var(--topbar-height); } }
+.tx-day__total { font-variant-numeric: tabular-nums; }
+
+/* Linha com mais ar */
+.tx-row { min-height: 3.5rem; }
+.tx-amount { font-size: var(--font-size-md); font-weight: 600; }
+
+/* Resumo numa linha só, sem caixas */
+.tx-summary { display: flex !important; flex-wrap: wrap; align-items: center; gap: 0.5rem 0; padding: 0.75rem 0.25rem; background: transparent; border: none; box-shadow: none; }
+.tx-summary .tx-stat { display: flex; flex-direction: row; align-items: baseline; gap: 0.5rem; padding: 0.125rem 1.25rem; border: none; border-left: 1px solid var(--border); background: none; min-width: 0; }
+.tx-summary .tx-stat:first-child { border-left: none; padding-left: 0; }
+.tx-summary .tx-stat__value { font-size: var(--font-size-lg); font-weight: 600; letter-spacing: -0.01em; }
+.tx-summary .tx-stat__sub { font-size: var(--font-size-sm); }
+@media (max-width: 767px) {
+  .tx-summary .tx-stat { flex: 1 1 45%; flex-direction: column; gap: 0.125rem; padding: 0.25rem 0.75rem; }
+  .tx-summary .tx-stat:nth-child(odd) { border-left: none; padding-left: 0; }
+}
+
+/* Mês em pílula com setas */
+.tx-month { display: flex; align-items: center; justify-content: center; gap: 0.25rem; }
+.tx-month__arrow { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; border-radius: var(--radius-full); color: var(--text-muted); transition: background var(--dur-1) ease, color var(--dur-1) ease; }
+.tx-month__arrow:hover:not(:disabled) { background: var(--bg-subtle); color: var(--text-primary); }
+.tx-month__arrow:disabled { opacity: 0.3; cursor: default; }
+.tx-month__side { width: 7rem; text-align: center; font-size: var(--font-size-sm); color: var(--text-hint); text-transform: capitalize; white-space: nowrap; }
+.tx-month__current { min-width: 9rem; text-align: center; padding: 0.4375rem 1.25rem; border-radius: var(--radius-full); background: var(--accent-soft); color: var(--text-primary); font-weight: 600; text-transform: capitalize; white-space: nowrap; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent); }
+@media (max-width: 767px) { .tx-month__side { display: none; } }

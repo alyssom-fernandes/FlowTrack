@@ -37,7 +37,12 @@ export function buildCsv(columns: XlsxColumn[], rows: XlsxValue[][], locale: str
   return new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
 }
 
-// "flowtrack-transacoes-2026-10-02"
+// "14 de outubro de 2026 às 10:32": a mesma data de geração em todas as exportações
+export function generatedAt(locale: string): string {
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date())
+}
+
+// "flowtrack-transacoes-2026-10-02" / "flowtrack-transactions-2026-10-02"
 export function exportFileName(base: string): string {
   const d = new Date()
   const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

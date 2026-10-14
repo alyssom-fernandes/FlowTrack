@@ -13,6 +13,8 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: externo || 'http://localhost:4173',
+    // O app escolhe o idioma pelo navegador na primeira visita: os testes rodam em português
+    locale: 'pt-BR',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

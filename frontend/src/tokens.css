@@ -49,6 +49,7 @@
   --red-soft:    rgba(240, 103, 122, 0.12);
   --red-solid:   #c4364b;   /* preenchimento com texto branco (contraste 5,3:1) */
   --amber:       #e5a54b;
+  --amber-fill:  #e5a54b;   /* preenchimento (barras); --amber é para texto */
   --amber-soft:  rgba(229, 165, 75, 0.13);
   --blue:        #6aa6f0;
   --blue-soft:   rgba(106, 166, 240, 0.12);
@@ -69,6 +70,19 @@
   --chart-6: #008300;
   --chart-7: #9085e9;
   --chart-8: #8b8b96;
+
+  /* Categorias: uma cor fixa por categoria padrão, em todas as telas, no PDF e no Excel.
+     Mesma paleta validada dos gráficos, na ordem em que aparecem lado a lado
+     (o vermelho fica com Vestuário, a menos frequente). Ver src/lib/categoryColor.ts */
+  --cat-1: #3987e5;  /* Moradia */
+  --cat-2: #d95926;  /* Alimentação */
+  --cat-3: #199e70;  /* Lazer */
+  --cat-4: #c98500;  /* Transporte */
+  --cat-5: #d55181;  /* Saúde */
+  --cat-6: #008300;  /* Educação */
+  --cat-7: #9085e9;  /* Assinaturas */
+  --cat-8: #e66767;  /* Vestuário */
+  --cat-other: #8b8b96;
 
   /* Tipografia */
   --font:        'Outfit Variable', 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -117,8 +131,30 @@
   --page-pad-x:    2rem;
   --page-pad-y:    1.75rem;
 
-  /* Movimento */
+  /* Movimento: só anima o que dá retorno, orientação ou estado (ver .fotos/referencias/direcao.md) */
   --transition: 0.18s ease;
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);   /* entradas e desenho de gráfico */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);   /* troca de mês, indicador de aba */
+  --ease-exit:   cubic-bezier(0.4, 0, 1, 1);       /* saídas, sempre mais curtas */
+  --dur-1: 120ms;   /* hover, pressionar */
+  --dur-2: 200ms;   /* aba, troca de mês, toast */
+  --dur-3: 320ms;   /* entrada de cartão, folha de baixo */
+  --dur-4: 700ms;   /* desenho de gráfico */
+  --dur-5: 800ms;   /* contagem do saldo */
+
+  /* Superfícies de destaque: o vinho só no cartão principal de cada tela */
+  --bg-hero: linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, var(--bg-card)) 0%, var(--bg-card) 58%);
+  --card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);   /* no escuro a sombra some; um fio de luz no topo */
+  --radius-card: 1rem;
+  --radius-hero: 1.25rem;
+
+  /* Ritmo (gasto contra o dia do mês) e gráficos de quantidade */
+  --accent-ink: #c23a62;          /* traço em vinho (linha, nó), um pouco mais claro que o preenchimento */
+  --pace-ok:   var(--green);
+  --pace-warn: var(--amber);
+  --pace-over: var(--red);
+  --chart-spend: #6b6b78;         /* gasto em neutro (3:1 sobre o cartão): a cor fica para o que importa */
+  --flow-band-opacity: 0.38;
 }
 
 /* ── MODO CLARO ── */
@@ -160,6 +196,7 @@
   --red-soft:   rgba(198, 47, 69, 0.08);
   --red-solid:  #c62f45;
   --amber:      #a8650f;
+  --amber-fill: #e0960c;
   --amber-soft: rgba(168, 101, 15, 0.1);
   --blue:       #2c6bc4;
   --blue-soft:  rgba(44, 107, 196, 0.09);
@@ -176,6 +213,22 @@
   --chart-6: #008300;
   --chart-7: #4a3aa7;
   --chart-8: #8e8e99;
+
+  --cat-1: #2a78d6;
+  --cat-2: #eb6834;
+  --cat-3: #1baf7a;
+  --cat-4: #eda100;
+  --cat-5: #e87ba4;
+  --cat-6: #008300;
+  --cat-7: #4a3aa7;
+  --cat-8: #e34948;
+  --cat-other: #8e8e99;
+
+  --card-shadow: 0 1px 2px rgba(17, 17, 19, 0.05), 0 0 0 0.5px rgba(17, 17, 19, 0.02);
+  --accent-ink: #9D2449;
+  --chart-spend: #8e8e99;
+  --flow-band-opacity: 0.45;
+  --bg-hero: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, #ffffff) 0%, #ffffff 58%);
 
   --shadow-sm: 0 1px 2px rgba(17, 17, 19, 0.06);
   --shadow-md: 0 8px 24px rgba(17, 17, 19, 0.08);
@@ -329,6 +382,21 @@ img, svg {
   .ft-modal { max-width: 100% !important; width: 100% !important; border-radius: var(--radius-xl) var(--radius-xl) 0 0 !important; max-height: 92dvh !important; animation: ft-sheet-in 0.22s ease; padding-bottom: env(safe-area-inset-bottom); }
 }
 
+/* Entrada da tela: os primeiros blocos sobem 8px e aparecem, 40ms um depois do outro */
+@keyframes ft-rise { from { opacity: 0; transform: translateY(0.5rem); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .ft-rise > * { animation: ft-rise var(--dur-3) var(--ease-out) both; }
+  .ft-rise > :nth-child(2) { animation-delay: 40ms; }
+  .ft-rise > :nth-child(3) { animation-delay: 80ms; }
+  .ft-rise > :nth-child(4) { animation-delay: 120ms; }
+  .ft-rise > :nth-child(5) { animation-delay: 160ms; }
+  .ft-rise > :nth-child(n+6) { animation-delay: 200ms; }
+}
+
+/* Valores ocultos (olho no painel): borrados na tela, para usar em público e em capturas */
+.ft-money { transition: filter var(--dur-1) ease; }
+html[data-hide-values='true'] .ft-money, html[data-hide-values='true'] .ft-hideable { filter: blur(0.42em); }
+
 /* Esqueleto de carregamento */
 .ft-skeleton {
   background: linear-gradient(90deg, var(--bg-subtle) 0%, var(--border) 50%, var(--bg-subtle) 100%);
@@ -345,15 +413,17 @@ img, svg {
   :root, [data-theme='light'], [data-theme='dark'] {
     color-scheme: light;
     --chart-neutral: #8e8e99; --chart-axis: #6f6f78;
-    --chart-income: #2ca470; --chart-expense: #9a2929;
+    --chart-income: #2ca470; --chart-expense: #9a2929; --chart-spend: #8e8e99;
     --chart-1: #2a78d6; --chart-2: #eb6834; --chart-3: #1baf7a; --chart-4: #eda100;
     --chart-5: #e87ba4; --chart-6: #008300; --chart-7: #4a3aa7; --chart-8: #8e8e99;
+    --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100;
+    --cat-5: #e87ba4; --cat-6: #008300; --cat-7: #4a3aa7; --cat-8: #e34948; --cat-other: #8e8e99;
     --accent-soft: rgba(157, 36, 73, 0.08); --bg-input: #ffffff;
     --green-soft: rgba(19, 132, 79, 0.09); --red-soft: rgba(198, 47, 69, 0.08); --amber-soft: rgba(168, 101, 15, 0.1);
     --bg: #ffffff; --bg-card: #ffffff; --bg-card-hover: #ffffff; --bg-elevated: #ffffff; --bg-subtle: #f6f6f7;
     --border: #dcdce0; --border-subtle: #e9e9ec; --border-strong: #c9c9cf;
     --text-primary: #111113; --text-secondary: #2c2c31; --text-muted: #55555f; --text-hint: #6f6f78;
-    --accent-text: #8a1f40; --green: #13844f; --red: #c62f45; --amber: #a8650f;
+    --accent-text: #8a1f40; --green: #13844f; --red: #c62f45; --amber: #a8650f; --amber-fill: #e0960c;
     --brand-afn: #6b1f2a; --brand-secondary: #505050; --brand-by: #505050;
     --chart-grid: rgba(0, 0, 0, 0.08);
   }

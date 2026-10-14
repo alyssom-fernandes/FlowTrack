@@ -8,6 +8,8 @@ import { categoryLabel, formatCurrency, formatDate, formatPercent, toISODate } f
 import type { Category, Goal, GoalType } from '../../types'
 import { describeGoal, goalRange, type GoalStatus } from './helpers'
 import { GoalModal } from './GoalModal'
+import { CategoryIcon } from '../dashboard/CategoryIcon'
+import { categoryColor } from '../../lib/categoryColor'
 
 const STATUS_LOOK: Record<GoalStatus, 'green' | 'amber' | 'red' | 'default'> = {
   ok: 'green', warn: 'amber', over: 'red', behind: 'amber', done: 'green', upcoming: 'default', ended: 'default',
@@ -38,14 +40,21 @@ function GoalCard({ goal, category, today, onEdit, onDelete }: {
   else if (v.status === 'ended' && end) right = t('goals.endedOn', { date: formatDate(toISODate(end), { day: 'numeric', month: 'short', year: 'numeric' }) })
   else if (v.daysLeft !== null && v.status !== 'done') right = t('goals.daysLeft', { count: v.daysLeft })
 
+  // Meta de economia tem identidade: faixa na cor da categoria (ou vinho) com o ícone grande
+  const color = category ? categoryColor(category) : 'var(--accent)'
   return (
-    <Card className="gl-card">
+    <Card className={`gl-card${isLimit ? '' : ' gl-card--savings'}`} style={{ '--c': color } as React.CSSProperties}>
+      {!isLimit && (
+        <div className="gl-card__band" aria-hidden>
+          <span className="gl-card__band-icon">{category ? <CategoryIcon name={category.icon} size={56} /> : <Icon name="piggy" size={56} />}</span>
+        </div>
+      )}
       <div className="gl-card__top">
         <div className="gl-card__heading">
           <h3 className="gl-card__name">{goal.name}</h3>
           <div className="gl-card__meta">
             <span className="gl-card__meta-item">
-              <span className="gl-dot" style={{ background: category?.color || 'var(--chart-neutral)' }} aria-hidden />
+              <span className="gl-dot" style={{ background: category ? categoryColor(category) : 'var(--chart-neutral)' }} aria-hidden />
               {category ? categoryLabel(category) : isLimit ? t('goals.allSpending') : t('goals.allIncome')}
             </span>
             <span className="gl-card__meta-item"><Icon name="calendar" size={13} />{v.periodText}</span>

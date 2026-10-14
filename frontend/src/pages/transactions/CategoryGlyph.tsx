@@ -2,6 +2,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon, type IconName } from '../../components/icons'
 import type { Category } from '../../types'
+import { categoryColor } from '../../lib/categoryColor'
 
 // Os nomes vêm do banco (padrão lucide); os que faltam em icons.tsx ficam aqui
 const LOCAL: Record<string, ReactNode> = {
@@ -36,9 +37,10 @@ export function CategoryGlyph({ category, transfer, size = 36 }: { category?: Ca
       ? <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>{local}</svg>
       : <Icon name={SHARED[category.icon || ''] ?? 'tag'} size={iconSize} />
     // A cor da categoria puxada para o texto: legível nos dois temas
+    const color = categoryColor(category)
     style = {
-      background: `color-mix(in srgb, ${category.color} 15%, transparent)`,
-      color: `color-mix(in srgb, ${category.color} 66%, var(--text-primary))`,
+      background: `color-mix(in srgb, ${color} 16%, transparent)`,
+      color: `color-mix(in srgb, ${color} 70%, var(--text-primary))`,
     }
   } else {
     content = <Icon name="tag" size={iconSize} />

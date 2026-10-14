@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, CardHeader, ConfirmDialog, EmptyState, IconButton, Money, Page, PageHeader, Skeleton } from '../components/ui'
-import { Icon } from '../components/icons'
 import { investmentsService } from '../services'
 import { useToastStore } from '../store'
-import { formatCurrency, formatPercent, formatSignedCurrency } from '../utils'
+import { formatPercent, formatSignedCurrency } from '../utils'
 import type { Investment } from '../types'
 import { AllocationCard } from './investments/AllocationCard'
+import { HoldingsHero } from './investments/HoldingsHero'
 import { InvestmentModal } from './investments/InvestmentModal'
 import { allocation, colorByType } from './investments/model'
 import './goals/form.css'
@@ -14,15 +14,6 @@ import './investments/investments.css'
 
 interface Totals { invested: number; current: number; profit: number; profitPct: number }
 
-function Kpi({ label, value, foot, valueClass = '' }: { label: string; value: string; foot?: React.ReactNode; valueClass?: string }) {
-  return (
-    <Card className="inv-kpi">
-      <span className="inv-kpi__label">{label}</span>
-      <span className={`inv-kpi__value ${valueClass}`}>{value}</span>
-      <span className="inv-kpi__foot">{foot}</span>
-    </Card>
-  )
-}
 
 function InvestmentsSkeleton() {
   return (
@@ -87,7 +78,6 @@ export function Investments() {
   const list = [...(items || [])].sort((a, b) => b.current_value - a.current_value)
   const slices = allocation(list)
   const colorOf = colorByType(slices)
-  const profitClass = totals.profit > 0 ? 'gl-pos' : totals.profit < 0 ? 'gl-neg' : ''
 
   let body: React.ReactNode
   if (failed) {
@@ -109,20 +99,7 @@ export function Investments() {
   } else {
     body = (
       <div className="inv">
-        <div className="inv-kpis">
-          <Kpi label={t('investments.kpi.invested')} value={formatCurrency(totals.invested)}
-            foot={t('investments.kpi.positions', { count: items.length })} />
-          <Kpi label={t('investments.kpi.current')} value={formatCurrency(totals.current)}
-            foot={t('investments.kpi.types', { count: slices.length })} />
-          <Kpi label={t('investments.kpi.result')} value={formatSignedCurrency(totals.profit)} valueClass={profitClass}
-            foot={<>
-              <span className={`inv-kpi__delta ft-num ${profitClass}`}>
-                <Icon name={totals.profit >= 0 ? 'arrowUpRight' : 'arrowDownRight'} size={13} strokeWidth={2} />
-                {formatPercent(totals.profitPct, 1, true)}
-              </span>
-              {t('investments.kpi.resultRef')}
-            </>} />
-        </div>
+        <HoldingsHero invested={totals.invested} current={totals.current} positions={items.length} types={slices.length} />
 
         <AllocationCard slices={slices} />
 
