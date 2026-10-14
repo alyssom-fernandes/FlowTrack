@@ -18,8 +18,8 @@ O FlowTrack é um app de finanças pessoais. Ele lê extratos do banco (PDF, OFX
 
 1. Abra a [demonstração](https://flowtrack-afn.vercel.app) e clique em **Ver a demonstração**. Sem conta e sem servidor: os dados são fictícios e ficam só na aba do seu navegador.
 2. No **Dashboard**, acompanhe o dinheiro do mês: o que entrou, para quais categorias foi e quanto sobrou. Logo abaixo, **Quanto ainda posso gastar** compara o gasto do mês com o ritmo dos orçamentos (as contas fixas contam no dia em que vencem).
-3. Em **Transações**, clique em **Importar** e solte qualquer PDF: a demonstração responde com um extrato de exemplo do Nubank. Depois de importado, cada lançamento é categorizado sozinho e mostra como, com um selo como *IA · 94%*.
-4. Em **Relatórios**, escolha um período e use **Exportar** para gerar PDF, Excel ou CSV.
+3. Em **Transações**, clique em **Importar** e solte qualquer PDF: a demonstração responde com um extrato de exemplo do Nubank. Antes de salvar, cada lançamento mostra a categoria sugerida e a confiança; depois de importado, o que ficar sem categoria ou com menos de 85% de confiança vai para **A revisar**, onde se confirma com um clique.
+4. Em **Relatórios**, escolha um período e acompanhe o dinheiro na seção **Fluxo**; depois use **Exportar** para gerar PDF, Excel ou CSV.
 5. Em **Perfil**, troque o idioma para inglês ou o tema para claro.
 
 ## Telas
@@ -28,11 +28,11 @@ Capturadas da demonstração.
 
 | Dashboard, tema escuro | Transações, tema claro |
 |---|---|
-| ![Dashboard no tema escuro: métricas do mês, gráfico de receitas e gastos, projeção de saldo](docs/telas/pt/dashboard-escuro.png) | ![Transações no tema claro, agrupadas por dia, com selos de categorização por IA](docs/telas/pt/transacoes-claro.png) |
+| ![Dashboard no tema escuro: o fluxo do dinheiro do mês, das receitas às categorias, quanto ainda dá para gastar e os alertas](docs/telas/pt/dashboard-escuro.png) | ![Transações no tema claro, agrupadas por dia, com selos de categorização por IA](docs/telas/pt/transacoes-claro.png) |
 | **Relatórios, tema claro** | **Importação de extrato, tema escuro** |
-| ![Relatórios no tema claro: receitas e gastos por mês, gastos por categoria, projeção](docs/telas/pt/relatorios-claro.png) | ![Pré-visualização de um extrato em PDF, cada lançamento categorizado](docs/telas/pt/importacao-escuro.png) |
+| ![Relatórios no tema claro: a sobra do período e para onde foi o dinheiro, das fontes de renda às categorias](docs/telas/pt/relatorios-claro.png) | ![Pré-visualização de um extrato em PDF, com a categoria sugerida e a confiança em cada lançamento](docs/telas/pt/importacao-escuro.png) |
 | **Orçamentos, tema escuro** | **Entrada, com a demonstração em primeiro lugar** |
-| ![Orçamentos do mês por categoria, com barras de progresso](docs/telas/pt/orcamentos-escuro.png) | ![Tela de entrada com uma prévia viva do produto](docs/telas/pt/entrada-escuro.png) |
+| ![Orçamentos do mês por categoria, medidos pelo ritmo do mês, com uma situação por linha](docs/telas/pt/orcamentos-escuro.png) | ![Tela de entrada com uma prévia viva do produto](docs/telas/pt/entrada-escuro.png) |
 
 | No celular, tema claro | No celular, tema escuro | O relatório em PDF |
 |---|---|---|
@@ -42,13 +42,13 @@ Capturadas da demonstração.
 
 ## Funcionalidades
 
-- **Importação de extratos.** PDF do Nubank, Sicredi, Mercado Pago e Will Bank, OFX de qualquer banco e CSV com mapeamento de colunas. Toda importação passa por uma pré-visualização antes de salvar, e duplicadas são ignoradas.
-- **Categorização por IA em três camadas.** Primeiro regras fixas para estabelecimentos conhecidos, depois o cache por estabelecimento de cada pessoa e, para o que sobra, o Claude Haiku. Cada transação mostra como foi categorizada e com que confiança.
-- **Dashboard.** O fluxo do dinheiro no mês (as receitas divididas nas categorias de gasto e o que sobrou), comparado aos mesmos dias do mês anterior; quanto ainda dá para gastar no ritmo dos orçamentos; projeção de saldo de 30 dias a partir de recorrentes e parcelas; patrimônio em 12 meses; os orçamentos que pedem atenção primeiro; avisos agrupados; e um resumo curto do mês escrito por IA. Os valores podem ser ocultados com um clique.
-- **Transações.** Mês a mês, agrupadas por dia, com total do dia, filtros (busca, conta, categoria, tipo, período, tag), parcelas ("5/10"), recorrentes, tags, transferências entre contas e categorização direto na lista. Cada categoria tem a mesma cor em todas as telas e nas exportações.
-- **Orçamentos e metas.** Orçamento mensal por categoria, medido pelo ritmo do mês (no ritmo, acima do ritmo, estourou), com alertas em 80% e 100%, e metas de limite de gasto ou de economia, acompanhadas automaticamente pelas transações.
+- **Importação de extratos.** PDF do Nubank, Sicredi, Mercado Pago e Will Bank, OFX de qualquer banco e CSV com mapeamento de colunas. Toda importação passa por uma pré-visualização antes de salvar; os lançamentos de PDF e OFX já vêm com uma categoria sugerida (regras fixas, sem IA) que dá para trocar, e duplicadas são ignoradas.
+- **Categorização por IA em três camadas.** Primeiro regras fixas para estabelecimentos conhecidos, depois o cache por estabelecimento de cada pessoa e, para o que sobra, o Claude Haiku. Cada transação mostra como foi categorizada e com que confiança; o que fica sem categoria ou abaixo de 85% de confiança vai para **A revisar**.
+- **Dashboard.** O fluxo do dinheiro no mês (as receitas divididas nas categorias de gasto e o que sobrou), comparado aos mesmos dias do mês anterior; quanto ainda dá para gastar no ritmo dos orçamentos; projeção de saldo de 30 dias a partir de recorrentes e parcelas; patrimônio em 12 meses; os orçamentos que pedem atenção primeiro; avisos agrupados por assunto, cada um com uma ação; e um resumo curto do mês escrito por IA. Os valores podem ser ocultados com um clique.
+- **Transações.** Mês a mês, agrupadas por dia, com total do dia, busca e filtros em chips (conta, categoria, tipo, tag, período), parcelas ("5/10"), recorrentes, tags, transferências entre contas, categorização direto na lista e o modo **A revisar**. Cada categoria tem a mesma cor em todas as telas e nas exportações.
+- **Orçamentos e metas.** Orçamento mensal por categoria, medido pelo ritmo do mês: no ritmo, acima do ritmo, estourou, ou *fixo · pago* quando a categoria é quase só conta fixa e ela já foi paga. O alerta, a barra e a situação dizem sempre a mesma coisa, e a API gera os alertas pela mesma regra. Metas de limite de gasto (também pelo ritmo) ou de economia, acompanhadas automaticamente pelas transações.
 - **Investimentos.** Carteira informada à mão, com resultado por ativo e distribuição por tipo.
-- **Relatórios.** Qualquer período, comparado ao anterior: receitas e gastos por mês, gastos por categoria, maiores gastos e projeção de três meses. Cada gráfico tem versão em tabela. Exporta PDF vetorial, Excel com várias abas e CSV; imprime em A4 limpo.
+- **Relatórios.** Qualquer período, comparado ao anterior, em quatro seções: Fluxo (para onde foi o dinheiro, das fontes de renda às categorias), Mês a mês, Categorias com os maiores gastos e projeção de três meses. Cada gráfico tem versão em tabela. Exporta PDF vetorial, Excel com várias abas e CSV; imprime em A4 limpo.
 - **Histórico com desfazer.** Toda alteração em transação fica registrada e pode ser desfeita.
 - **Dois idiomas, dois temas.** Português e inglês, claro e escuro, pensado para o celular desde o início.
 - **Instalável e tolerante a falta de conexão.** É um PWA; transações criadas sem internet entram numa fila e são enviadas quando a conexão volta.
@@ -135,14 +135,14 @@ Requisitos: Node.js 20+, Python 3.11+ e um projeto no [Supabase](https://supabas
 ### Testes
 
 ```bash
-# Backend: 136 testes (pytest)
+# Backend: 162 testes (pytest)
 cd backend && .venv\Scripts\python -m pytest tests -q
 
 # Ponta a ponta: 20 cenários, no computador e no celular (Playwright, contra um build local da demonstração)
 npm install && npx playwright install chromium && npm run e2e
 ```
 
-Os dois rodam no GitHub Actions a cada envio ao `main` e em pull requests. Há também um roteiro de fotos, `frontend/scripts/fotos/rodar.mjs`, que fotografa cada tela, modal e estado vazio em 1366 e 375 pixels, nos dois temas, e falha se o navegador registrar qualquer erro.
+Os dois rodam no GitHub Actions a cada envio ao `main` e em pull requests. Há também um roteiro de fotos, `frontend/scripts/fotos/rodar.mjs`, que fotografa cada tela, modal e estado vazio em 1366 e 375 pixels, nos dois temas, e falha se o navegador registrar qualquer erro; e `frontend/scripts/checar-contraste.mjs`, que mede no navegador cada pílula e selo e falha abaixo de 4,5:1 de contraste ou de 12 px.
 
 ---
 
@@ -165,7 +165,7 @@ FlowTrack/
 │   │   ├── pages/        Uma pasta por tela (dashboard, transações, relatórios, metas, investimentos, perfil, entrada)
 │   │   ├── components/   Design system: tokens, componentes, ícones, estrutura do app
 │   │   ├── demo/         API no navegador e dados fictícios da demonstração
-│   │   ├── lib/          Geradores de Excel e CSV, cores das categorias, ritmo dos orçamentos, tema
+│   │   ├── lib/          Geradores de Excel e CSV, cores das categorias, ritmo e situação dos orçamentos, regra de revisão, tema
 │   │   └── i18n/         Português e inglês, um arquivo por tela
 │   └── scripts/fotos/    Roteiro de fotos de todas as telas e estados
 ├── backend/

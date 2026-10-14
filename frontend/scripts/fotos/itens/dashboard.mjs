@@ -53,7 +53,7 @@ export default [
     // "Quanto ainda posso gastar": gasto do mês contra a linha do ritmo
     id: 'dashboard-ritmo', rota: '/dashboard', inteira: false,
     acao: async page => {
-      await page.locator('.ft-dash-pace [data-chart="ritmo"] svg').waitFor()
+      await page.locator('.ft-dash-pace [data-chart="ritmo"] > svg').waitFor()
       await centralizar(page.locator('.ft-dash-pace'))
     },
   },

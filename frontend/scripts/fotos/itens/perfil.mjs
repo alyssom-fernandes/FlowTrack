@@ -4,7 +4,7 @@ const semToast = async page => { await page.locator('.ft-toast').first().waitFor
 async function criarCategoria(page) {
   await page.getByRole('button', { name: /nova categoria|new category/i }).first().click()
   await page.getByLabel(/^(nome|name)$/i).fill('Pets')
-  await page.getByRole('radio', { name: /#61AFEF/i }).click()
+  await page.getByRole('radio', { name: /#2a78d6/i }).click()
   await page.getByRole('button', { name: /criar categoria|create category/i }).click()
   await page.getByRole('button', { name: /^Pets/ }).first().waitFor()
   await semToast(page)

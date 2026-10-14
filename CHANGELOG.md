@@ -22,6 +22,11 @@ A finishing pass over every screen, modal, export and state, in both themes and 
 - **Rules layer in the categorization worker** — fixed rules for known merchants run before the merchant cache and Claude Haiku (before this release the rules only existed in the demo)
 - **Hide amounts** — one click blurs every amount, for use in public and in screenshots
 - **404 page**, per-screen tab titles, and the browser language picked on the first visit
+- **Reports in sections** — Flow (where the money went, from income sources to categories), Month by month, Categories and Projection; the section stays in the address and all of them print
+- **To review** — transactions with no category, or categorized by AI with less than 85% confidence, gathered in one list; confirm each with one click or mark them all as reviewed (`needs_review` in the API)
+- **Suggested category on import** — the PDF and OFX preview shows the category suggested by the fixed rules, with its confidence, and it can be changed before saving; the bulk import accepts the reviewed category and checks it belongs to the user
+- **Contrast check** — `frontend/scripts/checar-contraste.mjs` measures every pill and badge in the browser and fails below 4.5:1 or 12 px, in both themes
+- **26 more backend tests** (162 in total) for the budget pace and the *fixed · paid* status, spending-limit goals by pace, the review filter, suggestions on import and categories in bulk imports
 
 ### Changed
 - New design system: tokens for light and dark, shared components, icon set, AFN SYSTEMS brand per the brand guide
@@ -37,6 +42,13 @@ A finishing pass over every screen, modal, export and state, in both themes and 
 - "Income" and "Expenses" (Receitas and Gastos) used everywhere, including exports
 - Fonts served by the app itself (no Google Fonts)
 - End-to-end tests run against a local build of the demo (40 tests, desktop and phone)
+- One budget status everywhere: the alert, the bar, the pill and the summary sentence come from the same rule, including *fixed · paid* for categories that are almost all fixed bills already paid; budget alerts in the API follow that rule instead of fixed 80% and 100% thresholds
+- Alerts grouped by subject, each with an action (see budgets, categorize, see history)
+- One way of drawing money across the app: smaller cents in the number's own color
+- Category palette without green (green is kept for status), revalidated for color-vision deficiency in both themes
+- Reports: month by month drawn as neutral spending bars with income as a tick and the surplus labeled above; "today" line on the projection
+- Transactions: filters as chips, rows with a fixed height; pills and badges at 12 px; edit and delete on hover, in a "⋯" menu on touch screens
+- Profile with an identity header and the theme picked from previews; a savings goal shows its own color band
 
 ### Security
 - The API checks the owner of every account and category before writing; undo takes the owner from the token, never from the history
@@ -50,6 +62,7 @@ A finishing pass over every screen, modal, export and state, in both themes and 
 
 ### Fixed
 - Recurring payments are no longer reported as missing before the day they usually arrive
+- A budget whose fixed bills are already paid (rent at 99% of housing, for example) no longer raises an alert next to an "on pace" bar
 - Transfers between your own accounts no longer appear as income and spending in the cash-flow projection
 - The three-month projection uses 12 months of history
 - On phones, toasts no longer cover the confirm button of a bottom sheet
