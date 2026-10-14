@@ -45,9 +45,6 @@ const C = {
   income: [44, 164, 112] as RGB, expense: [142, 142, 153] as RGB, // marcas: --chart-income / --chart-spend (claro): gasto em cinza, como na tela
   incomeText: [19, 132, 79] as RGB, expenseText: [198, 47, 69] as RGB, // texto: --green / --red (claro, contraste AA)
 }
-// Mesma ordem das cores dos gráficos no tema claro
-// Mesma ordem de --chart-1..8 no tema claro (paleta validada)
-const SERIES: RGB[] = [[42, 120, 214], [235, 104, 52], [27, 175, 122], [237, 161, 0], [232, 123, 164], [0, 131, 0], [74, 58, 167], [142, 142, 153]]
 const hexRgb = (hex: string): RGB => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)) as RGB
 const tint = (c: RGB, k = 0.62): RGB => c.map(v => Math.round(v + (255 - v) * k)) as RGB
 
@@ -76,7 +73,13 @@ export async function exportPdf(model: ReportModel) {
 
   // Cabeçalho
   y = 18
-  font(15, 'bold', C.wine); text('FlowTrack', L, y)
+  // Logotipo do app (versão do tema claro); sem ele, o nome em texto
+  const logo = await fetch('/logo-claro.png')
+    .then(r => (r.ok ? r.blob() : null))
+    .then(b => b && new Promise<string>(res => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.readAsDataURL(b) }))
+    .catch(() => null)
+  if (logo) doc.addImage(logo, 'PNG', L, y - 5.4, 26, 6.5)
+  else { font(15, 'bold', C.wine); text('FlowTrack', L, y) }
   font(8.5, 'normal', C.hint); text(t('print.generated', { date: generatedAt() }), R, y, { align: 'right' })
   hline(L, R, y + 4, C.line, 0.3)
   y = 34
@@ -85,70 +88,78 @@ export async function exportPdf(model: ReportModel) {
   font(10, 'normal', C.text); text(`${model.periodLabel} · ${model.rangeText}`, L, y)
   if (model.compare) { y += 5; font(8.5, 'normal', C.muted); text(t('compare.with', { range: model.prevRangeText }), L, y) }
 
-  // Cartões de resumo
+  // Resumo: um número dominante (o que sobrou) e receitas e gastos como apoio, como no app
+  // (a grade de 4 cartões iguais era o visual padrão de painel)
   y += 7
-  const cardW = (CW - 3 * 4) / 4, cardH = 25
   const s = model.summary, p = model.prevSummary
-  const cards: { label: string; value: string; delta: number | null; good: boolean; pp?: boolean; dot?: RGB }[] = [
-    { label: t('kpi.income'), value: formatCurrency(s.income), delta: pct(pctOf(s.income, p.income)), good: true, dot: C.income },
-    { label: t('kpi.expense'), value: formatCurrency(s.expense), delta: pct(pctOf(s.expense, p.expense)), good: false, dot: C.expense },
-    { label: t('kpi.balance'), value: formatCurrency(s.balance), delta: pct(pctOf(s.balance, p.balance)), good: true },
-    { label: t('kpi.savings'), value: s.savingsRate === null ? '—' : formatPercent(s.savingsRate, 1, false), delta: s.savingsRate !== null && p.savingsRate !== null ? s.savingsRate - p.savingsRate : null, good: true, pp: true },
-  ]
-  cards.forEach((c, i) => {
-    const x = L + i * (cardW + 4)
-    doc.setFillColor(...C.card); doc.roundedRect(x, y, cardW, cardH, 2, 2, 'F')
-    if (c.dot) { doc.setFillColor(...c.dot); doc.roundedRect(x + 4, y + 4.3, 2.2, 2.2, 0.4, 0.4, 'F') }
-    font(7.5, 'normal', C.muted); text(c.label, x + (c.dot ? 7.6 : 4), y + 6.5)
-    let size = 13
-    font(size, 'bold', C.ink)
-    while (size > 9 && doc.getTextWidth(pdfText(c.value)) > cardW - 8) { size -= 0.5; doc.setFontSize(size) }
-    text(c.value, x + 4, y + 14)
-    if (!model.hasPrev || c.delta === null) {
-      font(7, 'normal', C.hint); text(model.hasPrev ? t('kpi.noBase') : t('kpi.noPrev'), x + 4, y + 20.5, { maxWidth: cardW - 8 })
-    } else {
-      const flat = Math.abs(c.delta) < 0.05
-      const color = flat ? C.muted : (c.delta > 0) === c.good ? C.incomeText : C.expenseText
-      doc.setFillColor(...color)
-      const tx = x + 4, ty = y + 20.5
-      if (!flat) {
-        if (c.delta > 0) doc.triangle(tx, ty - 0.2, tx + 2.4, ty - 0.2, tx + 1.2, ty - 2.3, 'F')
-        else doc.triangle(tx, ty - 2.3, tx + 2.4, ty - 2.3, tx + 1.2, ty - 0.2, 'F')
-      }
-      const v = flat ? '0%' : c.pp ? t('kpi.pp', { value: formatPercent(Math.abs(c.delta), 1, false).replace(/\s?%/, '') }) : formatPercent(Math.abs(c.delta), Math.abs(c.delta) >= 100 ? 0 : 1, false)
-      font(7.5, 'bold', color); text(v, tx + (flat ? 0 : 3.4), ty)
-      const vw = doc.getTextWidth(pdfText(v))
-      font(7, 'normal', C.hint); text(t('pdf.vsPrev'), tx + (flat ? 0 : 3.4) + vw + 1.5, ty, { maxWidth: cardW - 12 - vw })
+  const delta = (d: number | null, good: boolean, pp: boolean, x: number, yy: number, maxW: number) => {
+    if (!model.hasPrev || d === null) { font(7, 'normal', C.hint); text(model.hasPrev ? t('kpi.noBase') : t('kpi.noPrev'), x, yy, { maxWidth: maxW }); return }
+    const flat = Math.abs(d) < 0.05
+    const color = flat ? C.muted : (d > 0) === good ? C.incomeText : C.expenseText
+    doc.setFillColor(...color)
+    if (!flat) {
+      if (d > 0) doc.triangle(x, yy - 0.2, x + 2.4, yy - 0.2, x + 1.2, yy - 2.3, 'F')
+      else doc.triangle(x, yy - 2.3, x + 2.4, yy - 2.3, x + 1.2, yy - 0.2, 'F')
     }
-  })
-  y += cardH + 11
+    const v = flat ? '0%' : pp ? t('kpi.pp', { value: formatPercent(Math.abs(d), 1, false).replace(/\s?%/, '') }) : formatPercent(Math.abs(d), Math.abs(d) >= 100 ? 0 : 1, false)
+    font(7.5, 'bold', color); text(v, x + (flat ? 0 : 3.4), yy)
+    const vw = doc.getTextWidth(pdfText(v))
+    font(7, 'normal', C.hint); text(t('pdf.vsPrev'), x + (flat ? 0 : 3.4) + vw + 1.5, yy, { maxWidth: Math.max(8, maxW - vw - 5) })
+  }
+  {
+    const bandH = 30
+    doc.setFillColor(...C.card); doc.roundedRect(L, y, CW, bandH, 2, 2, 'F')
+    const lx = L + 6
+    font(8, 'normal', C.muted); text(t('kpi.left'), lx, y + 7.5)
+    font(22, 'bold', s.balance < 0 ? C.expenseText : C.ink); text(formatCurrency(s.balance), lx, y + 17.5)
+    const of = s.savingsRate === null ? t('kpi.noIncome') : t('kpi.ofIncome', { pct: formatPercent(s.savingsRate, 1, false) })
+    font(8, 'normal', C.muted); text(of, lx, y + 24.5)
+    const ow = doc.getTextWidth(pdfText(of))
+    delta(s.savingsRate !== null && p.savingsRate !== null ? s.savingsRate - p.savingsRate : null, true, true, lx + ow + 3, y + 24.5, 40)
+    const colW = 42
+    const cols = [
+      { label: t('kpi.income'), value: s.income, d: pct(pctOf(s.income, p.income)), good: true },
+      { label: t('kpi.expense'), value: s.expense, d: pct(pctOf(s.expense, p.expense)), good: false },
+    ]
+    cols.forEach((c, i) => {
+      const x = R - 6 - colW * (cols.length - i)
+      font(8, 'normal', C.muted); text(c.label, x, y + 7.5)
+      font(12, 'bold', C.ink); text(formatCurrency(c.value), x, y + 15.5)
+      delta(c.d, c.good, false, x, y + 22, colW - 2)
+    })
+    y += bandH + 11
+  }
 
-  // Gráfico de barras
+  // Gráfico mensal: gasto em barra neutra, receita como traço sobre a barra, sobra rotulada em cima
+  // e o mês corrente com contorno vinho (o par verde/cinza lado a lado era o desenho antigo)
   const section = (title: string, sub?: string) => {
     font(11, 'bold', C.ink); text(title, L, y)
     if (sub) { font(8, 'normal', C.hint); text(sub, R, y, { align: 'right' }) }
     y += 4
   }
   const flowTitle = model.granularity === 'week' ? t('flow.titleWeek') : t('flow.titleMonth')
-  ensure(80)
+  ensure(84)
   section(flowTitle)
   // Legenda
   {
-    const items: [string, RGB][] = [[t('legend.income'), C.income], [t('legend.expense'), C.expense]]
-    if (model.compare) items.push([t('legend.previousShort'), tint(C.text, 0.55)])
     font(7.5, 'normal', C.muted)
+    const items: { label: string; draw: (x: number, yy: number) => void }[] = [
+      { label: t('legend.expense'), draw: (x, yy) => { doc.setFillColor(...C.expense); doc.roundedRect(x, yy - 2.4, 2.6, 2.6, 0.5, 0.5, 'F') } },
+      { label: t('legend.incomeTick'), draw: (x, yy) => { doc.setDrawColor(...C.income); doc.setLineWidth(0.7); doc.line(x - 0.4, yy - 1.1, x + 3, yy - 1.1) } },
+    ]
+    if (model.compare) items.push({ label: t('legend.previousShort'), draw: (x, yy) => { doc.setFillColor(...tint(C.expense, 0.55)); doc.roundedRect(x, yy - 2.4, 2.6, 2.6, 0.5, 0.5, 'F') } })
     let lx = R
-    for (const [label, color] of items.slice().reverse()) {
-      const w = doc.getTextWidth(pdfText(label))
+    for (const it of items.slice().reverse()) {
+      const w = doc.getTextWidth(pdfText(it.label))
       lx -= w
-      text(label, lx, y - 4)
-      lx -= 4
-      doc.setFillColor(...color); doc.roundedRect(lx, y - 6.4, 2.6, 2.6, 0.5, 0.5, 'F')
+      font(7.5, 'normal', C.muted); text(it.label, lx, y - 4)
+      lx -= 4.2
+      it.draw(lx, y - 4)
       lx -= 5
     }
   }
   {
-    const top = y + 3, chartH = 54, base = top + chartH
+    const top = y + 6, chartH = 54, base = top + chartH
     const all = [...model.buckets.flatMap(b => [b.income, b.expense]), ...(model.compare ? model.prevBuckets.flatMap(b => [b.income, b.expense]) : [])]
     const ticks = niceTicks(Math.max(0, ...all))
     const yMax = ticks[ticks.length - 1] || 1
@@ -158,23 +169,39 @@ export async function exportPdf(model: ReportModel) {
     const yy = (v: number) => base - (v / yMax) * chartH
     ticks.forEach((v, i) => {
       hline(x0, R, yy(v), i === 0 ? C.lineStrong : C.grid, i === 0 ? 0.3 : 0.15)
-      text(axisMoney(v), x0 - 2, yy(v) + 1, { align: 'right' })
+      font(7, 'normal', C.hint); text(axisMoney(v), x0 - 2, yy(v) + 1, { align: 'right' })
     })
+    const now = new Date()
+    const nowKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     const n = model.buckets.length, band = pw / Math.max(1, n)
-    const per = model.compare ? 4 : 2, gap = 0.5, pairGap = model.compare ? 1 : 0
-    const bw = Math.max(0.6, Math.min(model.compare ? 4 : 6, (band * 0.7 - gap * (per - 1) - pairGap) / per))
-    const gw = bw * per + gap * (per - 1) + pairGap
+    const per = model.compare ? 2 : 1, gap = 1
+    const bw = Math.max(0.8, Math.min(model.compare ? 6 : 9, (band * 0.6 - gap * (per - 1)) / per))
+    const gw = bw * per + gap * (per - 1)
     const every = Math.max(1, Math.ceil(11 / band))
     model.buckets.forEach((b, i) => {
       let x = x0 + i * band + (band - gw) / 2
       const pb = model.prevBuckets[i]
-      const bars: [number, RGB][] = model.compare
-        ? [[pb?.income ?? 0, tint(C.income)], [b.income, C.income], [pb?.expense ?? 0, tint(C.expense)], [b.expense, C.expense]]
-        : [[b.income, C.income], [b.expense, C.expense]]
-      bars.forEach(([v, color], j) => {
-        const h = (v / yMax) * chartH
-        if (h > 0.2) { doc.setFillColor(...color); doc.roundedRect(x, base - h, bw, h, Math.min(0.8, bw / 2, h / 2), Math.min(0.8, bw / 2, h / 2), 'F'); doc.rect(x, base - Math.min(h, 1), bw, Math.min(h, 1), 'F') }
-        x += bw + gap + (model.compare && j === 1 ? pairGap : 0)
+      const items = model.compare
+        ? [{ inc: pb?.income ?? 0, exp: pb?.expense ?? 0, faded: true }, { inc: b.income, exp: b.expense, faded: false }]
+        : [{ inc: b.income, exp: b.expense, faded: false }]
+      items.forEach(it => {
+        const h = (it.exp / yMax) * chartH
+        const r = Math.min(0.8, bw / 2, h / 2)
+        if (h > 0.2) {
+          doc.setFillColor(...(it.faded ? tint(C.expense, 0.55) : C.expense))
+          doc.roundedRect(x, base - h, bw, h, r, r, 'F'); doc.rect(x, base - Math.min(h, 1), bw, Math.min(h, 1), 'F')
+          if (!it.faded && b.key === nowKey) { doc.setDrawColor(...C.wine); doc.setLineWidth(0.35); doc.roundedRect(x, base - h, bw, h, r, r, 'S') }
+        }
+        if (it.inc > 0) {
+          doc.setDrawColor(...(it.faded ? tint(C.income, 0.5) : C.income)); doc.setLineWidth(0.7)
+          doc.line(x - 0.8, yy(it.inc), x + bw + 0.8, yy(it.inc))
+        }
+        if (!it.faded && !b.future && (it.inc > 0 || it.exp > 0) && band >= 11) {
+          const net = it.inc - it.exp
+          font(6.5, 'bold', net < 0 ? C.expenseText : C.text)
+          text(axisMoney(net, true), x + bw / 2, Math.min(yy(it.inc), base - h) - 1.8, { align: 'center' })
+        }
+        x += bw + gap
       })
       if (i % every === 0) { font(7, 'normal', C.muted); text(b.label + (b.yearMark ? ` ${b.yearMark.slice(2)}` : ''), x0 + (i + 0.5) * band, base + 4.5, { align: 'center' }) }
     })
@@ -232,8 +259,8 @@ export async function exportPdf(model: ReportModel) {
     const cols: Col[] = model.compare
       ? [{ header: t('table.category'), width: 62 }, { header: t('table.count'), width: 22, align: 'right' }, { header: t('table.value'), width: 30, align: 'right' }, { header: t('table.share'), width: 18, align: 'right' }, { header: t('table.previous'), width: 26, align: 'right' }, { header: t('table.change'), width: 20, align: 'right' }]
       : [{ header: t('table.category'), width: 96 }, { header: t('table.count'), width: 24, align: 'right' }, { header: t('table.value'), width: 34, align: 'right' }, { header: t('table.share'), width: 24, align: 'right' }]
-    const rows: Cell[][] = model.categories.map((c, i) => {
-      const base: Cell[] = [{ text: c.name, swatch: model.categories.length <= 6 || i < 5 ? hexRgb(c.printHex) : SERIES[7] }, String(c.count), formatCurrency(c.value), formatPercent(c.share, 1, false)]
+    const rows: Cell[][] = model.categories.map(c => {
+      const base: Cell[] = [{ text: c.name, swatch: hexRgb(c.printHex) }, String(c.count), formatCurrency(c.value), formatPercent(c.share, 1, false)]
       return model.compare ? [...base, c.prev ? formatCurrency(c.prev) : '—', c.prev ? changeCell(c.change, false) : { text: t('categories.new'), color: C.hint }] : base
     })
     const totalCount = model.categories.reduce((a, c) => a + c.count, 0)
@@ -272,11 +299,8 @@ export async function exportPdf(model: ReportModel) {
     const fy = H - 9
     doc.setFont('courier', 'bold'); doc.setFontSize(8)
     doc.setTextColor(...C.brand); doc.text('AFN', L, fy, { charSpace: 0.45 })
-    let fx = L + doc.getTextWidth('AFN') + 0.45 * 3 + 1.2
+    const fx = L + doc.getTextWidth('AFN') + 0.45 * 3 + 1.2
     doc.setTextColor(...C.brandGray); doc.text('SYSTEMS', fx, fy, { charSpace: 0.45 })
-    fx += doc.getTextWidth('SYSTEMS') + 0.45 * 7 + 2.4
-    doc.text('|', fx, fy); fx += doc.getTextWidth('|') + 2.4
-    doc.text('FlowTrack', fx, fy, { charSpace: 0.1 })
     font(7.5, 'normal', C.hint); text(t('pdf.page', { current: i, total: pages }), R, fy, { align: 'right' })
   }
 

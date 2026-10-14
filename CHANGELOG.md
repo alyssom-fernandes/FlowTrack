@@ -2,6 +2,31 @@
 
 All notable changes to FlowTrack are documented here. Dates follow the commits where each set of changes landed.
 
+## [2.0.1] — 2026-10-14
+
+A visual review of every screenshot of the app (976 photos: each screen, modal and state at 1366 and 375 pixels, dark and light, in Portuguese and English) and the fixes it found.
+
+### Fixed
+- **Budget pace** — "over pace" no longer shows in green: within the 5% margin it is neutral; closed months show what was left and which budgets went over, with no pace marks
+- **Phones** — the pace pill no longer covers the budget ceiling label, monthly net labels no longer overlap, and the investment result pill is no longer cut off
+- **Dashboard loading** — the skeleton follows the real layout
+- **To review** — the chip, the review list and the summary count the same transactions
+- **Transfers** — a transfer between your own accounts is one row ("Nubank → Sicredi Poupança") with a neutral amount; deleting it removes both sides
+- **All time** in Transactions no longer reopens on the current month
+- **AI summary** — percentages say their base, a note appears when the numbers changed since the summary was written, and Refresh writes a new one (`refresh` in the API, which now also returns the income and expenses it used)
+- **Flow** — the income source is labeled even when there is only one
+- **PDF report** — the monthly chart matches the app (neutral bars, income line, left-over label, current month outlined), one leading number replaces the four equal cards, the app logo is in the header and every category keeps its color
+
+### Changed
+- Helper text, axes and secondary labels reach 4.5:1 contrast in both themes; cents are never smaller than 11 px
+- Health is violet instead of pink (it was close to the wine used for "Left over"); account marks use a soft tint of the bank color
+- Touch targets of at least 40 px on phones
+- One tagline everywhere: "Statements in. The month explained."
+- Outgoing amounts are neutral in imports and in the change history; red is kept for overspending and errors
+- **DOM audit** — `frontend/scripts/fotos/auditar-dom.mjs` replays every screenshot scenario and fails on overlapping or cut text, elements off screen and text below AA contrast
+- The screenshot script updates the folder report on partial runs instead of replacing it; two scenarios that produced identical photos were removed (480 photos per language)
+- 1 more backend test (163 in total); 38 unused translation keys removed
+
 ## [2.0.0] — 2026-10-14
 
 A finishing pass over every screen, modal, export and state, in both themes and on phones.
