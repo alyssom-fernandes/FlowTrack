@@ -94,6 +94,7 @@ export interface TransactionFilters {
   type?: string
   search?: string
   tag?: string
+  needs_review?: boolean
   page?: number
   page_size?: number
 }
@@ -201,6 +202,13 @@ export interface ParsedTransaction {
   amount: number
   transaction_date: string
   type: 'credit' | 'debit'
+  // Prévia: categoria sugerida pelas regras fixas (sem IA) e a confiança
+  suggested_category_id?: string
+  suggested_confidence?: number
+  // Gravação: a categoria conferida na revisão
+  category_id?: string
+  categorized_by?: 'rule' | 'manual'
+  confidence_score?: number
 }
 
 // ── Alert ─────────────────────────────────────────────────

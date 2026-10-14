@@ -192,6 +192,18 @@
       "transactions": "Transactions",
       "transfersNote": "transfers between your own accounts are left out of the balance",
       "netTotal": "Balance (excluding transfers)"
+    },
+    "sections": {
+      "label": "Report sections",
+      "fluxo": "Flow",
+      "mes": "Month by month",
+      "categorias": "Categories",
+      "projecao": "Projection"
+    },
+    "flowTab": {
+      "title": "Where the money went",
+      "sub": "{{range}}: where it came from, which categories it went to and what was left",
+      "empty": "No income or spending in this period."
     }
   }
 }

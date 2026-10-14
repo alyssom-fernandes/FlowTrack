@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { IconButton, Money, Skeleton, Spinner } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { categoryLabel, formatPercent } from '../../utils'
+import { REVIEW_CONFIDENCE } from '../../lib/review'
 import type { Account, Category, Transaction } from '../../types'
 import { CategoryGlyph } from './CategoryGlyph'
 import { categoryColor } from '../../lib/categoryColor'
@@ -18,6 +19,7 @@ interface ListProps {
   totalPages: number
   total: number
   busy: boolean
+  onConfirm?: (txn: Transaction) => Promise<void>   // modo revisão: confirma a categoria sugerida
   onPage: (p: number) => void
   onEdit: (t: Transaction) => void
   onDelete: (t: Transaction) => void
@@ -28,7 +30,7 @@ interface ListProps {
 const fromControl = (e: MouseEvent) => !!(e.target as HTMLElement).closest('button, select, a, input')
 
 // ── Categoria: chip com seletor nativo por cima (abre direto no clique) ──
-function CategoryCell({ txn, categories, onChange }: { txn: Transaction; categories: Category[]; onChange: (id: string) => Promise<void> }) {
+function CategoryCell({ txn, categories, onChange, onConfirm }: { txn: Transaction; categories: Category[]; onChange: (id: string) => Promise<void>; onConfirm?: () => Promise<void> }) {
   const { t } = useTranslation()
   const [saving, setSaving] = useState(false)
   const cat = categories.find(c => c.id === txn.category_id)
@@ -36,7 +38,8 @@ function CategoryCell({ txn, categories, onChange }: { txn: Transaction; categor
   const conf = txn.confidence_score ?? 0
   const pct = formatPercent(conf * 100, 0, false)
   const isAi = !!cat && txn.categorized_by === 'ai'
-  const low = isAi && conf < 0.75
+  const low = isAi && conf < REVIEW_CONFIDENCE
+  // No modo revisão, a categoria da IA com pouca confiança é só uma sugestão: pílula tracejada + ✓
   const why = !cat ? t('transactions.row.by.none')
     : isAi ? t(low ? 'transactions.row.by.aiLow' : 'transactions.row.by.ai', { pct })
     : t(`transactions.row.by.${txn.categorized_by === 'cache' || txn.categorized_by === 'rule' ? txn.categorized_by : 'manual'}`)
@@ -49,7 +52,7 @@ function CategoryCell({ txn, categories, onChange }: { txn: Transaction; categor
 
   return (
     <span className="tx-cat">
-      <span className={`tx-cat__chip${cat ? '' : ' tx-cat__chip--none'}`} style={cat ? { '--c': categoryColor(cat) } as React.CSSProperties : undefined}>
+      <span className={`tx-cat__chip${cat ? '' : ' tx-cat__chip--none'}${onConfirm && low ? ' tx-cat__chip--suggested' : ''}`} style={cat ? { '--c': categoryColor(cat) } as React.CSSProperties : undefined}>
         {saving ? <Spinner size={10} /> : cat ? <span className="tx-cat__dot" /> : <Icon name="plus" size={12} />}
         <span className="tx-cat__name">{cat ? categoryLabel(cat) : t('transactions.row.uncategorized')}</span>
         <Icon name="chevronDown" size={12} className="tx-cat__chev" />
@@ -61,6 +64,10 @@ function CategoryCell({ txn, categories, onChange }: { txn: Transaction; categor
         </select>
       </span>
       {isAi && <span className={`tx-ai${low ? ' tx-ai--low' : ''}`} title={why}>{t('transactions.row.aiBadge', { pct })}</span>}
+      {onConfirm && cat && (
+        <IconButton icon="check" variant="secondary" className="tx-confirm" label={t('transactions.review.confirmOne', { name: txn.description, category: categoryLabel(cat) })}
+          loading={saving} onClick={async () => { setSaving(true); try { await onConfirm() } finally { setSaving(false) } }} />
+      )}
     </span>
   )
 }
@@ -96,9 +103,9 @@ function Description({ txn, onEdit }: { txn: Transaction; onEdit: () => void }) 
   )
 }
 
-function DesktopRow({ txn, account, category, categories, onEdit, onDelete, onCategory }: {
+function DesktopRow({ txn, account, category, categories, onEdit, onDelete, onCategory, onConfirm }: {
   txn: Transaction; account?: Account; category?: Category; categories: Category[]
-  onEdit: () => void; onDelete: () => void; onCategory: (id: string) => Promise<void>
+  onEdit: () => void; onDelete: () => void; onCategory: (id: string) => Promise<void>; onConfirm?: () => Promise<void>
 }) {
   const { t } = useTranslation()
   return (
@@ -109,7 +116,7 @@ function DesktopRow({ txn, account, category, categories, onEdit, onDelete, onCa
         <Description txn={txn} onEdit={onEdit} />
         <RowMeta txn={txn} />
       </div>
-      <CategoryCell txn={txn} categories={categories} onChange={onCategory} />
+      <CategoryCell txn={txn} categories={categories} onChange={onCategory} onConfirm={onConfirm} />
       <span className="tx-acc" title={account?.bank_name}>{account?.name ?? '—'}</span>
       <span className="tx-amount-cell"><Amount txn={txn} /></span>
       <span className="tx-row__actions">
@@ -120,9 +127,9 @@ function DesktopRow({ txn, account, category, categories, onEdit, onDelete, onCa
   )
 }
 
-function MobileCard({ txn, account, category, categories, onEdit, onCategory }: {
+function MobileCard({ txn, account, category, categories, onEdit, onCategory, onConfirm }: {
   txn: Transaction; account?: Account; category?: Category; categories: Category[]
-  onEdit: () => void; onCategory: (id: string) => Promise<void>
+  onEdit: () => void; onCategory: (id: string) => Promise<void>; onConfirm?: () => Promise<void>
 }) {
   return (
     <li className="tx-card" onClick={e => { if (!fromControl(e)) onEdit() }}>
@@ -133,7 +140,7 @@ function MobileCard({ txn, account, category, categories, onEdit, onCategory }: 
           <Amount txn={txn} />
         </div>
         <div className="tx-card__sub">
-          <CategoryCell txn={txn} categories={categories} onChange={onCategory} />
+          <CategoryCell txn={txn} categories={categories} onChange={onCategory} onConfirm={onConfirm} />
           {account && <span className="tx-acc">{account.name}</span>}
         </div>
         <RowMeta txn={txn} />
@@ -168,7 +175,7 @@ export function ListSkeleton({ rows = 8 }: { rows?: number }) {
   )
 }
 
-export function TransactionList({ items, dayTotalsFrom, accounts, categories, page, totalPages, total, busy, onPage, onEdit, onDelete, onCategory }: ListProps) {
+export function TransactionList({ items, dayTotalsFrom, accounts, categories, page, totalPages, total, busy, onPage, onEdit, onDelete, onCategory, onConfirm }: ListProps) {
   const { t } = useTranslation()
   const mobile = useIsMobile()
   const groups = useMemo(() => groupByDay(items), [items])
@@ -185,7 +192,7 @@ export function TransactionList({ items, dayTotalsFrom, accounts, categories, pa
   const to = Math.min(page * PAGE_SIZE, total)
 
   return (
-    <div className={`tx-list${busy ? ' tx-list--busy' : ''}`} aria-busy={busy || undefined} aria-label={t('transactions.list.label')} role="region">
+    <div className={`tx-list${busy ? ' tx-list--busy' : ''}${onConfirm ? ' tx-list--review' : ''}`} aria-busy={busy || undefined} aria-label={t('transactions.list.label')} role="region">
       {!mobile && (
         <div className="tx-head tx-cols" aria-hidden>
           <span />
@@ -210,6 +217,7 @@ export function TransactionList({ items, dayTotalsFrom, accounts, categories, pa
                 const common = {
                   txn, account: accById.get(txn.account_id), category: txn.category_id ? catById.get(txn.category_id) : undefined, categories,
                   onEdit: () => onEdit(txn), onCategory: (id: string) => onCategory(txn, id),
+                  onConfirm: onConfirm ? () => onConfirm(txn) : undefined,
                 }
                 return mobile
                   ? <MobileCard key={txn.id} {...common} />

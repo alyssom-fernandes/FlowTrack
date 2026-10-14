@@ -6,8 +6,8 @@
 import { chromium } from '@playwright/test'
 
 const base = process.argv.includes('--base') ? process.argv[process.argv.indexOf('--base') + 1] : 'http://localhost:5173'
-const ROTAS = ['/dashboard', '/transactions', '/goals', '/goals?aba=orcamentos', '/investments', '/reports', '/profile', '/profile?tab=categories']
-const SELETORES = ['.ft-budget__status', '.ft-pace__status', '.ft-catpill', '.tx-cat__chip', '.tx-ai', '.ft-badge', '.inv-result', '.tx-tag', '.tx-pill', '.tx-chip']
+const ROTAS = ['/dashboard', '/transactions', '/transactions?review=1', '/goals', '/goals?aba=orcamentos', '/investments', '/reports', '/profile', '/profile?tab=categories']
+const SELETORES = ['.ft-budget__status', '.ft-pace__status', '.ft-catpill', '.tx-cat__chip', '.tx-ai', '.ft-badge', '.inv-result', '.tx-tag', '.tx-pill', '.tx-chip', '.tx-review-chip']
 
 const browser = await chromium.launch()
 let falhas = 0

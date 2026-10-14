@@ -17,7 +17,7 @@ from app.models import (
 )
 from app.api.v1._helpers import (
     normalize_desc, dedup_hash, _adjust_account_balance, _write_audit, _serialize,
-    _first, _require_account, _require_category,
+    _first, _require_account, _require_category, NEEDS_REVIEW_FILTER,
 )
 
 router = APIRouter()
@@ -30,11 +30,13 @@ async def list_transactions(
     start_date: Optional[date] = Query(None), end_date: Optional[date] = Query(None),
     type: Optional[str] = Query(None), search: Optional[str] = Query(None),
     tag: Optional[str] = Query(None),
+    needs_review: bool = Query(False, description="Só as sem categoria ou categorizadas pela IA com pouca confiança"),
     page: int = Query(default=1, ge=1), page_size: int = Query(default=50, ge=1, le=500),
     user_id: str = Depends(get_current_user_id),
 ):
     try:
         q = get_supabase().table("transactions").select("*", count="exact").eq("user_id", user_id)
+        if needs_review: q = q.neq("type", "transfer").or_(NEEDS_REVIEW_FILTER)
         if account_id: q = q.eq("account_id", account_id)
         if category_id: q = q.eq("category_id", category_id)
         if start_date: q = q.gte("transaction_date", str(start_date))
@@ -178,6 +180,9 @@ async def bulk_create_transactions(request: Request, payload: BulkTransactionCre
     """Save a batch of transactions (used after PDF/CSV preview confirmation)."""
     sb = get_supabase()
     _require_account(sb, user_id, payload.account_id)
+    # Categorias escolhidas na revisão: cada uma conferida uma vez (só as visíveis para a pessoa)
+    for cat_id in {tx.category_id for tx in payload.transactions if tx.category_id}:
+        _require_category(sb, user_id, cat_id)
     is_demo = sb.table('demo_users').select('user_id').eq('user_id', user_id).limit(1).execute()
     imported = skipped = 0
     balance_delta = 0.0
@@ -196,9 +201,12 @@ async def bulk_create_transactions(request: Request, payload: BulkTransactionCre
                 'sync_status': 'synced',
                 'dedup_hash': dedup_hash(payload.account_id, tx_date, tx.amount, desc_norm),
             }
+            if tx.category_id:
+                data.update({'category_id': tx.category_id, 'categorized_by': tx.categorized_by or 'manual',
+                             'confidence_score': tx.confidence_score if tx.categorized_by == 'rule' and tx.confidence_score is not None else 1.0})
             result = sb.table('transactions').insert(data).execute()
             txn_id = result.data[0]['id'] if result.data else None
-            if txn_id and not is_demo.data:
+            if txn_id and not is_demo.data and not tx.category_id:
                 sb.table('categorization_queue').insert({'user_id': user_id, 'transaction_id': txn_id, 'status': 'pending'}).execute()
             imported += 1
             balance_delta += tx.amount

@@ -5,16 +5,19 @@ import { useNavigate } from 'react-router-dom'
 import { Badge, Button, EmptyState, Money, Modal, Select, Spinner, Tabs } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { transactionsService } from '../../services'
-import { formatCurrency, formatDateShort, formatSignedCurrency } from '../../utils'
-import type { Account, ParsedTransaction } from '../../types'
+import { categoryLabel, formatCurrency, formatDateShort, formatPercent, formatSignedCurrency } from '../../utils'
+import { categoryColor } from '../../lib/categoryColor'
+import { REVIEW_CONFIDENCE } from '../../lib/review'
+import type { Account, Category, ParsedTransaction } from '../../types'
 import { guessMapping, interpret, parseCsv, type CsvMapping, type CsvTable } from './csv'
 import { amountToInput, parseAmount, useIsMobile } from './shared'
 
 type Step = 'choose' | 'reading' | 'review' | 'csv' | 'importing' | 'done'
 type Source = { kind: 'pdf' | 'ofx' | 'csv'; bank?: string; files: string[] }
 
-interface PreviewRow { key: string; selected: boolean; date: string; description: string; amountStr: string }
-interface Result { imported: number; skipped: number; account: string }
+// categoryId: a categoria que vai ser gravada ('' = sem); suggestedId/confidence: o que as regras sugeriram
+interface PreviewRow { key: string; selected: boolean; date: string; description: string; amountStr: string; categoryId: string; suggestedId?: string; confidence?: number }
+interface Result { imported: number; skipped: number; account: string; categorized: number; pending: number }
 
 const STEP_INDEX: Record<Step, number> = { choose: 0, reading: 0, review: 1, csv: 1, importing: 1, done: 2 }
 const SOURCE_ICON: Record<Source['kind'], IconName> = { pdf: 'fileText', ofx: 'file', csv: 'table' }
@@ -29,6 +32,7 @@ function toRows(list: ParsedTransaction[]): PreviewRow[] {
   return list.map((tx, i) => ({
     key: `${i}-${tx.transaction_date}-${tx.amount}`, selected: true, date: tx.transaction_date,
     description: tx.description, amountStr: (tx.amount < 0 ? '-' : '') + amountToInput(tx.amount),
+    categoryId: tx.suggested_category_id ?? '', suggestedId: tx.suggested_category_id, confidence: tx.suggested_confidence,
   }))
 }
 
@@ -47,12 +51,14 @@ function Steps({ current }: { current: number }) {
   )
 }
 
-export function ImportModal({ open, onClose, accounts, defaultAccountId, onImported }: {
+export function ImportModal({ open, onClose, accounts, categories, defaultAccountId, onImported, onReview }: {
   open: boolean
   onClose: () => void
   accounts: Account[]
+  categories: Category[]
   defaultAccountId?: string
   onImported: () => void
+  onReview?: () => void   // "Revisar agora": abre Transações no modo A revisar
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -171,7 +177,9 @@ export function ImportModal({ open, onClose, accounts, defaultAccountId, onImpor
     const prev: Step = source?.kind === 'csv' ? 'csv' : 'review'
     try {
       const res = await transactionsService.bulkCreate(accountId, list)
-      setResult({ imported: res.imported, skipped: res.skipped, account: accounts.find(a => a.id === accountId)?.name || '' })
+      const categorized = list.filter(tx => tx.category_id).length
+      setResult({ imported: res.imported, skipped: res.skipped, account: accounts.find(a => a.id === accountId)?.name || '',
+        categorized: Math.min(categorized, res.imported), pending: Math.max(0, res.imported - categorized) })
       setStep('done')
       if (res.imported > 0) onImported()
     } catch {
@@ -179,9 +187,16 @@ export function ImportModal({ open, onClose, accounts, defaultAccountId, onImpor
     }
   }
 
-  const importReview = () => runImport(chosen.map(r => ({
-    description: r.description.trim(), amount: Math.round(r.amount * 100) / 100, transaction_date: r.date, type: r.amount > 0 ? 'credit' : 'debit',
-  })))
+  // A categoria conferida vai junto: a sugestão aceita grava como regra; a trocada, como escolha da pessoa
+  const importReview = () => runImport(chosen.map(r => {
+    const accepted = !!r.categoryId && r.categoryId === r.suggestedId
+    return {
+      description: r.description.trim(), amount: Math.round(r.amount * 100) / 100, transaction_date: r.date, type: r.amount > 0 ? 'credit' : 'debit',
+      ...(r.categoryId ? { category_id: r.categoryId, categorized_by: accepted ? 'rule' as const : 'manual' as const, confidence_score: accepted ? r.confidence : undefined } : {}),
+    }
+  }))
+  const sortedCats = useMemo(() => [...categories].sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b))), [categories])
+  const reviewPending = chosen.filter(r => !r.categoryId).length
 
   const accountSelect = (
     <Select label={t('transactions.import.account')} value={accountId} onChange={e => setAccountId(e.target.value)}>
@@ -248,14 +263,18 @@ export function ImportModal({ open, onClose, accounts, defaultAccountId, onImpor
           </label>
           <span className="tx-review__count ft-num">
             {t('transactions.import.selected', { selected: chosen.length, total: rows.length })}
+            {reviewPending > 0 && <span className="tx-rpending"> · {t('transactions.import.toReview', { count: reviewPending })}</span>}
             <span className="tx-review__totals"> · {t('transactions.import.selectedTotals', { expense: formatCurrency(reviewTotals.expense), income: formatCurrency(reviewTotals.income) })}</span>
           </span>
         </div>
         <ul className="tx-rlist">
           {parsedRows.map((r, i) => {
             const bad = r.selected && (!Number.isFinite(r.amount) || r.amount === 0)
+            const cat = categories.find(c => c.id === r.categoryId)
+            const suggested = !!cat && r.categoryId === r.suggestedId
+            const review = !cat || (suggested && (r.confidence ?? 0) < REVIEW_CONFIDENCE)
             return (
-              <li key={r.key} className={`tx-rrow${r.selected ? '' : ' is-off'}`}>
+              <li key={r.key} className={`tx-rrow${r.selected ? '' : ' is-off'}${review ? ' is-review' : ''}`}>
                 <input type="checkbox" className="tx-rrow__check" checked={r.selected} aria-label={t('transactions.import.rowSelect', { n: i + 1 })} onChange={() => update(r.key, { selected: !r.selected })} />
                 <input type="date" className="tx-cell tx-rrow__date" value={r.date} aria-label={t('transactions.import.rowDate', { n: i + 1 })} onChange={e => update(r.key, { date: e.target.value })} />
                 <input className="tx-cell tx-rrow__desc" value={r.description} aria-label={t('transactions.import.rowDescription', { n: i + 1 })} onChange={e => update(r.key, { description: e.target.value })} />
@@ -263,6 +282,23 @@ export function ImportModal({ open, onClose, accounts, defaultAccountId, onImpor
                   value={editingAmount === r.key || !Number.isFinite(r.amount) ? r.amountStr : formatSignedCurrency(r.amount)} aria-invalid={bad || undefined}
                   onFocus={e => { setEditingAmount(r.key); requestAnimationFrame(() => e.target.select()) }} onBlur={() => setEditingAmount(null)}
                   aria-label={t('transactions.import.rowAmount', { n: i + 1 })} onChange={e => update(r.key, { amountStr: e.target.value })} />
+                {/* Categoria sugerida pelas regras, com a confiança; dá para trocar antes de importar */}
+                <span className="tx-rcat">
+                  <span className={`tx-cat__chip${cat ? '' : ' tx-cat__chip--none'}${suggested && review ? ' tx-cat__chip--suggested' : ''}`}
+                    style={cat ? { '--c': categoryColor(cat) } as React.CSSProperties : undefined}>
+                    {cat ? <span className="tx-cat__dot" /> : <Icon name="plus" size={12} />}
+                    <span className="tx-cat__name">{cat ? categoryLabel(cat) : t('transactions.row.uncategorized')}</span>
+                    <Icon name="chevronDown" size={12} className="tx-cat__chev" />
+                    <select className="tx-cat__select" value={r.categoryId} aria-label={t('transactions.import.rowCategory', { n: i + 1 })}
+                      onChange={e => update(r.key, { categoryId: e.target.value })}>
+                      <option value="">{t('transactions.row.uncategorized')}</option>
+                      {sortedCats.map(c => <option key={c.id} value={c.id}>{categoryLabel(c)}</option>)}
+                    </select>
+                  </span>
+                  {suggested && r.confidence !== undefined && (
+                    <span className="tx-ai" title={t('transactions.import.suggestedHint')}>{t('transactions.import.suggested', { pct: formatPercent(r.confidence * 100, 0, false) })}</span>
+                  )}
+                </span>
               </li>
             )
           })}
@@ -332,13 +368,24 @@ export function ImportModal({ open, onClose, accounts, defaultAccountId, onImpor
           {none ? t('transactions.import.done.noneText') : t('transactions.import.done.into', { account: result.account })}
           {!none && result.skipped > 0 && <><br />{t('transactions.import.done.skipped', { count: result.skipped })}</>}
         </p>
+        {!none && (
+          <p className="tx-done__split ft-num">
+            <span><Icon name="checkCircle" size={14} />{t('transactions.import.done.categorized', { count: result.categorized })}</span>
+            {result.pending > 0 && <span className="is-pending"><Icon name="sparkle" size={14} />{t('transactions.import.done.pending', { count: result.pending })}</span>}
+          </p>
+        )}
       </div>
     )
-    footer = <><Button variant="secondary" icon="upload" onClick={reset}>{t('transactions.import.done.again')}</Button><Button onClick={onClose}>{t('transactions.import.done.view')}</Button></>
+    footer = <>
+      <Button variant="secondary" icon="upload" onClick={reset}>{t('transactions.import.done.again')}</Button>
+      {!none && result.pending > 0 && onReview
+        ? <Button icon="sparkle" onClick={onReview}>{t('transactions.import.done.review')}</Button>
+        : <Button onClick={onClose}>{t('transactions.import.done.view')}</Button>}
+    </>
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={t('transactions.import.title')} width="40rem" footer={footer}>
+    <Modal open={open} onClose={onClose} title={t('transactions.import.title')} width={step === 'review' ? '52rem' : '40rem'} footer={footer}>
       {accounts.length > 0 && <Steps current={STEP_INDEX[step]} />}
       {body}
     </Modal>

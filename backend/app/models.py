@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Literal, Optional
 from datetime import date, datetime
 from enum import Enum
 
@@ -170,6 +170,10 @@ class ParsedTransactionItem(BaseModel):
     amount: float
     transaction_date: date
     type: str = 'debit'
+    # Categoria conferida na revisão da importação: a sugestão aceita ("rule") ou a escolha da pessoa ("manual")
+    category_id: Optional[str] = None
+    categorized_by: Optional[Literal['rule', 'manual']] = None
+    confidence_score: Optional[float] = Field(None, ge=0, le=1)
 
 class BulkTransactionCreate(BaseModel):
     account_id: str

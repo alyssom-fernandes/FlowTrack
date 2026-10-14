@@ -57,6 +57,11 @@ async function apontar(page, ctx, qual, fx, fy = 0.5) {
 export default [
   // Padrão: últimos 6 meses
   { id: 'relatorios', rota: '/reports' },
+  // As outras seções (a padrão é o Fluxo)
+  { id: 'relatorios-mes-a-mes', rota: '/reports?vista=mes' },
+  { id: 'relatorios-categorias', rota: '/reports?vista=categorias' },
+  { id: 'relatorios-projecao', rota: '/reports?vista=projecao' },
+  { id: 'relatorios-fluxo-12-meses', rota: '/reports', acao: (p, c) => periodo(p, c, '12m') },
   { id: 'relatorios-este-mes', rota: '/reports', acao: (p, c) => periodo(p, c, 'thisMonth') },
   { id: 'relatorios-mes-passado', rota: '/reports', acao: (p, c) => periodo(p, c, 'lastMonth') },
   { id: 'relatorios-3-meses', rota: '/reports', acao: (p, c) => periodo(p, c, '3m') },
@@ -64,9 +69,9 @@ export default [
   { id: 'relatorios-este-ano', rota: '/reports', acao: (p, c) => periodo(p, c, 'year') },
   { id: 'relatorios-personalizado', rota: '/reports', acao: (p, c) => personalizado(p, c, diasAtras(20), diasAtras(1)) },
   { id: 'relatorios-personalizado-invalido', rota: '/reports', acao: (p, c) => personalizado(p, c, diasAtras(5), diasAtras(30)) },
-  { id: 'relatorios-comparar-mes', rota: '/reports', acao: async (p, c) => { await periodo(p, c, 'thisMonth'); await comparar(p) } },
-  { id: 'relatorios-comparar-6-meses', rota: '/reports', acao: async (p) => { await comparar(p) } },
-  { id: 'relatorios-comparar-sem-dados', rota: '/reports', acao: async (p, c) => { await periodo(p, c, '12m'); await comparar(p) } },
+  { id: 'relatorios-comparar-mes', rota: '/reports?vista=mes', acao: async (p, c) => { await periodo(p, c, 'thisMonth'); await comparar(p) } },
+  { id: 'relatorios-comparar-6-meses', rota: '/reports?vista=mes', acao: async (p) => { await comparar(p) } },
+  { id: 'relatorios-comparar-sem-dados', rota: '/reports?vista=mes', acao: async (p, c) => { await periodo(p, c, '12m'); await comparar(p) } },
   {
     // Erro de carga: depois de abrir, a demonstração "some" e a próxima busca vai à rede e falha
     id: 'relatorios-erro', rota: '/reports',
@@ -79,13 +84,13 @@ export default [
       await p.getByRole('button', { name: /(Tentar de novo|Try again)/ }).waitFor({ timeout: 15000 })
     },
   },
-  { id: 'relatorios-tabelas', rota: '/reports', acao: async (p, c) => { await periodo(p, c, '3m'); await comparar(p); await tabelas(p); await topo(p) } },
+  { id: 'relatorios-tabelas', rota: '/reports?vista=mes', acao: async (p, c) => { await periodo(p, c, '3m'); await comparar(p); await tabelas(p); await topo(p) } },
   {
-    id: 'relatorios-categorias-demais', rota: '/reports',
+    id: 'relatorios-categorias-demais', rota: '/reports?vista=categorias',
     acao: async (p, c) => { await periodo(p, c, '12m'); await p.getByRole('button', { name: /^(Outras \d+ categorias|\d+ more categories)/ }).click(); await topo(p) },
   },
-  { id: 'relatorios-dica-barras', rota: '/reports', inteira: false, acao: async (p, c) => { await comparar(p); await apontar(p, c, 'first', 0.62) } },
-  { id: 'relatorios-dica-projecao', rota: '/reports', inteira: false, acao: (p, c) => apontar(p, c, 'last', 0.78, 0.45) },
+  { id: 'relatorios-dica-barras', rota: '/reports?vista=mes', inteira: false, acao: async (p, c) => { await comparar(p); await apontar(p, c, 'first', 0.62) } },
+  { id: 'relatorios-dica-projecao', rota: '/reports?vista=projecao', inteira: false, acao: (p, c) => apontar(p, c, 'last', 0.78, 0.45) },
   {
     id: 'relatorios-menu-exportar', rota: '/reports', inteira: false,
     acao: async (p) => { await p.getByRole('button', { name: /^(Exportar|Export)$/ }).click(); await p.waitForTimeout(200) },

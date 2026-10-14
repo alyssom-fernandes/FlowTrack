@@ -180,7 +180,9 @@
       "showMore_other": "Ver as outras {{count}}",
       "showLess": "Ver menos",
       "ofDays_one": "de {{count}}",
-      "ofDays_other": "de {{count}}"
+      "ofDays_other": "de {{count}}",
+      "otherIncome": "Outras receitas",
+      "sources": "De onde veio o dinheiro"
     },
     "pace": {
       "title": "Quanto ainda posso gastar",

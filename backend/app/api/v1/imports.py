@@ -4,7 +4,7 @@ from app.core.security import get_current_user_id
 from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter, MAX_UPLOAD_BYTES
-from app.api.v1._helpers import normalize_desc, dedup_hash, _adjust_account_balance, _parse_ofx, _require_account
+from app.api.v1._helpers import normalize_desc, dedup_hash, _adjust_account_balance, _parse_ofx, _require_account, suggest_categories
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -32,7 +32,16 @@ async def parse_pdf_preview(request: Request, file: UploadFile = File(...), user
     if not transactions:
         label = BANK_LABELS.get(bank, bank)
         raise HTTPException(422, f"O PDF foi identificado como {label}, mas nenhuma transação pôde ser extraída. Tente exportar novamente pelo app do banco.")
-    return {'bank': BANK_LABELS.get(bank, bank), 'transactions': transactions}
+    return {'bank': BANK_LABELS.get(bank, bank), 'transactions': _with_suggestions(transactions)}
+
+
+def _with_suggestions(transactions: list[dict]) -> list[dict]:
+    """Categoria sugerida na prévia; se falhar, a prévia segue sem sugestão."""
+    try:
+        return suggest_categories(get_supabase(), transactions)
+    except Exception as e:
+        logger.warning("suggest_categories_failed", error=str(e))
+        return transactions
 
 
 @router.post("/import/pdf", tags=["Import"])
@@ -98,4 +107,4 @@ async def parse_ofx_preview(request: Request, file: UploadFile = File(...), user
     transactions = _parse_ofx(content)
     if not transactions:
         raise HTTPException(422, "Nenhuma transação encontrada no arquivo OFX. Verifique o arquivo e tente novamente.")
-    return {"transactions": transactions, "total": len(transactions)}
+    return {"transactions": _with_suggestions(transactions), "total": len(transactions)}

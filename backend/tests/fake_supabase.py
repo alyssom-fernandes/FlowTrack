@@ -63,7 +63,7 @@ class _Query:
         return self
 
     def or_(self, expr: str):
-        # Formatos usados pelo backend: "col.eq.valor", "col.is.null" e "and(...)", separados por vírgula
+        # Formatos usados pelo backend: "col.eq.valor", "col.lt.número", "col.is.null" e "and(...)", separados por vírgula
         def split(text):
             parts, depth, cur = [], 0, ""
             for ch in text:
@@ -83,6 +83,8 @@ class _Query:
             if op == "is":
                 return lambda r: r.get(col) is None if val == "null" else r.get(col) == val
             v = {"true": True, "false": False}.get(val, val)
+            if op == "lt":
+                return lambda r: r.get(col) is not None and r.get(col) < float(val)
             return (lambda r: r.get(col) == v) if op == "eq" else (lambda r: r.get(col) != v)
 
         tests = [term(t) for t in split(expr)]

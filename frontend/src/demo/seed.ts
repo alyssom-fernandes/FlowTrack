@@ -85,6 +85,7 @@ const EN: Record<string, string> = {
   'Vencimento em 2029, indexado ao IPCA': 'Matures in 2029, indexed to inflation (IPCA)', 'Liquidez diária': 'Daily liquidity',
   'Isenta de IR, vence em 12 meses': 'Tax-exempt, matures in 12 months', 'Dividendos mensais': 'Monthly dividends',
   'Posição pequena, de longo prazo': 'Small long-term position', 'Estorno compra': 'Purchase refund',
+  'Pix enviado · J. Almeida': 'Pix transfer · J. Almeida',
 }
 
 export function demoLang(): 'pt' | 'en' {
@@ -327,6 +328,7 @@ export function samplePdfStatement(now = new Date()): { bank: string; transactio
       { description: tr('Estorno compra'), amount: 39.9, transaction_date: d(5), type: 'credit' },
       { description: 'Zaffari Supermercados', amount: -132.45, transaction_date: d(6), type: 'debit' },
       { description: 'Shell Box', amount: -150, transaction_date: d(7), type: 'debit' },
+      { description: tr('Pix enviado · J. Almeida'), amount: -80, transaction_date: d(7), type: 'debit' },
     ],
   }
 }

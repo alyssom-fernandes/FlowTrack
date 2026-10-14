@@ -268,7 +268,12 @@ section + section .tx-day__head { border-top: 1px solid var(--border-subtle); }
 .tx-review__totals { color: var(--text-hint); }
 .tx-rlist { list-style: none; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
 @media (min-width: 600px) { .tx-rlist { max-height: 19rem; overflow-y: auto; } }
-.tx-rrow { display: grid; grid-template-columns: 1rem 8.25rem minmax(0, 1fr) 7.5rem; gap: 0.625rem; align-items: center; padding: 0.375rem 0.75rem; border-bottom: 1px solid var(--border-subtle); transition: opacity var(--transition); }
+.tx-rrow { display: grid; grid-template-columns: 1rem 7.75rem minmax(0, 1fr) 7rem 15.5rem; gap: 0.625rem; align-items: center; padding: 0.375rem 0.75rem; border-bottom: 1px solid var(--border-subtle); transition: opacity var(--transition); box-shadow: inset 3px 0 0 transparent; }
+/* Categoria na revisão: a sugerida (com a confiança) ou "Sem categoria"; a que pede conferência ganha borda âmbar */
+.tx-rcat { display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
+.tx-rcat .tx-cat__chip { flex: 0 1 auto; }
+.tx-rrow.is-review { box-shadow: inset 3px 0 0 var(--amber); }
+.tx-rpending { color: var(--amber); font-weight: 600; }
 .tx-rrow:last-child { border-bottom: none; }
 .tx-rrow.is-off { opacity: 0.45; }
 .tx-rrow__check { margin-top: 0; }
@@ -285,7 +290,8 @@ section + section .tx-day__head { border-top: 1px solid var(--border-subtle); }
 .tx-rrow__amt.is-bad { border-color: var(--amber); background: var(--amber-soft); color: var(--amber); }
 .tx-rrow input[type='date']::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
 @media (max-width: 599px) {
-  .tx-rrow { grid-template-columns: 1rem minmax(0, 1fr) 6.5rem; grid-template-areas: 'check desc desc' 'check date amt'; row-gap: 0.125rem; padding: 0.5rem 0.75rem; }
+  .tx-rrow { grid-template-columns: 1rem minmax(0, 1fr) 6.5rem; grid-template-areas: 'check desc desc' 'check date amt' 'check cat cat'; row-gap: 0.125rem; padding: 0.5rem 0.75rem; }
+  .tx-rcat { grid-area: cat; padding: 0.125rem 0 0.25rem; }
   .tx-rrow__check { grid-area: check; align-self: start; margin-top: 0.5rem; }
   .tx-rrow__desc { grid-area: desc; }
   .tx-rrow__date { grid-area: date; color: var(--text-muted); }
@@ -318,7 +324,7 @@ section + section .tx-day__head { border-top: 1px solid var(--border-subtle); }
   .tx-print-only { display: block; font-size: var(--font-size-sm); color: var(--text-muted); margin-top: -0.5rem; }
   .tx-cols { grid-template-columns: 2rem minmax(0, 1fr) 9.5rem 7.5rem 7.5rem; column-gap: 0.75rem; }
   .tx-row, .tx-head, .tx-day__head { padding-left: 0.75rem; padding-right: 0.75rem; }
-  .tx-page .ft-page-header__actions, .tx-filters, .tx-filters-m, .tx-pager__nav, .tx-row__actions, .tx-cat__chev, .tx-pending svg { display: none !important; }
+  .tx-page .ft-page-header__actions, .tx-filters, .tx-filters-m, .tx-pager__nav, .tx-row__actions, .tx-cat__chev, .tx-pending svg, .tx-review-foot, .tx-review-chip, .tx-confirm { display: none !important; }
   .tx-list-card, .tx-summary { box-shadow: none; break-inside: auto; }
   .tx-row, .tx-card, .tx-day__head { break-inside: avoid; }
   .tx-list--busy { opacity: 1; }
@@ -370,3 +376,43 @@ section + section .tx-day__head { border-top: 1px solid var(--border-subtle); }
 .tx-month__side.is-future { opacity: 0.45; }
 .tx-month__current { min-width: 9rem; text-align: center; padding: 0.4375rem 1.25rem; border-radius: var(--radius-full); background: var(--accent-soft); color: var(--text-primary); font-weight: 600; text-transform: capitalize; white-space: nowrap; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent); }
 @media (max-width: 767px) { .tx-month__side { display: none; } }
+
+/* ── A revisar: sem categoria ou IA com pouca confiança ── */
+.tx-review-chip {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 0.4375rem; min-height: 2.25rem; padding: 0 0.875rem;
+  border-radius: var(--radius-full); border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); background: var(--amber-soft);
+  font-size: var(--font-size-sm); font-weight: 600; color: var(--amber); transition: border-color var(--dur-1) ease;
+}
+.tx-review-chip:hover { border-color: var(--amber); }
+.tx-review {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.875rem; border-radius: var(--radius-lg);
+  background: var(--amber-soft); border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
+}
+.tx-review__icon { width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
+.tx-review__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.125rem; font-size: var(--font-size-sm); color: var(--text-secondary); }
+.tx-review__text strong { font-size: var(--font-size-base); color: var(--text-primary); font-weight: 600; }
+/* Sugestão da IA: pílula tracejada até a pessoa confirmar */
+.tx-cat__chip--suggested:not(.tx-cat__chip--none) { background: transparent; box-shadow: inset 0 0 0 1px transparent; border: 1px dashed color-mix(in srgb, var(--c) 70%, transparent); }
+.tx-confirm.ft-btn { width: 1.875rem; height: 1.875rem; flex-shrink: 0; color: var(--green); }
+.tx-confirm.ft-btn:hover { background: var(--green-soft); border-color: color-mix(in srgb, var(--green) 40%, transparent); }
+.tx-review-foot {
+  position: sticky; bottom: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--bg-card) 94%, transparent);
+  backdrop-filter: blur(8px); border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+.tx-review-foot__hint { font-size: var(--font-size-sm); color: var(--text-muted); }
+@media (max-width: 767px) {
+  .tx-review-foot { bottom: calc(var(--navbar-height) + env(safe-area-inset-bottom)); padding: 0.625rem 0.75rem; }
+  .tx-review-foot__hint { display: none; }
+  .tx-review-foot .ft-btn { width: 100%; height: 2.75rem; }
+  .tx-confirm.ft-btn { width: 2.5rem; height: 2.5rem; }
+}
+
+/* Fim da importação: quantas já têm categoria e quantas ficam para revisar */
+.tx-done__split { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.375rem 1rem; margin-top: 0.25rem; font-size: var(--font-size-sm); color: var(--text-secondary); }
+.tx-done__split span { display: inline-flex; align-items: center; gap: 0.375rem; }
+.tx-done__split svg { color: var(--green); }
+.tx-done__split .is-pending { color: var(--amber); font-weight: 600; }
+.tx-done__split .is-pending svg { color: var(--amber); }
+/* No modo revisão a coluna de categoria leva a pílula, a confiança e o ✓ */
+@media (min-width: 768px) { .tx-list--review .tx-cols { grid-template-columns: 2.25rem minmax(0, 1fr) 17.5rem 8rem 8.75rem 4.5rem; } }

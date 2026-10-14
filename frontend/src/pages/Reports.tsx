@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, EmptyState, Input, Page, PageHeader, Select, Skeleton, Tabs, Money } from '../components/ui'
 import { Icon, type IconName } from '../components/icons'
@@ -13,9 +13,14 @@ import {
   type PeriodKey, type Range, type Bucket, type CategoryRow,
 } from './reports/dados'
 import { CategoryDonut, Delta, FlowBars, Legend, ProjectionLines, ReportTable, TopList, type Column } from './reports/graficos'
+import { FlowDiagram } from './dashboard/flow'
+import { buildFlow } from './dashboard/flowData'
 import './reports/reports.css'
 
 type View = 'chart' | 'table'
+// Seções da página, uma por pergunta: para onde foi (fluxo), mês a mês, categorias e projeção
+const SECTIONS = ['fluxo', 'mes', 'categorias', 'projecao'] as const
+type Section = typeof SECTIONS[number]
 type ExportKind = 'pdf' | 'xlsx' | 'csv' | 'print'
 
 interface Loaded { range: Range; prevRange: Range; current: Transaction[]; previous: Transaction[] }
@@ -131,6 +136,16 @@ function LoadingState() {
 export function Reports() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
+  // A seção fica no endereço (?vista=mes) para dar para voltar e compartilhar
+  const [params, setParams] = useSearchParams()
+  const rawSection = params.get('vista')
+  const section: Section = (SECTIONS as readonly string[]).includes(rawSection || '') ? rawSection as Section : 'fluxo'
+  const pickSection = (next: Section) => {
+    const q = new URLSearchParams(params)
+    if (next === 'fluxo') q.delete('vista')
+    else q.set('vista', next)
+    setParams(q, { replace: true })
+  }
   const { toast } = useToastStore()
   const [periodKey, setPeriodKey] = useState<PeriodKey>('6m')
   const [custom, setCustom] = useState<Range>(() => periodRange('6m', { start: '', end: '' }))
@@ -190,6 +205,7 @@ export function Reports() {
       categories: categoriesRows,
       slices: toSlices(categoriesRows, n => t('reports.categories.others', { count: n })),
       top: topExpenses(data.current, categories, noCat, 5),
+      flow: buildFlow(data.current, categories, t, `period=custom&start_date=${data.range.start}&end_date=${data.range.end}`),
       rangeText: formatRange(data.range),
       prevRangeText: formatRange(data.prevRange),
     }
@@ -362,45 +378,63 @@ export function Reports() {
         </section>
         <p className="rp-note"><Icon name="info" size={14} />{t('reports.kpi.transfersNote')}</p>
 
-        <Card>
-          <CardHead title={t(report.g === 'week' ? 'reports.flow.titleWeek' : 'reports.flow.titleMonth')}
-            sub={showPrev ? t('reports.flow.compareSub', { range: report.prevRangeText }) : t('reports.flow.sub', { count: s.count })}
-            tools={<ViewToggle value={views.flow} onChange={v => setViews(o => ({ ...o, flow: v }))} />} />
-          {views.flow === 'chart' ? (
-            <>
-              <Legend items={[
-                { label: t('reports.legend.expense'), color: 'var(--chart-spend)' },
-                { label: t('reports.legend.incomeTick'), color: 'var(--chart-income)', line: 'solid' },
-                { label: t('reports.legend.netAbove'), color: 'var(--text-muted)', line: 'text' },
-                ...(showPrev ? [{ label: t('reports.legend.previousFaded'), color: 'var(--chart-neutral)', faded: true }] : []),
-              ]} />
-              <FlowBars buckets={report.buckets} prev={showPrev ? report.prevBuckets : undefined} ariaLabel={flowLabel} />
-              <div className="rp-print-only rp-print-table" style={{ marginTop: 12 }}>{flowTable}</div>
-            </>
-          ) : flowTable}
-        </Card>
-
-        <div className="rp-grid">
-          <Card className="rp-card-fill">
-            <CardHead title={t('reports.categories.title')} sub={t('reports.categories.summary', { count: report.categories.length, total: formatCurrency(s.expense) })}
-              tools={report.categories.length ? <ViewToggle value={views.cat} onChange={v => setViews(o => ({ ...o, cat: v }))} /> : undefined} />
-            {!report.categories.length ? (
-              <EmptyState compact icon="pie" title={t('reports.categories.emptyTitle')} description={t('reports.categories.emptyText')} />
-            ) : views.cat === 'chart' ? (
-              <CategoryDonut slices={report.slices} total={s.expense} compare={showPrev} ariaLabel={donutLabel} />
-            ) : (
-              <ReportTable caption={t('reports.categories.title')} columns={catCols} rows={report.categories.map((c, i) => ({ ...c, i }))} rowKey={c => c.id} totals={catTotals} listBelow={showPrev ? 600 : 440} />
-            )}
-          </Card>
-          <Card>
-            <CardHead title={t('reports.top.title')} sub={t('reports.top.subtitle')} />
-            {report.top.length
-              ? <TopList rows={report.top} />
-              : <EmptyState compact icon="inbox" title={t('reports.categories.emptyTitle')} description={t('reports.categories.emptyText')} />}
-          </Card>
+        <div className="rp-sections">
+          <Tabs<Section> label={t('reports.sections.label')} value={section} onChange={pickSection}
+            items={SECTIONS.map(k => ({ value: k, label: t(`reports.sections.${k}`) }))} />
         </div>
-
-        <ProjectionCard projection={projection} view={views.proj} onView={v => setViews(o => ({ ...o, proj: v }))} />
+        {/* As quatro seções ficam montadas (os gráficos já medidos); só a escolhida aparece na tela.
+            Na impressão aparecem todas. */}
+        <div className="rp-panels">
+          <div className={`rp-panel${section === 'fluxo' ? '' : ' rp-panel--off'}`} role="tabpanel" aria-label={t('reports.sections.fluxo')}>
+            <Card className="rp-flow">
+              <CardHead title={t('reports.flowTab.title')} sub={t('reports.flowTab.sub', { range: report.rangeText })} />
+              <FlowDiagram data={report.flow} showSources plotLabel={t('reports.flowTab.title')} emptyText={t('reports.flowTab.empty')} />
+            </Card>
+          </div>
+          <div className={`rp-panel${section === 'mes' ? '' : ' rp-panel--off'}`} role="tabpanel" aria-label={t('reports.sections.mes')}>
+            <Card>
+              <CardHead title={t(report.g === 'week' ? 'reports.flow.titleWeek' : 'reports.flow.titleMonth')}
+                sub={showPrev ? t('reports.flow.compareSub', { range: report.prevRangeText }) : t('reports.flow.sub', { count: s.count })}
+                tools={<ViewToggle value={views.flow} onChange={v => setViews(o => ({ ...o, flow: v }))} />} />
+              {views.flow === 'chart' ? (
+                <>
+                  <Legend items={[
+                    { label: t('reports.legend.expense'), color: 'var(--chart-spend)' },
+                    { label: t('reports.legend.incomeTick'), color: 'var(--chart-income)', line: 'solid' },
+                    { label: t('reports.legend.netAbove'), color: 'var(--text-muted)', line: 'text' },
+                    ...(showPrev ? [{ label: t('reports.legend.previousFaded'), color: 'var(--chart-neutral)', faded: true }] : []),
+                  ]} />
+                  <FlowBars buckets={report.buckets} prev={showPrev ? report.prevBuckets : undefined} ariaLabel={flowLabel} />
+                  <div className="rp-print-only rp-print-table" style={{ marginTop: 12 }}>{flowTable}</div>
+                </>
+              ) : flowTable}
+            </Card>
+          </div>
+          <div className={`rp-panel${section === 'categorias' ? '' : ' rp-panel--off'}`} role="tabpanel" aria-label={t('reports.sections.categorias')}>
+            <div className="rp-grid">
+              <Card className="rp-card-fill">
+                <CardHead title={t('reports.categories.title')} sub={t('reports.categories.summary', { count: report.categories.length, total: formatCurrency(s.expense) })}
+                  tools={report.categories.length ? <ViewToggle value={views.cat} onChange={v => setViews(o => ({ ...o, cat: v }))} /> : undefined} />
+                {!report.categories.length ? (
+                  <EmptyState compact icon="pie" title={t('reports.categories.emptyTitle')} description={t('reports.categories.emptyText')} />
+                ) : views.cat === 'chart' ? (
+                  <CategoryDonut slices={report.slices} total={s.expense} compare={showPrev} ariaLabel={donutLabel} />
+                ) : (
+                  <ReportTable caption={t('reports.categories.title')} columns={catCols} rows={report.categories.map((c, i) => ({ ...c, i }))} rowKey={c => c.id} totals={catTotals} listBelow={showPrev ? 600 : 440} />
+                )}
+              </Card>
+              <Card>
+                <CardHead title={t('reports.top.title')} sub={t('reports.top.subtitle')} />
+                {report.top.length
+                  ? <TopList rows={report.top} />
+                  : <EmptyState compact icon="inbox" title={t('reports.categories.emptyTitle')} description={t('reports.categories.emptyText')} />}
+              </Card>
+            </div>
+          </div>
+          <div className={`rp-panel${section === 'projecao' ? '' : ' rp-panel--off'}`} role="tabpanel" aria-label={t('reports.sections.projecao')}>
+            <ProjectionCard projection={projection} view={views.proj} onView={v => setViews(o => ({ ...o, proj: v }))} />
+          </div>
+        </div>
       </div>
     )
   }

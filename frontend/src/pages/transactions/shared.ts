@@ -19,9 +19,10 @@ export interface Filters {
   start_date: string
   end_date: string
   tag: string
+  review: string   // '1' = só as que pedem revisão (sem categoria ou IA com pouca confiança)
 }
 
-export const EMPTY_FILTERS: Filters = { search: '', account_id: '', category_id: '', type: '', period: '', start_date: '', end_date: '', tag: '' }
+export const EMPTY_FILTERS: Filters = { search: '', account_id: '', category_id: '', type: '', period: '', start_date: '', end_date: '', tag: '', review: '' }
 
 export const PAGE_SIZE = 25
 
@@ -46,6 +47,7 @@ export function toQuery(f: Filters): TransactionFilters {
   if (f.category_id && f.category_id !== NO_CATEGORY) q.category_id = f.category_id
   if (f.type) q.type = f.type
   if (f.tag) q.tag = f.tag
+  if (f.review) q.needs_review = true
   if (start) q.start_date = start
   if (end) q.end_date = end
   return q
@@ -56,7 +58,7 @@ export function toQuery(f: Filters): TransactionFilters {
 export const DEFAULT_FILTERS: Filters = { ...EMPTY_FILTERS, period: 'this_month' }
 
 export function activeFilterCount(f: Filters): number {
-  return [f.account_id, f.category_id, f.type, f.period === 'this_month' ? '' : f.period, f.tag].filter(Boolean).length
+  return [f.account_id, f.category_id, f.type, f.period === 'this_month' ? '' : f.period, f.tag, f.review].filter(Boolean).length
 }
 
 export function hasAnyFilter(f: Filters): boolean {
@@ -151,7 +153,7 @@ export function parseTags(raw: string): string[] {
 }
 
 // Filtros na URL: dá para voltar, recarregar e criar links para a tela
-const URL_KEYS: (keyof Filters)[] = ['search', 'account_id', 'category_id', 'type', 'period', 'start_date', 'end_date', 'tag']
+const URL_KEYS: (keyof Filters)[] = ['search', 'account_id', 'category_id', 'type', 'period', 'start_date', 'end_date', 'tag', 'review']
 
 export function filtersFromParams(p: URLSearchParams): Filters {
   const f = { ...EMPTY_FILTERS }

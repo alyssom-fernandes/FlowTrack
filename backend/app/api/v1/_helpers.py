@@ -152,6 +152,30 @@ def period_elapsed(start: str, end: str | None, today: date) -> float | None:
     return min(1.0, max(0.0, ((today - s).days + 1) / total))
 
 
+# ── Revisão da categorização ──────────────────────────────────
+# Abaixo desta confiança, a categoria dada pela IA vai para "A revisar" (frontend: lib/review.ts)
+REVIEW_CONFIDENCE = 0.85
+NEEDS_REVIEW_FILTER = f"category_id.is.null,and(categorized_by.eq.ai,confidence_score.lt.{REVIEW_CONFIDENCE})"
+
+
+def suggest_categories(sb, transactions: list[dict]) -> list[dict]:
+    """Sugestão de categoria para a prévia da importação: só as regras fixas (custo zero, sem IA).
+
+    Acrescenta suggested_category_id e suggested_confidence nos gastos que casarem com uma regra.
+    """
+    from app.integrations.rules import match_rule
+    defaults = sb.table("categories").select("id,name").eq("is_default", True).is_("user_id", "null").execute().data or []
+    by_name = {c["name"]: c["id"] for c in defaults}
+    for t in transactions:
+        if (t.get("amount") or 0) >= 0:
+            continue
+        rule = match_rule(t.get("description") or "")
+        if rule and rule[0] in by_name:
+            t["suggested_category_id"] = by_name[rule[0]]
+            t["suggested_confidence"] = rule[1]
+    return transactions
+
+
 def calc_profitability(invested: float, current: float):
     profit = current - invested
     pct = round((profit / invested) * 100, 2) if invested > 0 else 0.0

@@ -60,6 +60,8 @@ export default [
   },
   { id: 'transacoes-filtrada', rota: '/transactions?period=this_month&category_id=cat-1' },
   { id: 'transacoes-sem-categoria', rota: '/transactions?category_id=none' },
+  // Modo "A revisar": sem categoria ou IA com pouca confiança, de todos os meses
+  { id: 'transacoes-revisar', rota: '/transactions?review=1' },
   {
     id: 'transacoes-filtros-celular', rota: '/transactions', somente: 'mobile', inteira: false,
     acao: async page => {

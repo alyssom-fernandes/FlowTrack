@@ -6,6 +6,7 @@ import type { Transaction } from '../types'
 import i18n from '../i18n'
 import { categoryLabel } from '../utils'
 import { billsByCategory, budgetState, goalLimitState, periodElapsed } from '../lib/pace'
+import { needsReview } from '../lib/review'
 import { buildSeed, buildEmpty, newId, iso, samplePdfStatement, DB_VERSION, DEMO_USER_ID, type DemoDB, type GoalRow } from './seed'
 
 const STORAGE_KEY = 'ft-demo-db'
@@ -159,6 +160,7 @@ route('GET', '/transactions', ({ params }) => {
   if (p('type')) txs = txs.filter(t => t.type === p('type'))
   if (p('search')) { const q = p('search').toLowerCase(); txs = txs.filter(t => t.description.toLowerCase().includes(q)) }
   if (p('tag')) txs = txs.filter(t => (t.tags || []).includes(p('tag')))
+  if (p('needs_review') === 'true') txs = txs.filter(needsReview)
   txs.sort((a, b) => (a.transaction_date === b.transaction_date ? b.created_at.localeCompare(a.created_at) : b.transaction_date.localeCompare(a.transaction_date)))
   const page = Math.max(1, Number(p('page') || 1))
   const size = Math.min(500, Math.max(1, Number(p('page_size') || 50)))
@@ -251,10 +253,17 @@ route('DELETE', '/transactions/:id', ({ match }) => {
 })
 
 route('POST', '/transactions/bulk', ({ body }) => {
-  const b = body as { account_id: string; transactions: { description: string; amount: number; transaction_date: string; type: string }[] }
+  const b = body as { account_id: string; transactions: { description: string; amount: number; transaction_date: string; type: string; category_id?: string; categorized_by?: 'rule' | 'manual'; confidence_score?: number }[] }
+  const d = loadDb()
+  // Mesma conferência da API: a categoria escolhida na revisão tem de existir
+  for (const t of b.transactions || []) if (t.category_id && !d.categories.some(c => c.id === t.category_id)) throw new DemoHttpError(404, 'Category not found')
   let imported = 0, skipped = 0
   for (const t of b.transactions || []) {
-    try { insertTransaction({ ...t, account_id: b.account_id }, { audit: false }); imported++ } catch { skipped++ }
+    try {
+      const tx = insertTransaction({ ...t, account_id: b.account_id }, { audit: false })
+      if (t.category_id) Object.assign(tx, { categorized_by: t.categorized_by || 'manual', confidence_score: t.categorized_by === 'rule' && t.confidence_score !== undefined ? t.confidence_score : 1 })
+      imported++
+    } catch { skipped++ }
   }
   return { imported, skipped, total: (b.transactions || []).length }
 })
@@ -288,9 +297,18 @@ route('GET', '/export/transactions', ({ params }) => {
 })
 
 // Importação
+// Prévia com a categoria sugerida pelas regras (a API faz o mesmo com app/integrations/rules.py)
+function withSuggestions<T extends { description: string; amount: number }>(list: T[]) {
+  return list.map(t => {
+    const guess = t.amount < 0 ? autoCategorize(t.description) : null
+    return guess ? { ...t, suggested_category_id: guess.category_id, suggested_confidence: guess.confidence } : t
+  })
+}
+
 route('POST', '/import/pdf/parse', async () => {
   await wait(700)
-  return samplePdfStatement()
+  const sample = samplePdfStatement()
+  return { ...sample, transactions: withSuggestions(sample.transactions) }
 })
 route('POST', '/import/pdf', async ({ body }) => {
   await wait(700)
@@ -313,7 +331,7 @@ route('POST', '/import/ofx/parse', async ({ body }) => {
     return { description: (field(b, 'MEMO') || field(b, 'NAME') || field(b, 'TRNTYPE')).slice(0, 200), amount: amt, transaction_date: `${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)}`, type: amt > 0 ? 'credit' : 'debit' }
   }).filter(Boolean)
   if (!transactions.length) throw new DemoHttpError(422, 'Nenhuma transação encontrada no arquivo OFX.')
-  return { transactions, total: transactions.length }
+  return { transactions: withSuggestions(transactions as { description: string; amount: number }[]), total: transactions.length }
 })
 
 // Investimentos

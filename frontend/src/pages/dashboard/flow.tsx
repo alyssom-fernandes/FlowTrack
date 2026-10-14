@@ -7,12 +7,14 @@ import { useTranslation } from 'react-i18next'
 import { Icon, type IconName } from '../../components/icons'
 import { Money } from '../../components/ui'
 import type { Category, Transaction } from '../../types'
-import { categoryColor, categoryRank } from '../../lib/categoryColor'
-import { categoryLabel, currentLocale, formatCurrency, formatPercent } from '../../utils'
+import { currentLocale, formatCurrency, formatPercent } from '../../utils'
 
 const HIDE_KEY = 'ft-hide-values'
 import { CategoryIcon } from './CategoryIcon'
+import type { FlowData, Node } from './flowData'
+import { buildFlow } from './flowData'
 import type { Delta } from './cards'
+import './flow.css'
 
 const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
@@ -34,47 +36,6 @@ function useCountUp(target: number, ms = 750): number {
     return () => cancelAnimationFrame(raf)
   }, [target, ms])
   return value
-}
-
-// ── Dados ─────────────────────────────────────────────────
-type Node = { key: string; label: string; value: number; color: string; icon?: string; href?: string; kind: 'category' | 'none' | 'others' | 'left' }
-
-const MAX_NODES = 8
-
-function buildNodes(transactions: Transaction[], categories: Category[], t: (k: string, o?: Record<string, unknown>) => string) {
-  const flows = transactions.filter(tx => tx.type !== 'transfer')
-  const income = flows.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0)
-  const byCat = new Map<string, number>()
-  for (const tx of flows) if (tx.amount < 0) byCat.set(tx.category_id || 'none', (byCat.get(tx.category_id || 'none') || 0) - tx.amount)
-  const expense = [...byCat.values()].reduce((s, v) => s + v, 0)
-
-  let nodes: Node[] = [...byCat.entries()].map(([id, value]) => {
-    const cat = categories.find(c => c.id === id)
-    if (!cat) return { key: 'none', label: t('dashboard.flow.uncategorized'), value, color: 'var(--text-hint)', kind: 'none' as const, href: '/transactions?category_id=none&period=this_month' }
-    return { key: cat.id, label: categoryLabel(cat), value, color: categoryColor(cat), icon: cat.icon, kind: 'category' as const, href: `/transactions?category_id=${cat.id}&period=this_month` }
-  })
-  // Fiapos não ajudam: categorias com menos de 3% do total (e a "Outros") viram um nó só, em cinza.
-  // Com muitas categorias, as menores também entram nele.
-  const base = Math.max(income, expense) || 1
-  const isOutros = (n: Node) => n.kind === 'category' && categories.find(c => c.id === n.key)?.name === 'Outros'
-  const small = (n: Node) => n.kind === 'category' && (n.value / base < 0.03 || isOutros(n))
-  let rest = nodes.filter(small)
-  let keep = nodes.filter(n => !small(n))
-  if (keep.length > MAX_NODES - 1) {
-    const sorted = [...keep].sort((a, b) => b.value - a.value)
-    rest = [...rest, ...sorted.slice(MAX_NODES - 1)]
-    keep = sorted.slice(0, MAX_NODES - 1)
-  }
-  if (rest.length === 1) keep.push(rest[0])
-  else if (rest.length > 1) keep.push({ key: 'others', label: t('dashboard.flow.others', { count: rest.length }), value: rest.reduce((s, n) => s + n.value, 0), color: 'var(--cat-other)', kind: 'others' })
-  nodes = keep
-  // Ordem fixa (a das cores validadas), sem categoria e "Outras" no fim
-  const rank = (n: Node) => n.kind === 'none' ? 2000 : n.kind === 'others' ? 1500 : categoryRank(categories.find(c => c.id === n.key))
-  nodes.sort((a, b) => rank(a) - rank(b))
-
-  const left = income - expense
-  if (left > 0) nodes.push({ key: 'left', label: t('dashboard.flow.left'), value: left, color: 'var(--accent)', kind: 'left' })
-  return { income, expense, nodes, deficit: Math.max(0, -left) }
 }
 
 // ── Geometria ─────────────────────────────────────────────
@@ -113,7 +74,136 @@ function ribbon(x0: number, a: { y: number; h: number }, x1: number, b: { y: num
   return `M${x0},${a.y} C${mid},${a.y} ${mid},${b.y} ${x1},${b.y} L${x1},${b.y + b.h} C${mid},${b.y + b.h} ${mid},${a.y + a.h} ${x0},${a.y + a.h} Z`
 }
 
-// ── Componente ────────────────────────────────────────────
+// ── Diagrama (Dashboard e aba Fluxo de Relatórios) ────────
+// Computador: faixas da barra do que entrou até cada destino, com os rótulos à direita (e as fontes
+// de renda à esquerda quando há mais de uma). Estreito: uma barra de 100% e a lista.
+const SOURCES_W = 168
+
+export function FlowDiagram({ data, minHeight = 0, plotLabel, emptyText, showSources = false }: {
+  data: FlowData; minHeight?: number; plotLabel: string; emptyText: string; showSources?: boolean
+}) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { income, expense, nodes, deficit, sources } = data
+  const wrap = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => {
+    const el = wrap.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => setWidth(Math.round(e.contentRect.width)))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const [active, setActive] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
+
+  const narrow = width > 0 && width < 520
+  // No celular: as 3 maiores e o que sobrou; o resto atrás de "ver as outras"
+  const byValue = nodes.filter(n => n.kind !== 'left').sort((a, b) => (a.kind === 'others' ? 1 : 0) - (b.kind === 'others' ? 1 : 0) || b.value - a.value)
+  const topKeys = new Set(byValue.slice(0, 3).map(n => n.key))
+  const listed = showAll ? [...byValue, ...nodes.filter(n => n.kind === 'left')] : [...byValue.filter(n => topKeys.has(n.key)), ...nodes.filter(n => n.kind === 'left')]
+  const hiddenCount = byValue.length - Math.min(3, byValue.length)
+  const height = Math.max(220, nodes.length * LABEL_H, minHeight)
+  const withSources = showSources && sources.length > 1 && width >= 760
+  const leftW = withSources ? SOURCES_W : 0
+  const labelsW = Math.min(250, Math.max(190, width * 0.34))
+  const plotW = Math.max(0, width - labelsW - leftW)
+  const geo = useMemo(() => layout(nodes, height), [nodes, height])
+  const total = income + deficit
+  const pctOf = (v: number) => (income > 0 ? formatPercent((v / income) * 100, 0, false) : '')
+
+  // Barra da esquerda: as fontes de renda empilhadas (e o que saiu do saldo, se faltou)
+  const top = geo.left[0]?.y ?? 0
+  const full = geo.left.reduce((s, r) => s + r.h, 0)
+  const incomeH = total > 0 ? (income / total) * full : full
+  const srcs = withSources ? sources : [{ key: 'all', label: '', value: income }]
+  const srcGeo = srcs.reduce<(typeof srcs[number] & { y: number; h: number; shade: number })[]>((acc, src, i) => {
+    const prev = acc[acc.length - 1]
+    const h = income > 0 ? (src.value / income) * incomeH : 0
+    return [...acc, { ...src, y: prev ? prev.y + prev.h : top, h, shade: 0.88 - i * 0.22 }]
+  }, [])
+  // Rótulos das fontes no centro de cada pedaço, afastados para não se encostarem
+  const SRC_LABEL_H = 40
+  const srcLabelY = srcGeo.reduce<number[]>((acc, src) => [...acc, Math.max(src.y + src.h / 2, (acc[acc.length - 1] ?? -Infinity) + SRC_LABEL_H)], [])
+  const srcOverflow = (srcLabelY[srcLabelY.length - 1] ?? 0) + SRC_LABEL_H / 2 - height
+  if (srcOverflow > 0) for (let i = srcLabelY.length - 1; i >= 0; i--) srcLabelY[i] = Math.min(srcLabelY[i] - (i === srcLabelY.length - 1 ? srcOverflow : 0), i < srcLabelY.length - 1 ? srcLabelY[i + 1] - SRC_LABEL_H : Infinity)
+
+  return (
+    <div className="flow__body" ref={wrap}>
+      {expense === 0 && income === 0 ? (
+        <p className="flow__empty">{emptyText}</p>
+      ) : narrow ? (
+        <>
+          <div className="flow__bar" role="img" aria-label={plotLabel}>
+            {nodes.map((n, i) => (
+              <span key={n.key} className={`flow__seg${n.kind === 'none' ? ' flow__seg--none' : ''}`}
+                style={{ flexGrow: n.value, background: n.color, '--i': i } as CSSProperties} />
+            ))}
+          </div>
+          <ol className="flow__list">
+            {listed.map((n, i) => <FlowLabel key={n.key} node={n} pct={pctOf(n.value)} index={i} active={active} setActive={setActive} />)}
+          </ol>
+          {hiddenCount > 0 && (
+            <button type="button" className="flow__more" aria-expanded={showAll} onClick={() => setShowAll(v => !v)}>
+              {showAll ? t('dashboard.flow.showLess') : t('dashboard.flow.showMore', { count: hiddenCount })}
+              <Icon name={showAll ? 'chevronUp' : 'chevronDown'} size={14} />
+            </button>
+          )}
+        </>
+      ) : width > 0 && (
+        <div className="flow__plot" style={{ height }}>
+          {withSources && (
+            <ol className="flow__sources" style={{ width: leftW }} aria-label={t('dashboard.flow.sources')}>
+              {srcGeo.map((src, i) => (
+                <li key={src.key} className="flow-source" style={{ top: srcLabelY[i] }}>
+                  <span className="flow-source__name">{src.label}</span>
+                  <Money value={src.value} className="flow-source__value" />
+                </li>
+              ))}
+            </ol>
+          )}
+          <svg width={plotW} height={height} className="flow__svg" style={{ left: leftW }} aria-hidden onMouseLeave={() => setActive(null)}>
+            <defs>
+              <pattern id="flow-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="6" height="6" fill="var(--bg-card)" /><line x1="0" y1="0" x2="0" y2="6" stroke="var(--text-hint)" strokeWidth="3" />
+              </pattern>
+            </defs>
+            <g className="flow__source">
+              {srcGeo.map(src => <rect key={src.key} x={0} y={src.y} width={NODE_W} height={Math.max(0, src.h - (withSources ? 2 : 0))} rx={3} fill="var(--text-primary)" opacity={src.shade} />)}
+              {deficit > 0 && <rect x={0} y={top + incomeH} width={NODE_W} height={full - incomeH} rx={3} fill="url(#flow-hatch)" />}
+            </g>
+            {nodes.map((n, i) => {
+              const dim = active && active !== n.key
+              const href = n.href
+              const nx = plotW - NODE_W - LEAD_W
+              const cy = geo.right[i].y + geo.right[i].h / 2
+              const fill = n.kind === 'none' ? 'url(#flow-hatch)' : n.color
+              return (
+                <g key={n.key} className="flow__link" style={{ opacity: dim ? 0.16 : 1, cursor: href ? 'pointer' : 'default' }}
+                  onMouseEnter={() => setActive(n.key)} onClick={() => href && navigate(href)}>
+                  <path d={ribbon(NODE_W, geo.left[i], nx, geo.right[i])} fill={fill} className="flow__ribbon"
+                    style={{ opacity: active === n.key ? 0.85 : n.kind === 'left' ? 0.72 : 'var(--flow-band-opacity)' }} />
+                  <rect x={nx} y={geo.right[i].y} width={NODE_W} height={geo.right[i].h} rx={Math.min(3, geo.right[i].h / 2)} fill={fill} />
+                  {/* Fio do nó até o rótulo (o rótulo pode ter sido empurrado para não encostar no vizinho) */}
+                  <path d={`M${nx + NODE_W + 3},${cy} C${plotW - 8},${cy} ${plotW - 10},${geo.labels[i] + LABEL_H / 2} ${plotW - 2},${geo.labels[i] + LABEL_H / 2}`}
+                    fill="none" stroke="var(--border-strong)" strokeWidth={1} />
+                </g>
+              )
+            })}
+          </svg>
+          <ol className="flow__labels" style={{ width: labelsW }}>
+            {nodes.map((n, i) => (
+              <FlowLabel key={n.key} node={n} pct={pctOf(n.value)} index={i} active={active} setActive={setActive}
+                style={{ top: geo.labels[i], height: LABEL_H }} />
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Primeiro bloco do Dashboard ───────────────────────────
 export interface FlowHeroProps {
   transactions: Transaction[]
   categories: Category[]
@@ -126,32 +216,29 @@ export interface FlowHeroProps {
 
 export function FlowHero({ transactions, categories, balance, balanceDelta, accountsCount, prev, now }: FlowHeroProps) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const { income, expense, nodes, deficit } = useMemo(() => buildNodes(transactions, categories, t), [transactions, categories, t])
+  const flow = useMemo(() => buildFlow(transactions, categories, t), [transactions, categories, t])
+  const { income, expense } = flow
   const net = income - expense
   const rate = income > 0 ? (net / income) * 100 : null
 
-  const wrap = useRef<HTMLDivElement>(null)
-  const head = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
   // Altura da coluna do saldo quando as duas colunas ficam lado a lado: o fluxo ocupa a mesma altura
   // (antes ficava com ~230 px num cartão de ~460 e sobrava um vão embaixo)
+  const section = useRef<HTMLElement>(null)
+  const head = useRef<HTMLDivElement>(null)
   const [sideH, setSideH] = useState(0)
   useLayoutEffect(() => {
-    const el = wrap.current, hd = head.current
-    if (!el || !hd) return
+    const sec = section.current, hd = head.current
+    if (!sec || !hd) return
     const measure = () => {
-      setWidth(Math.round(el.getBoundingClientRect().width))
-      setSideH(Math.abs(hd.offsetTop - el.offsetTop) < 4 ? Math.round(hd.getBoundingClientRect().height) : 0)
+      const body = sec.querySelector<HTMLElement>('.flow__body')
+      setSideH(body && Math.abs(hd.offsetTop - body.offsetTop) < 4 ? Math.round(hd.getBoundingClientRect().height) : 0)
     }
     const ro = new ResizeObserver(measure)
-    ro.observe(el)
+    ro.observe(sec)
     ro.observe(hd)
     return () => ro.disconnect()
   }, [])
 
-  const [active, setActive] = useState<string | null>(null)
-  const [showAll, setShowAll] = useState(false)
   const balanceShown = useCountUp(balance)
   const [hidden, setHidden] = useState(() => document.documentElement.dataset.hideValues === 'true')
   const toggleHidden = () => {
@@ -180,19 +267,6 @@ export function FlowHero({ transactions, categories, balance, balanceDelta, acco
     { key: 'net', label: net >= 0 ? t('dashboard.flow.left') : t('dashboard.flow.short'), value: Math.abs(net), d: delta(net, prev ? prev.income - prev.expense : undefined, true), accent: false },
   ]
 
-  const narrow = width > 0 && width < 520
-  // No celular: as 3 maiores e o que sobrou; o resto atrás de "ver as outras"
-  const byValue = nodes.filter(n => n.kind !== 'left').sort((a, b) => (a.kind === 'others' ? 1 : 0) - (b.kind === 'others' ? 1 : 0) || b.value - a.value)
-  const topKeys = new Set(byValue.slice(0, 3).map(n => n.key))
-  const listed = showAll ? [...byValue, ...nodes.filter(n => n.kind === 'left')] : [...byValue.filter(n => topKeys.has(n.key)), ...nodes.filter(n => n.kind === 'left')]
-  const hiddenCount = byValue.length - Math.min(3, byValue.length)
-  const height = Math.max(220, nodes.length * LABEL_H, sideH)
-  const labelsW = Math.min(250, Math.max(190, width * 0.34))
-  const plotW = Math.max(0, width - labelsW)
-  const geo = useMemo(() => layout(nodes, height), [nodes, height])
-  const total = income + deficit
-  const pctOf = (v: number) => (income > 0 ? formatPercent((v / income) * 100, 0, false) : '')
-
   const deltaChip = (d: { text: string; dir: string; tone: string } | null) => d && (
     <span className={`flow-delta flow-delta--${d.tone}`}>
       <Icon name={(d.dir === 'up' ? 'arrowUpRight' : d.dir === 'down' ? 'arrowDownRight' : 'minus') as IconName} size={12} strokeWidth={2.25} />{d.text}
@@ -200,7 +274,7 @@ export function FlowHero({ transactions, categories, balance, balanceDelta, acco
   )
 
   return (
-    <section className="flow" aria-labelledby="flow-title">
+    <section className="flow" aria-labelledby="flow-title" ref={section}>
       <div className="flow__head" ref={head}>
         <div>
           {/* Título simples (o traço de progresso embaixo parecia uma aba sozinha); o "dia X de Y" lembra
@@ -236,76 +310,7 @@ export function FlowHero({ transactions, categories, balance, balanceDelta, acco
         {prev && <p className="flow__ref">{t('dashboard.flow.compared', { range: sameDays })}</p>}
       </div>
 
-      <div className="flow__body" ref={wrap}>
-        {expense === 0 && income === 0 ? (
-          <p className="flow__empty">{t('dashboard.flow.empty')}</p>
-        ) : narrow ? (
-          // Celular: uma barra de 100% e a lista logo abaixo
-          <>
-            <div className="flow__bar" role="img" aria-label={t('dashboard.flow.plotLabel')}>
-              {nodes.map((n, i) => (
-                <span key={n.key} className={`flow__seg${n.kind === 'none' ? ' flow__seg--none' : ''}`}
-                  style={{ flexGrow: n.value, background: n.color, '--i': i } as CSSProperties} />
-              ))}
-            </div>
-            <ol className="flow__list">
-              {listed.map((n, i) => <FlowLabel key={n.key} node={n} pct={pctOf(n.value)} index={i} active={active} setActive={setActive} />)}
-            </ol>
-            {hiddenCount > 0 && (
-              <button type="button" className="flow__more" aria-expanded={showAll} onClick={() => setShowAll(v => !v)}>
-                {showAll ? t('dashboard.flow.showLess') : t('dashboard.flow.showMore', { count: hiddenCount })}
-                <Icon name={showAll ? 'chevronUp' : 'chevronDown'} size={14} />
-              </button>
-            )}
-          </>
-        ) : width > 0 && (
-          <div className="flow__plot" style={{ height }}>
-            <svg width={plotW} height={height} className="flow__svg" aria-hidden onMouseLeave={() => setActive(null)}>
-              <defs>
-                <pattern id="flow-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                  <rect width="6" height="6" fill="var(--bg-card)" /><line x1="0" y1="0" x2="0" y2="6" stroke="var(--text-hint)" strokeWidth="3" />
-                </pattern>
-              </defs>
-              {/* Barra da esquerda: o que entrou (e o que saiu do saldo, se faltou) */}
-              {(() => {
-                const top = geo.left[0]?.y ?? 0
-                const full = geo.left.reduce((s, r) => s + r.h, 0)
-                const incomeH = total > 0 ? (income / total) * full : full
-                return (
-                  <g className="flow__source">
-                    <rect x={0} y={top} width={NODE_W} height={incomeH} rx={3} fill="var(--text-primary)" opacity={0.88} />
-                    {deficit > 0 && <rect x={0} y={top + incomeH} width={NODE_W} height={full - incomeH} rx={3} fill="url(#flow-hatch)" />}
-                  </g>
-                )
-              })()}
-              {nodes.map((n, i) => {
-                const dim = active && active !== n.key
-                const href = n.href
-                const nx = plotW - NODE_W - LEAD_W
-                const cy = geo.right[i].y + geo.right[i].h / 2
-                const fill = n.kind === 'none' ? 'url(#flow-hatch)' : n.color
-                return (
-                  <g key={n.key} className="flow__link" style={{ opacity: dim ? 0.16 : 1, cursor: href ? 'pointer' : 'default' }}
-                    onMouseEnter={() => setActive(n.key)} onClick={() => href && navigate(href)}>
-                    <path d={ribbon(NODE_W, geo.left[i], nx, geo.right[i])} fill={fill} className="flow__ribbon"
-                      style={{ opacity: active === n.key ? 0.85 : n.kind === 'left' ? 0.72 : 'var(--flow-band-opacity)' }} />
-                    <rect x={nx} y={geo.right[i].y} width={NODE_W} height={geo.right[i].h} rx={Math.min(3, geo.right[i].h / 2)} fill={fill} />
-                    {/* Fio do nó até o rótulo (o rótulo pode ter sido empurrado para não encostar no vizinho) */}
-                    <path d={`M${nx + NODE_W + 3},${cy} C${plotW - 8},${cy} ${plotW - 10},${geo.labels[i] + LABEL_H / 2} ${plotW - 2},${geo.labels[i] + LABEL_H / 2}`}
-                      fill="none" stroke="var(--border-strong)" strokeWidth={1} />
-                  </g>
-                )
-              })}
-            </svg>
-            <ol className="flow__labels" style={{ width: labelsW }}>
-              {nodes.map((n, i) => (
-                <FlowLabel key={n.key} node={n} pct={pctOf(n.value)} index={i} active={active} setActive={setActive}
-                  style={{ top: geo.labels[i], height: LABEL_H }} />
-              ))}
-            </ol>
-          </div>
-        )}
-      </div>
+      <FlowDiagram data={flow} minHeight={sideH} plotLabel={t('dashboard.flow.plotLabel')} emptyText={t('dashboard.flow.empty')} />
     </section>
   )
 }

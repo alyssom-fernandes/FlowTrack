@@ -254,8 +254,18 @@
         "noneTitle": "No new transactions",
         "noneText": "Every transaction in the file was already recorded.",
         "again": "Import another file",
-        "view": "View transactions"
-      }
+        "view": "View transactions",
+        "categorized_one": "{{count}} already categorized",
+        "categorized_other": "{{count}} already categorized",
+        "pending_one": "{{count}} to review",
+        "pending_other": "{{count}} to review",
+        "review": "Review now"
+      },
+      "toReview_one": "{{count}} uncategorized",
+      "toReview_other": "{{count}} uncategorized",
+      "rowCategory": "Category for row {{n}}",
+      "suggested": "suggested · {{pct}}",
+      "suggestedHint": "Suggested by the categorization rules (no AI). Change it if it's wrong."
     },
     "export": {
       "sheetTitle": "FlowTrack — Transactions",
@@ -293,6 +303,20 @@
       "label": "Month",
       "prev": "Go to {{month}}",
       "next": "Go to {{month}}"
+    },
+    "review": {
+      "chip_one": "{{count}} to review",
+      "chip_other": "{{count}} to review",
+      "title_one": "{{count}} transaction to check",
+      "title_other": "{{count}} transactions to check",
+      "text": "Uncategorized, or categorized by AI with less than 85% confidence. Confirm with ✓ or pick another category.",
+      "exit": "Leave review",
+      "confirmOne": "Confirm {{category}} for {{name}}",
+      "confirmed_one": "{{count}} transaction marked as reviewed",
+      "confirmed_other": "{{count}} transactions marked as reviewed",
+      "footHint": "Uncategorized ones need a choice first.",
+      "confirmAll_one": "Mark {{count}} as reviewed",
+      "confirmAll_other": "Mark {{count}} as reviewed"
     }
   }
 }

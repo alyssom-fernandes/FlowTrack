@@ -217,6 +217,16 @@
 
 /* ── Impressão (A4 claro, sem menu) ──────────────────────── */
 @page relatorio { size: A4 portrait; margin: 12mm 12mm 14mm; }
+/* Seções (Fluxo | Mês a mês | Categorias | Projeção): todas montadas, só a escolhida aparece na tela */
+.rp-sections { overflow-x: auto; scrollbar-width: none; margin-bottom: -0.25rem; }
+.rp-sections::-webkit-scrollbar { display: none; }
+.rp-panels { position: relative; }
+.rp-panel { display: flex; flex-direction: column; gap: 1rem; }
+@media screen {
+  .rp-panel--off { position: absolute; top: 0; left: 0; right: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+}
+.rp-flow .flow__body { margin-top: 0.5rem; }
+
 @media print {
   /* Página nomeada no corpo todo (só no .rp-root ela forçaria uma quebra antes do rodapé) */
   body:has(.rp-root) { page: relatorio; }
@@ -230,7 +240,8 @@
   }
   html, body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .rp-root { gap: 0.75rem !important; }
-  .rp-root .ft-page-header, .rp-filters, .rp-compare-note, .rp-custom, .rp-view, .rp-menu-wrap, .rp-no-print { display: none !important; }
+  .rp-root .ft-page-header, .rp-filters, .rp-compare-note, .rp-custom, .rp-view, .rp-menu-wrap, .rp-no-print, .rp-sections { display: none !important; }
+  .rp-panels { display: flex; flex-direction: column; gap: 0.75rem; }
   .rp-print-only { display: block; }
   .rp-print-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 1rem; padding-bottom: 0.625rem; border-bottom: 1.5px solid #9D2449; margin-bottom: 0.25rem; }
   .rp-print-head img { height: 22px; width: auto; }

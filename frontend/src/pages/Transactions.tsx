@@ -15,6 +15,8 @@ import { ImportModal } from './transactions/ImportModal'
 import { ExportMenu } from './transactions/ExportMenu'
 import { describeFilters, exportTransactions, type ExportFormat } from './transactions/exportFile'
 import { DEFAULT_FILTERS, fetchAll, filtersFromParams, filtersToParams, hasAnyFilter, NO_CATEGORY, PAGE_SIZE, toQuery, type Filters } from './transactions/shared'
+import { needsReview } from '../lib/review'
+import { Icon } from '../components/icons'
 import './transactions/transactions.css'
 
 interface ListState { items: Transaction[]; total: number; pages: number }
@@ -119,6 +121,35 @@ export function Transactions() {
     setAll(a => a && a.map(x => (x.id === u.id ? u : x)))
   }
 
+  // ── A revisar: sem categoria ou IA com pouca confiança ──
+  const reviewing = filters.review === '1'
+  const reviewCount = all ? (reviewing ? all.length : all.filter(needsReview).length) : null
+  const confirmable = reviewing && all ? all.filter(tx => tx.category_id) : []
+  const [confirmingAll, setConfirmingAll] = useState(false)
+  // Confirmar = a pessoa conferiu: a categoria passa a valer como escolha dela
+  const confirmOne = async (txn: Transaction) => {
+    try {
+      await transactionsService.update(txn.id, { category_id: txn.category_id, categorized_by: 'manual' })
+      toast({ message: t('transactions.review.confirmed', { count: 1 }) })
+      setReload(n => n + 1)
+    } catch {
+      toast({ message: t('transactions.row.categoryError'), variant: 'error' })
+    }
+  }
+  const confirmAll = async () => {
+    setConfirmingAll(true)
+    try {
+      await Promise.all(confirmable.map(tx => transactionsService.update(tx.id, { category_id: tx.category_id, categorized_by: 'manual' })))
+      toast({ message: t('transactions.review.confirmed', { count: confirmable.length }) })
+      setReload(n => n + 1)
+    } catch {
+      toast({ message: t('transactions.row.categoryError'), variant: 'error' })
+      setReload(n => n + 1)
+    } finally {
+      setConfirmingAll(false)
+    }
+  }
+
   const changeCategory = async (txn: Transaction, categoryId: string) => {
     try {
       patch(await transactionsService.update(txn.id, { category_id: categoryId, categorized_by: 'manual' }))
@@ -212,7 +243,21 @@ export function Transactions() {
           <p className="tx-print-only">{describeFilters(filters, accounts, categories)}</p>
           <FilterBar filters={filters} onChange={updateFilters} onClear={clearFilters} accounts={accounts} categories={categories} tags={tags} />
           <MonthNav filters={filters} onChange={updateFilters} />
-          {list.total > 0 && <SummaryStrip data={all} onShowPending={filters.category_id === NO_CATEGORY ? undefined : () => updateFilters({ category_id: NO_CATEGORY })} />}
+          {list.total > 0 && !reviewing && <SummaryStrip data={all} onShowPending={filters.category_id === NO_CATEGORY ? undefined : () => updateFilters({ category_id: NO_CATEGORY })} />}
+          {reviewing ? (
+            <div className="tx-review" role="status">
+              <span className="tx-review__icon" aria-hidden><Icon name="sparkle" size={16} /></span>
+              <div className="tx-review__text">
+                <strong>{t('transactions.review.title', { count: reviewCount ?? 0 })}</strong>
+                <span>{t('transactions.review.text')}</span>
+              </div>
+              <Button variant="ghost" size="sm" icon="close" onClick={() => updateFilters({ review: '' })}>{t('transactions.review.exit')}</Button>
+            </div>
+          ) : reviewCount ? (
+            <button type="button" className="tx-review-chip" onClick={() => updateFilters({ review: '1' })}>
+              <Icon name="sparkle" size={14} />{t('transactions.review.chip', { count: reviewCount })}<Icon name="arrowRight" size={13} />
+            </button>
+          ) : null}
           <div ref={listTop} className="tx-anchor" />
           <Card padding="none" className="tx-list-card">
             {list.total === 0 ? (
@@ -221,7 +266,14 @@ export function Transactions() {
             ) : (
               <TransactionList items={list.items} dayTotalsFrom={all} accounts={accounts} categories={categories}
                 page={Math.min(page, list.pages)} totalPages={list.pages} total={list.total} busy={busy}
-                onPage={goToPage} onEdit={setEditing} onDelete={setDeleting} onCategory={changeCategory} />
+                onPage={goToPage} onEdit={setEditing} onDelete={setDeleting} onCategory={changeCategory} onConfirm={reviewing ? confirmOne : undefined} />
+            )}
+            {/* Rodapé fixo do modo revisão: confirma de uma vez as que já têm categoria */}
+            {reviewing && confirmable.length > 0 && (
+              <div className="tx-review-foot">
+                <span className="tx-review-foot__hint">{t('transactions.review.footHint')}</span>
+                <Button icon="check" loading={confirmingAll} onClick={confirmAll}>{t('transactions.review.confirmAll', { count: confirmable.length })}</Button>
+              </div>
             )}
           </Card>
         </>
@@ -234,8 +286,9 @@ export function Transactions() {
       <ConfirmDialog open={!!deleting} onClose={() => setDeleting(null)} onConfirm={confirmDelete} loading={deleteBusy}
         title={t('transactions.delete.title')} confirmLabel={t('transactions.delete.confirm')}
         message={deleting && t('transactions.delete.message', { name: deleting.description, date: formatDate(deleting.transaction_date), amount: formatCurrency(Math.abs(deleting.amount)) })} />
-      <ImportModal open={importing} onClose={closeImport} accounts={accounts} defaultAccountId={filters.account_id}
-        onImported={() => { setPage(1); setReload(n => n + 1) }} />
+      <ImportModal open={importing} onClose={closeImport} accounts={accounts} categories={categories} defaultAccountId={filters.account_id}
+        onImported={() => { setPage(1); setReload(n => n + 1) }}
+        onReview={() => { closeImport(); setFiltersState({ ...DEFAULT_FILTERS, period: '', review: '1' }); setPage(1) }} />
     </Page>
   )
 }

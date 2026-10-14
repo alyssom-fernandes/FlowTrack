@@ -192,6 +192,18 @@
       "transactions": "Transações do período",
       "transfersNote": "transferências entre contas próprias não entram no saldo",
       "netTotal": "Saldo (sem transferências)"
+    },
+    "sections": {
+      "label": "Seções do relatório",
+      "fluxo": "Fluxo",
+      "mes": "Mês a mês",
+      "categorias": "Categorias",
+      "projecao": "Projeção"
+    },
+    "flowTab": {
+      "title": "Para onde foi o dinheiro",
+      "sub": "{{range}}: de onde veio, para quais categorias foi e quanto sobrou",
+      "empty": "Nenhuma receita ou gasto neste período."
     }
   }
 }

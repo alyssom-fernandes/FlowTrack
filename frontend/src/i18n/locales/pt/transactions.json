@@ -254,8 +254,18 @@
         "noneTitle": "Nenhuma transação nova",
         "noneText": "Todas as transações do arquivo já estavam registradas.",
         "again": "Importar outro arquivo",
-        "view": "Ver transações"
-      }
+        "view": "Ver transações",
+        "categorized_one": "{{count}} já com categoria",
+        "categorized_other": "{{count}} já com categoria",
+        "pending_one": "{{count}} para revisar",
+        "pending_other": "{{count}} para revisar",
+        "review": "Revisar agora"
+      },
+      "toReview_one": "{{count}} sem categoria",
+      "toReview_other": "{{count}} sem categoria",
+      "rowCategory": "Categoria da linha {{n}}",
+      "suggested": "sugerida · {{pct}}",
+      "suggestedHint": "Sugerida pelas regras de categorização (sem IA). Troque se não for essa."
     },
     "export": {
       "sheetTitle": "FlowTrack — Transações",
@@ -293,6 +303,20 @@
       "label": "Mês",
       "prev": "Ir para {{month}}",
       "next": "Ir para {{month}}"
+    },
+    "review": {
+      "chip_one": "{{count}} a revisar",
+      "chip_other": "{{count}} a revisar",
+      "title_one": "{{count}} transação para conferir",
+      "title_other": "{{count}} transações para conferir",
+      "text": "Sem categoria ou categorizadas pela IA com menos de 85% de confiança. Confirme com ✓ ou escolha outra categoria.",
+      "exit": "Sair da revisão",
+      "confirmOne": "Confirmar {{category}} em {{name}}",
+      "confirmed_one": "{{count}} transação marcada como revisada",
+      "confirmed_other": "{{count}} transações marcadas como revisadas",
+      "footHint": "As sem categoria precisam de uma escolha antes.",
+      "confirmAll_one": "Marcar {{count}} como revisada",
+      "confirmAll_other": "Marcar {{count}} como revisadas"
     }
   }
 }
