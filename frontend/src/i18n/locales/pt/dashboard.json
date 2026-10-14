@@ -74,11 +74,23 @@
     "alerts": {
       "title": "Alertas",
       "allGood": "Tudo em ordem",
-      "allGoodText": "Nenhum orçamento estourado nem saldo negativo.",
+      "allGoodText": "Nenhum orçamento fora do ritmo nem saldo negativo.",
       "showAll": "Mostrar todos ({{count}})",
       "showLess": "Mostrar menos",
-      "recurringGroup_one": "{{count}} recorrente não apareceu este mês: {{names}}",
-      "recurringGroup_other": "{{count}} recorrentes não apareceram este mês: {{names}}"
+      "recurringLead_one": "{{count}} recorrente não apareceu este mês:",
+      "recurringLead_other": "{{count}} recorrentes não apareceram este mês:",
+      "and": "e",
+      "budgetWarnGroup_one": "{{count}} orçamento acima do ritmo: {{names}}",
+      "budgetWarnGroup_other": "{{count}} orçamentos acima do ritmo: {{names}}",
+      "budgetOverGroup_one": "{{count}} orçamento estourado: {{names}}",
+      "budgetOverGroup_other": "{{count}} orçamentos estourados: {{names}}",
+      "action": {
+        "budgets": "Ver orçamentos",
+        "goals": "Ver metas",
+        "accounts": "Ver contas",
+        "categorize": "Categorizar",
+        "history": "Ver histórico"
+      }
     },
     "budgets": {
       "title": "Orçamentos do mês",
@@ -86,13 +98,9 @@
       "manage": "Gerenciar",
       "of": "{{spent}} de {{limit}}",
       "left": "Restam {{value}}",
-      "over": "{{value}} acima do limite",
       "emptyTitle": "Nenhum orçamento neste mês",
       "emptyText": "Defina um limite por categoria para acompanhar os gastos.",
       "emptyAction": "Definir orçamento",
-      "statusOk": "no ritmo",
-      "statusWarn": "acima do ritmo",
-      "statusOver": "estourou",
       "more_one": "E mais {{count}} orçamento.",
       "more_other": "E mais {{count}} orçamentos."
     },

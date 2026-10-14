@@ -209,15 +209,22 @@
 .ent-cta svg:last-child { transition: transform var(--dur-1) var(--ease-out); }
 .ent-cta:hover svg:last-child { transform: translateX(3px); }
 
-/* Pílulas de categoria em volta da prévia (paradas, sem loop) */
-.ent-chips { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+/* Pílulas de categoria ao lado da prévia (paradas, sem loop, fora do cartão).
+   Só quando a coluna tem espaço para o cartão (23,5rem) + 24px + as pílulas; senão o cartão
+   ocupa a largura toda e elas somem. */
+.ent-preview { container: entprev / inline-size; }
+.ent-chips { position: absolute; inset: 0; z-index: 0; pointer-events: none; display: none; }
+@container entprev (min-width: 30rem) {
+  .ent-prev { max-width: 23.5rem; }
+  .ent-chips { display: block; }
+}
 .ent-chip {
   position: absolute; display: inline-flex; align-items: center; gap: 0.375rem; height: 2rem; padding: 0 0.75rem 0 0.625rem;
   border-radius: var(--radius-full); font-size: var(--font-size-sm); font-weight: 600; white-space: nowrap;
   background: color-mix(in srgb, var(--c) 22%, var(--bg-elevated)); color: color-mix(in srgb, var(--c) 78%, var(--text-primary));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent), var(--shadow-md);
 }
-.ent-chip--blur { filter: blur(3px); opacity: 0.55; z-index: 2; }
+.ent-chip { left: calc(23.5rem + 1.5rem + var(--dx, 0rem)); }
 @media (prefers-reduced-motion: no-preference) {
   .ent-chip { animation: ent-chip-in var(--dur-3) var(--ease-out) both; animation-delay: 900ms; }
 }

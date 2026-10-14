@@ -1,9 +1,9 @@
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Input, Modal, Select, Textarea } from '../../components/ui'
+import { Button, Input, Modal, Money, Select, Textarea } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { investmentsService } from '../../services'
-import { formatPercent, formatSignedCurrency } from '../../utils'
+import { formatPercent } from '../../utils'
 import type { Investment, InvestmentCreate, InvestmentType } from '../../types'
 import { amountPlaceholder, amountToInput, parseAmount } from '../goals/helpers'
 import { TYPE_ORDER } from './model'
@@ -111,7 +111,7 @@ export function InvestmentModal({ open, investment, onClose, onSaved }: {
         <div className="inv-preview" aria-live="polite">
           <span className="inv-preview__label">{t('investments.form.preview')}</span>
           <span className={`inv-preview__value ft-num ${tone}`}>
-            {hasPreview ? `${formatSignedCurrency(profit)} (${formatPercent(profitPct, 1, true)})` : '—'}
+            {hasPreview ? <><Money value={profit} signed /> ({formatPercent(profitPct, 1, true)})</> : '—'}
           </span>
         </div>
 

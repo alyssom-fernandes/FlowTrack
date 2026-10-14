@@ -1,7 +1,8 @@
 // Gráficos do painel: SVG desenhado no tamanho real do contêiner
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { formatCurrency, formatSignedCurrency } from '../../utils'
+import { formatCurrency } from '../../utils'
+import { Money } from '../../components/ui'
 import { useActiveIndex, useWidth } from './hooks'
 import { axisMoney, dayMonth, monthShort, niceTicks, weekdayDayMonth, type ProjectionPoint } from './data'
 
@@ -141,9 +142,9 @@ export function CashflowChart({ points }: { points: ProjectionPoint[] }) {
         {a && active !== null && (
           <Tip x={x(active)} width={width}>
             <div className="ft-chart-tip__title">{active === 0 ? t('dashboard.cashflow.today') : weekdayDayMonth(a.date)}</div>
-            <TipRow strong label={t('dashboard.cashflow.balance')} value={<span style={{ color: a.balance < 0 ? 'var(--red)' : undefined }}>{formatCurrency(a.balance)}</span>} />
+            <TipRow strong label={t('dashboard.cashflow.balance')} value={<Money value={a.balance} style={a.balance < 0 ? { color: 'var(--red)' } : undefined} />} />
             {a.events.slice(0, 3).map((e, i) => (
-              <TipRow key={i} label={e.description} value={<span style={{ color: e.amount > 0 ? 'var(--green)' : 'var(--text-secondary)' }}>{formatSignedCurrency(e.amount)}</span>} />
+              <TipRow key={i} label={e.description} value={<Money value={e.amount} signed style={{ color: e.amount > 0 ? 'var(--green)' : 'var(--text-secondary)' }} />} />
             ))}
             {a.events.length > 3 && <div className="ft-chart-tip__more">{t('dashboard.cashflow.moreEvents', { count: a.events.length - 3 })}</div>}
           </Tip>
@@ -191,7 +192,7 @@ export function Sparkline({ values, dates, label }: { values: number[]; dates: s
         )}
         {active !== null && (
           <Tip x={x(active)} y={y(values[active])} width={width} above compact>
-            <TipRow label={monthOf(dates[active])} value={formatCurrency(values[active])} />
+            <TipRow label={monthOf(dates[active])} value={<Money value={values[active]} />} />
           </Tip>
         )}
       </div>

@@ -89,6 +89,69 @@ def brl(value: float) -> str:
     return f"{sign}R$ {whole.replace(',', '.')},{cents}"
 
 
+# ── Ritmo do gasto ────────────────────────────────────────────
+# Mesma regra de frontend/src/lib/pace.ts: o gasto se compara com o que já deveria ter saído
+# até hoje (contas fixas no dia em que vencem + o resto do limite espalhado pelo mês).
+# O alerta, a barra e a pílula das telas usam o mesmo estado.
+
+def bills_by_category(previous_month: list[dict]) -> dict[str, list[tuple[int, float]]]:
+    """Contas fixas: gastos recorrentes do mês anterior, por categoria, com o dia em que caíram."""
+    out: dict[str, list[tuple[int, float]]] = {}
+    for t in previous_month:
+        amount = t.get("amount") or 0
+        if not t.get("is_recurring") or amount >= 0 or is_transfer(t) or not t.get("category_id"):
+            continue
+        out.setdefault(t["category_id"], []).append((int(str(t["transaction_date"])[8:10]), -amount))
+    return out
+
+
+def expected_by(limit: float, bills: list[tuple[int, float]], day: int, dim: int) -> float:
+    """Quanto do limite já deveria ter saído até o `day`: contas vencidas + parte proporcional do resto."""
+    bills_total = sum(a for _, a in bills)
+    due = sum(a for d, a in bills if d <= day)
+    variable = max(0.0, limit - bills_total)
+    return min(limit, due + variable * (day / dim))
+
+
+def pace_status(spent: float, limit: float, expected: float) -> str:
+    """over: passou do limite; warn: acima do esperado (mais de 5% do limite) ou perto do fim cedo demais; ok."""
+    if spent > limit:
+        return "over"
+    if spent - expected > limit * 0.05 or (limit - spent < limit * 0.1 and expected < limit * 0.9):
+        return "warn"
+    return "ok"
+
+
+def budget_state(spent: float, limit: float, bills: list[tuple[int, float]], day: int, dim: int) -> str:
+    """ok | warn | over | paid. "paid" (fixo · pago): quase tudo é conta fixa, já caiu e cabe no limite."""
+    status = pace_status(spent, limit, expected_by(limit, bills, day, dim))
+    bills_total = sum(a for _, a in bills)
+    if (status != "over" and bills and all(d <= day for d, _ in bills)
+            and bills_total >= limit * 0.8 and spent >= bills_total * 0.9):
+        return "paid"
+    return status
+
+
+def goal_limit_state(current: float, target: float, elapsed: float | None) -> str:
+    """Limite de gasto de uma meta pelo ritmo do período (`elapsed` = fração já passada; None sem data de fim)."""
+    if current > target:
+        return "over"
+    if elapsed is None:
+        return "warn" if current >= target * 0.9 else "ok"
+    return pace_status(current, target, target * elapsed)
+
+
+def period_elapsed(start: str, end: str | None, today: date) -> float | None:
+    """Fração do período que já passou, contando o dia de hoje (0 a 1)."""
+    if not end:
+        return None
+    s, e = date.fromisoformat(str(start)[:10]), date.fromisoformat(str(end)[:10])
+    total = (e - s).days + 1
+    if total <= 0:
+        return None
+    return min(1.0, max(0.0, ((today - s).days + 1) / total))
+
+
 def calc_profitability(invested: float, current: float):
     profit = current - invested
     pct = round((profit / invested) * 100, 2) if invested > 0 else 0.0

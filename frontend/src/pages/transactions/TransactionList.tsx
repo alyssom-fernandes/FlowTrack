@@ -3,7 +3,7 @@ import { useMemo, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconButton, Money, Skeleton, Spinner } from '../../components/ui'
 import { Icon } from '../../components/icons'
-import { categoryLabel, formatPercent, formatSignedCurrency } from '../../utils'
+import { categoryLabel, formatPercent } from '../../utils'
 import type { Account, Category, Transaction } from '../../types'
 import { CategoryGlyph } from './CategoryGlyph'
 import { categoryColor } from '../../lib/categoryColor'
@@ -202,7 +202,7 @@ export function TransactionList({ items, dayTotalsFrom, accounts, categories, pa
           <section key={g.date} aria-label={heading}>
             <div className={`tx-day__head${mobile ? '' : ' tx-cols'}`}>
               <span className="tx-day__title">{heading}</span>
-              <span className="tx-day__total ft-num" title={t('transactions.list.dayTotal')}>{net !== 0 ? formatSignedCurrency(net) : ''}</span>
+              <span className="tx-day__total" title={t('transactions.list.dayTotal')}>{net !== 0 && <Money value={net} signed />}</span>
             </div>
             <ul className="tx-ul">
               {g.items.map(txn => {

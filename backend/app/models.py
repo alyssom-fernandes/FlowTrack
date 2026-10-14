@@ -203,7 +203,8 @@ class BudgetListResponse(BaseModel):
 class AlertItem(BaseModel):
     type: str  # 'danger' | 'warning' | 'info'
     message: str
-    category: str  # 'budget' | 'account' | 'uncategorized' | 'recurring'
+    category: str  # 'budget' | 'goal' | 'account' | 'uncategorized' | 'recurring'
+    subject: Optional[str] = None  # nome da categoria, meta ou recorrente (para agrupar na tela)
     amount: Optional[float] = None
 
 class AlertListResponse(BaseModel):

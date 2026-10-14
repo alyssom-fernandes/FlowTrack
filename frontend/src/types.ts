@@ -207,7 +207,8 @@ export interface ParsedTransaction {
 export interface Alert {
   type: 'danger' | 'warning' | 'info'
   message: string
-  category: 'budget' | 'account' | 'uncategorized' | 'recurring'
+  category: 'budget' | 'goal' | 'account' | 'uncategorized' | 'recurring'
+  subject?: string   // nome da categoria, meta ou recorrente (para agrupar)
   amount?: number
 }
 

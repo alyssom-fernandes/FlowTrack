@@ -7,7 +7,8 @@ from app.core.security import get_current_user_id
 from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.models import AlertListResponse, NetWorthResponse, ProjectionResponse, MonthData
-from app.api.v1._helpers import normalize_desc, _calc_goal_current, is_transfer, latest_installments, _first, brl, month_shift
+from app.api.v1._helpers import (normalize_desc, _calc_goal_current, _goal_period_range, is_transfer, latest_installments, _first, brl,
+                                  month_shift, bills_by_category, budget_state, goal_limit_state, period_elapsed)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -62,14 +63,18 @@ async def list_alerts(user_id: str = Depends(get_current_user_id)):
 
         # Goal spending limits
         goals = sb.table("goals").select("*").eq("user_id", user_id).eq("is_active", True).eq("type", "spending_limit").execute().data or []
+        # Limite de gasto pelo ritmo do período (mesma regra da tela de Metas)
         for g in goals:
+            start, end = _goal_period_range(g)
+            if today < date.fromisoformat(str(start)[:10]) or g["target_amount"] <= 0:
+                continue
             current = _calc_goal_current(sb, user_id, g)
-            pct = (current / g["target_amount"] * 100) if g["target_amount"] > 0 else 0
             remaining = round(g["target_amount"] - current, 2)
-            if pct >= 100:
-                alerts.append({"type": "danger", "message": f'Meta “{g["name"]}” excedida em {brl(abs(remaining))}', "category": "budget", "amount": abs(remaining)})
-            elif pct >= 75:
-                alerts.append({"type": "warning", "message": f'Meta “{g["name"]}” em {pct:.0f}%, faltam {brl(remaining)}', "category": "budget", "amount": remaining})
+            state = goal_limit_state(current, g["target_amount"], period_elapsed(start, g.get("end_date") if g.get("period") == "custom" else end, today))
+            if state == "over":
+                alerts.append({"type": "danger", "message": f'Meta “{g["name"]}” excedida em {brl(abs(remaining))}', "category": "goal", "subject": g["name"], "amount": abs(remaining)})
+            elif state == "warn":
+                alerts.append({"type": "warning", "message": f'Meta “{g["name"]}” acima do ritmo, faltam {brl(remaining)}', "category": "goal", "subject": g["name"], "amount": remaining})
 
         # Negative balance accounts
         neg_accs = sb.table("accounts").select("name,balance").eq("user_id", user_id).eq("is_active", True).lt("balance", 0).execute().data or []
@@ -89,7 +94,7 @@ async def list_alerts(user_id: str = Depends(get_current_user_id)):
             prev_first = date(today.year, today.month - 1, 1)
             prev_last = date(today.year, today.month, 1) - timedelta(days=1)
 
-        prev_rec = sb.table("transactions").select("description,transaction_date").eq("user_id", user_id).eq("is_recurring", True).gte("transaction_date", str(prev_first)).lte("transaction_date", str(prev_last)).execute().data or []
+        prev_rec = sb.table("transactions").select("description,transaction_date,amount,category_id,type,is_recurring").eq("user_id", user_id).eq("is_recurring", True).gte("transaction_date", str(prev_first)).lte("transaction_date", str(prev_last)).execute().data or []
         curr_norms = {normalize_desc(t["description"]) for t in txns}
         seen: set[str] = set()
         for r in prev_rec:
@@ -101,9 +106,9 @@ async def list_alerts(user_id: str = Depends(get_current_user_id)):
             seen.add(norm)
             if len(seen) > 5:
                 break
-            alerts.append({"type": "info", "message": f'Recorrente “{r["description"]}” não apareceu este mês', "category": "recurring"})
+            alerts.append({"type": "info", "message": f'Recorrente “{r["description"]}” não apareceu este mês', "category": "recurring", "subject": r["description"]})
 
-        # Budget alerts
+        # Orçamentos pelo ritmo (frontend/src/lib/pace.ts, budgetState): conta fixa já paga não é aviso
         try:
             current_month = f"{today.year}-{today.month:02d}"
             budgets = sb.table("budgets").select("*").eq("user_id", user_id).eq("month", current_month).execute().data or []
@@ -112,18 +117,22 @@ async def list_alerts(user_id: str = Depends(get_current_user_id)):
                 k = t.get("category_id")
                 if k and (t.get("amount") or 0) < 0:
                     cat_spending[k] = cat_spending.get(k, 0) + abs(t["amount"])
+            bills = bills_by_category(prev_rec)
+            dim = cal.monthrange(today.year, today.month)[1]
             for b in budgets:
-                spent = cat_spending.get(b["category_id"], 0)
-                pct = (spent / b["limit_amount"] * 100) if b["limit_amount"] > 0 else 0
-                if pct < 80:
+                if b["limit_amount"] <= 0:
+                    continue
+                spent = round(cat_spending.get(b["category_id"], 0), 2)
+                state = budget_state(spent, b["limit_amount"], bills.get(b["category_id"], []), today.day, dim)
+                if state not in ("warn", "over"):
                     continue
                 cat = _first(sb.table("categories").select("name").eq("id", b["category_id"]).limit(1).execute().data)
                 cat_name = cat["name"] if cat else "Categoria"
-                if pct < 100:
-                    remaining = round(b["limit_amount"] - spent, 2)
-                    alerts.append({"type": "warning", "message": f'Orçamento “{cat_name}” em {pct:.0f}%, faltam {brl(remaining)}', "category": "budget", "amount": remaining})
+                remaining = round(b["limit_amount"] - spent, 2)
+                if state == "warn":
+                    alerts.append({"type": "warning", "message": f'Orçamento “{cat_name}” acima do ritmo, faltam {brl(remaining)}', "category": "budget", "subject": cat_name, "amount": remaining})
                 else:
-                    alerts.append({"type": "danger", "message": f'Orçamento “{cat_name}” estourado', "category": "budget"})
+                    alerts.append({"type": "danger", "message": f'Orçamento “{cat_name}” estourado em {brl(-remaining)}', "category": "budget", "subject": cat_name, "amount": -remaining})
         except Exception:
             pass
 

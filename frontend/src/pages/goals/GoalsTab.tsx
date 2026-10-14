@@ -15,6 +15,12 @@ const STATUS_LOOK: Record<GoalStatus, 'green' | 'amber' | 'red' | 'default'> = {
   ok: 'green', warn: 'amber', over: 'red', behind: 'amber', done: 'green', upcoming: 'default', ended: 'default',
 }
 
+// A barra fala o mesmo que a pílula: a cor é a do estado, não a da categoria
+const STATUS_COLOR: Record<GoalStatus, string> = {
+  ok: 'var(--pace-ok)', warn: 'var(--pace-warn)', over: 'var(--pace-over)', behind: 'var(--pace-warn)', done: 'var(--pace-ok)',
+  upcoming: 'var(--chart-neutral)', ended: 'var(--chart-neutral)',
+}
+
 function GoalCard({ goal, category, today, onEdit, onDelete }: {
   goal: Goal; category?: Category; today: Date; onEdit: () => void; onDelete: () => void
 }) {
@@ -22,8 +28,8 @@ function GoalCard({ goal, category, today, onEdit, onDelete }: {
   const isLimit = goal.type === 'spending_limit'
   const v = describeGoal(goal, today, t)
   const { end } = goalRange(goal, today)
-  const statusText = v.status === 'ok' && !isLimit ? t('goals.status.okSavings') : t(`goals.status.${v.status}`)
-  const tone = isLimit ? 'spending' : v.status === 'done' ? 'green' : 'accent'
+  const statusText = t(`goals.status.${v.status}`)
+  const showPace = v.elapsed !== null && (v.status === 'ok' || v.status === 'warn' || v.status === 'behind')
 
   let left: React.ReactNode
   if (isLimit) {
@@ -72,12 +78,13 @@ function GoalCard({ goal, category, today, onEdit, onDelete }: {
       <div className="gl-card__progress">
         <div className="gl-card__figures">
           <span className="gl-card__amount">
-            <Money value={goal.current_amount} className={`gl-card__value${isLimit && v.pct > 100 ? ' gl-neg' : ''}`} />
+            <Money value={goal.current_amount} size={isLimit ? 'row' : 'kpi'} className={`gl-card__value${isLimit && v.pct > 100 ? ' gl-neg' : ''}`} />
             <span className="gl-card__of ft-num">{t('goals.of', { value: formatCurrency(goal.target_amount) })}</span>
           </span>
           <span className="gl-card__pct ft-num">{formatPercent(v.pct, 0, false)}</span>
         </div>
-        <ProgressBar value={v.pct} tone={tone} label={`${goal.name}: ${formatPercent(v.pct, 0, false)}`} />
+        <ProgressBar value={v.pct} color={STATUS_COLOR[v.status]} pace={showPace ? v.elapsed! * 100 : undefined}
+          label={`${goal.name}: ${formatPercent(v.pct, 0, false)}, ${statusText}`} />
         <div className="gl-card__foot ft-num">
           <span>{left}</span>
           {right && <span>{right}</span>}

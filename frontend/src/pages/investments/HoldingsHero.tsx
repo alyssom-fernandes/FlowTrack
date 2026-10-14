@@ -69,7 +69,7 @@ export function HoldingsHero({ invested, current, positions, types }: { invested
           </span>
         </div>
         <dl className="inv-hero__facts">
-          <div><dt>{t('investments.kpi.invested')}</dt><dd className="ft-num">{formatCurrency(invested)}</dd></div>
+          <div><dt>{t('investments.kpi.invested')}</dt><dd><Money value={invested} /></dd></div>
           <div><dt>{t('investments.hero.positions')}</dt><dd className="ft-num">{positions}</dd></div>
           <div><dt>{t('investments.hero.types')}</dt><dd className="ft-num">{types}</dd></div>
         </dl>

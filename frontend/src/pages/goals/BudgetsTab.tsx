@@ -5,21 +5,18 @@ import { Button, Card, ConfirmDialog, EmptyState, IconButton, Money, ProgressBar
 import { Icon } from '../../components/icons'
 import { budgetsService, categoriesService, transactionsService } from '../../services'
 import { categoryColor } from '../../lib/categoryColor'
-import { billsByCategory, expectedBy, monthDays, paceOf, PACE_COLOR, type Bill, type PaceStatus } from '../../lib/pace'
+import { billsByCategory, budgetState, budgetStatusText, budgetsSummaryText, monthDays, paceOf, BUDGET_COLOR, PACE_COLOR, type Bill, type BudgetState } from '../../lib/pace'
 import { useToastStore } from '../../store'
 import { categoryLabel, formatCurrency, formatPercent } from '../../utils'
 import type { Budget, Category, Transaction } from '../../types'
 import { isSpendingCategory, monthBounds, monthKey, monthName, monthTitle, shiftMonth } from './helpers'
 import { BudgetModal } from './BudgetModal'
 
-type Paced = { budget: Budget; expected: number; status: PaceStatus; diff: number }
+type Paced = BudgetState & { budget: Budget }
 
 function pace(budgets: Budget[], bills: Map<string, Bill[]>, month: string, today: Date): Paced[] {
   const { dim, day } = monthDays(month, today)
-  return budgets.map(b => {
-    const expected = expectedBy(b.limit_amount, bills.get(b.category_id) ?? [], day, dim)
-    return { budget: b, expected, ...paceOf(b.spent, b.limit_amount, expected) }
-  })
+  return budgets.map(b => ({ budget: b, ...budgetState(b.spent, b.limit_amount, bills.get(b.category_id) ?? [], day, dim) }))
 }
 
 function Summary({ budgets, paced, daysLeft, future }: { budgets: Budget[]; paced: Paced[]; daysLeft: number | null; future: boolean }) {
@@ -29,7 +26,6 @@ function Summary({ budgets, paced, daysLeft, future }: { budgets: Budget[]; pace
   const expected = paced.reduce((s, p) => s + p.expected, 0)
   const rest = limit - spent
   const pct = limit > 0 ? (spent / limit) * 100 : 0
-  const over = budgets.filter(b => b.spent > b.limit_amount).length
   const total = paceOf(spent, limit, expected)
   return (
     <Card className="gl-bsum ft-card--hero">
@@ -51,9 +47,7 @@ function Summary({ budgets, paced, daysLeft, future }: { budgets: Budget[]; pace
       <div className="gl-bsum__foot ft-num">
         <span className="gl-bsum__foot-item">{t('goals.budgets.usedPct', { pct: formatPercent(pct, 0, false) })}</span>
         <span className="gl-bsum__foot-item">
-          {over > 0
-            ? <span className="gl-neg">{t('goals.budgets.overCount', { count: over })}</span>
-            : future ? t('goals.budgets.notStarted') : t('goals.budgets.allWithin')}
+          {future ? t('goals.budgets.notStarted') : budgetsSummaryText(paced.map(p => p.status), t)}
         </span>
         {daysLeft !== null && <span className="gl-bsum__foot-item"><Icon name="calendar" size={14} />{t('goals.budgets.daysLeft', { count: daysLeft })}</span>}
       </div>
@@ -63,11 +57,10 @@ function Summary({ budgets, paced, daysLeft, future }: { budgets: Budget[]; pace
 
 function BudgetRow({ paced, category, future, onEdit, onDelete }: { paced: Paced; category?: Category; future: boolean; onEdit: () => void; onDelete: () => void }) {
   const { t } = useTranslation()
-  const { budget, expected, status } = paced
+  const { budget, expected, status, left } = paced
   const name = category ? categoryLabel(category) : budget.category_name || '—'
-  const rest = budget.limit_amount - budget.spent
   const pct = budget.limit_amount > 0 ? (budget.spent / budget.limit_amount) * 100 : 0
-  const statusText = status === 'over' ? t('goals.budgets.statusOver') : status === 'warn' ? t('goals.budgets.statusWarn') : t('goals.budgets.statusOk')
+  const statusText = budgetStatusText(paced, t, formatCurrency)
   return (
     <li className="gl-brow">
       <span className="gl-brow__name">
@@ -75,17 +68,17 @@ function BudgetRow({ paced, category, future, onEdit, onDelete }: { paced: Paced
         <span>{name}</span>
       </span>
       <div className="gl-brow__bar">
-        <ProgressBar value={pct} color={PACE_COLOR[status]} pace={!future && budget.limit_amount > 0 ? (expected / budget.limit_amount) * 100 : undefined}
-          label={`${name}: ${formatPercent(pct, 0, false)}, ${statusText}`} />
+        <ProgressBar value={pct} color={future ? 'var(--chart-neutral)' : BUDGET_COLOR[status]} pace={!future && status !== 'paid' && budget.limit_amount > 0 ? (expected / budget.limit_amount) * 100 : undefined}
+          label={`${name}: ${formatPercent(pct, 0, false)}${future ? '' : `, ${statusText}`}`} />
       </div>
       <span className="gl-brow__spent ft-num">
         {t('goals.budgets.spentOf', { spent: formatCurrency(budget.spent), limit: formatCurrency(budget.limit_amount) })}
       </span>
-      <span className={`gl-brow__left gl-free gl-free--${rest < 0 ? 'over' : 'ok'} ft-num`}>
-        {rest >= 0 ? t('goals.budgets.free', { value: formatCurrency(rest) }) : t('goals.budgets.overBy', { value: formatCurrency(-rest) })}
+      <span className="gl-brow__left ft-num">
+        {left >= 0 ? t('goals.budgets.left', { value: formatCurrency(left) }) : t('goals.budgets.overBy', { value: formatCurrency(-left) })}
       </span>
       {future ? <span className="gl-brow__pct ft-num">{formatPercent(pct, 0, false)}</span>
-        : <span className={`gl-brow__pct ft-budget__status ft-budget__status--${status}`}>{statusText}</span>}
+        : <span className={`gl-brow__state ft-budget__status ft-budget__status--${status}`}>{statusText}</span>}
       <span className="gl-brow__actions">
         <IconButton icon="edit" label={t('goals.actions.edit', { name })} onClick={onEdit} />
         <IconButton icon="trash" label={t('goals.actions.delete', { name })} onClick={onDelete} />

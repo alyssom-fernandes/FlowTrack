@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Button, Card, CardHeader, ConfirmDialog, EmptyState, IconButton, Money, Page, PageHeader, Skeleton } from '../components/ui'
 import { investmentsService } from '../services'
 import { useToastStore } from '../store'
-import { formatPercent, formatSignedCurrency } from '../utils'
+import { formatPercent } from '../utils'
 import type { Investment } from '../types'
 import { AllocationCard } from './investments/AllocationCard'
 import { HoldingsHero } from './investments/HoldingsHero'
@@ -147,7 +147,7 @@ export function Investments() {
                       <td className="inv-num inv-col-result">
                         <span className="inv-cell-label">{t('investments.assets.result')}</span>
                         <span className={`inv-result ft-num ${tone}`}>
-                          <span className="inv-result__value">{formatSignedCurrency(inv.profitability)}</span>
+                          <Money value={inv.profitability} signed className="inv-result__value" />
                           <span className="inv-result__pct">{formatPercent(inv.profitability_percent, 1, true)}</span>
                         </span>
                       </td>

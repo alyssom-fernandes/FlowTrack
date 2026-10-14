@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, CardHeader } from '../../components/ui'
-import { formatCurrency, formatPercent } from '../../utils'
+import { Card, CardHeader, Money } from '../../components/ui'
+import { formatPercent } from '../../utils'
 import { layoutBar, type Slice } from './model'
 
 const BAR_H = 14
@@ -60,7 +60,7 @@ export function AllocationCard({ slices }: { slices: Slice[] }) {
           <div className="inv-tip" role="presentation"
             style={{ left: Math.min(Math.max(tipX, 96), Math.max(96, width - 96)), bottom: BAR_H + 10 }}>
             <div className="inv-tip__title"><span className="inv-swatch" style={{ background: tip.color }} />{label(tip)}</div>
-            <div className="inv-tip__value ft-num">{formatCurrency(tip.value)}</div>
+            <Money value={tip.value} className="inv-tip__value" />
             <div className="inv-tip__sub ft-num">{t('investments.allocation.share', { pct: formatPercent(tip.share, 1, false) })} · {t('investments.allocation.assets', { count: tip.count })}</div>
           </div>
         )}
@@ -72,7 +72,7 @@ export function AllocationCard({ slices }: { slices: Slice[] }) {
             onPointerEnter={e => { if (e.pointerType === 'mouse') setActive(i) }} onPointerLeave={e => { if (e.pointerType === 'mouse') setActive(null) }}>
             <span className="inv-legend__name"><span className="inv-swatch" style={{ background: s.color }} aria-hidden />{label(s)}</span>
             <span className="inv-legend__figs ft-num">
-              <span className="inv-legend__value">{formatCurrency(s.value)}</span>
+              <Money value={s.value} className="inv-legend__value" />
               <span className="inv-legend__share">{formatPercent(s.share, 1, false)}</span>
             </span>
           </li>

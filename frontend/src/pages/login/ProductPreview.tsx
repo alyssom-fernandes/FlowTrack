@@ -95,21 +95,20 @@ export function ProductPreview() {
   )
 }
 
-// Pílulas de categoria em volta da prévia: as cores que a pessoa vai reencontrar no app.
-// Paradas (sem loop), levemente inclinadas, algumas desfocadas e cortadas pela borda.
+// Pílulas de categoria ao lado da prévia: as cores que a pessoa vai reencontrar no app.
+// Paradas (sem loop), levemente inclinadas, sempre fora do cartão (no mínimo 24 px dele) e
+// sem desfoque: desfocadas viravam borrões. Só aparecem quando há espaço ao lado (login.css).
 const CHIPS = [
-  { cat: 'Moradia', icon: 'home', style: { top: '-1.3rem', right: '8%', rotate: '6deg' } },
-  { cat: 'Lazer', icon: 'music', style: { top: '42%', right: '-4.25rem', rotate: '-8deg' }, blur: true },
-  { cat: 'Saúde', icon: 'heart', style: { bottom: '-1.35rem', left: '10%', rotate: '-5deg' } },
-  { cat: 'Educação', icon: 'book', style: { top: '16%', left: '-4rem', rotate: '7deg' }, blur: true },
-  { cat: 'Vestuário', icon: 'shirt', style: { bottom: '-1.15rem', right: '16%', rotate: '4deg' } },
+  { cat: 'Moradia', icon: 'home', style: { top: '2.25rem', '--dx': '0.25rem', rotate: '6deg' } },
+  { cat: 'Saúde', icon: 'heart', style: { top: '9.75rem', '--dx': '1.5rem', rotate: '-5deg' } },
+  { cat: 'Vestuário', icon: 'shirt', style: { top: '17rem', '--dx': '0.625rem', rotate: '4deg' } },
 ] as const
 
 export function CategoryChips() {
   return (
     <div className="ent-chips" aria-hidden>
       {CHIPS.map(c => (
-        <span key={c.cat} className={`ent-chip${'blur' in c && c.blur ? ' ent-chip--blur' : ''}`}
+        <span key={c.cat} className="ent-chip"
           style={{ ...c.style, '--c': categoryColor({ name: c.cat, color: '', is_default: true }) } as unknown as CSSProperties}>
           <CategoryIcon name={c.icon} size={14} />{categoryLabel({ name: c.cat })}
         </span>

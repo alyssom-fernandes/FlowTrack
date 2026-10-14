@@ -14,6 +14,11 @@ from app.api.v1._helpers import (
     _goal_period_range,
     _calc_goal_current,
     _parse_ofx,
+    bills_by_category,
+    budget_state,
+    expected_by,
+    goal_limit_state,
+    period_elapsed,
 )
 
 
@@ -309,3 +314,64 @@ def test_latest_installments_keeps_only_most_recent_per_purchase():
     ]
     result = {r["description"]: r["installment_current"] for r in latest_installments(rows)}
     assert result == {"Notebook Dell": 5, "Sofá": 1}
+
+
+# ── Ritmo do orçamento (mesma regra de frontend/src/lib/pace.ts) ──────
+class TestBudgetState:
+    # Moradia da demonstração: aluguel e condomínio no dia 6, luz no dia 12, limite de R$ 2.250
+    MORADIA = [(6, 1650.0), (6, 380.0), (12, 168.0)]
+
+    def test_fixed_bills_paid_are_not_a_warning(self):
+        assert budget_state(2223.77, 2250, self.MORADIA, day=14, dim=31) == "paid"
+
+    def test_fixed_bills_not_due_yet_follow_the_pace(self):
+        # No dia 8 a luz ainda não venceu: não dá para dizer que está tudo pago
+        assert budget_state(2030, 2250, self.MORADIA, day=8, dim=31) == "ok"
+
+    def test_over_the_limit_is_over_even_with_bills(self):
+        assert budget_state(2300, 2250, self.MORADIA, day=14, dim=31) == "over"
+
+    def test_variable_spending_ahead_of_pace_warns(self):
+        # Lazer: R$ 312,40 de R$ 350 no dia 14 (o esperado seria ~R$ 158)
+        assert budget_state(312.40, 350, [], day=14, dim=31) == "warn"
+
+    def test_variable_spending_on_pace_is_ok(self):
+        assert budget_state(140, 350, [], day=14, dim=31) == "ok"
+
+    def test_near_the_limit_early_warns(self):
+        # 92% com o mês ainda no começo das contas fixas: aviso
+        assert budget_state(184, 200, [(8, 99.9), (15, 44.9), (15, 21.9)], day=14, dim=31) == "warn"
+
+    def test_expected_counts_bills_on_their_day(self):
+        assert expected_by(2250, self.MORADIA, day=6, dim=31) == pytest.approx(2030 + 52 * 6 / 31)
+
+    def test_bills_ignore_transfers_income_and_uncategorized(self):
+        rows = [
+            {"amount": -1650, "transaction_date": "2026-09-06", "is_recurring": True, "category_id": "c1", "type": "debit"},
+            {"amount": -1000, "transaction_date": "2026-09-07", "is_recurring": True, "category_id": "c2", "type": "transfer"},
+            {"amount": 6200, "transaction_date": "2026-09-05", "is_recurring": True, "category_id": "c3", "type": "credit"},
+            {"amount": -50, "transaction_date": "2026-09-09", "is_recurring": True, "category_id": None, "type": "debit"},
+            {"amount": -80, "transaction_date": "2026-09-09", "is_recurring": False, "category_id": "c1", "type": "debit"},
+        ]
+        assert bills_by_category(rows) == {"c1": [(6, 1650)]}
+
+
+class TestGoalLimitState:
+    def test_ahead_of_pace_mid_period_warns(self):
+        assert goal_limit_state(500, 1000, 13 / 31) == "warn"
+
+    def test_seventy_six_percent_late_in_the_month_is_ok(self):
+        # A regra antiga avisava a partir de 75%; no dia 28 isso está no ritmo
+        assert goal_limit_state(760, 1000, 28 / 31) == "ok"
+
+    def test_over(self):
+        assert goal_limit_state(1001, 1000, 0.5) == "over"
+
+    def test_without_end_date_warns_from_ninety_percent(self):
+        assert goal_limit_state(899, 1000, None) == "ok"
+        assert goal_limit_state(900, 1000, None) == "warn"
+
+    def test_period_elapsed(self):
+        assert period_elapsed("2026-10-01", "2026-10-31", date(2026, 10, 13)) == pytest.approx(13 / 31)
+        assert period_elapsed("2026-10-01", None, date(2026, 10, 13)) is None
+        assert period_elapsed("2026-10-01", "2026-10-31", date(2026, 11, 5)) == 1.0

@@ -61,14 +61,12 @@ export function categoryLabel(cat?: { name: string; is_default?: boolean } | nul
 }
 
 // Para onde cada alerta leva (links que as telas aceitam)
-export function alertHref(alert: { category: string; message: string }): string | null {
+export function alertHref(alert: { category: string; message: string; subject?: string }): string | null {
   if (alert.category === 'uncategorized') return '/transactions?category_id=none&period=this_month'
   if (alert.category === 'account') return '/profile?tab=accounts'
-  if (alert.category === 'budget') return /orçamento|budget/i.test(alert.message) ? '/goals?aba=orcamentos' : '/goals'
-  if (alert.category === 'recurring') {
-    const name = alert.message.match(/"([^"]+)"/)?.[1]
-    return name ? `/transactions?search=${encodeURIComponent(name)}` : '/transactions'
-  }
+  if (alert.category === 'budget') return '/goals?aba=orcamentos'
+  if (alert.category === 'goal') return '/goals'
+  if (alert.category === 'recurring') return alert.subject ? `/transactions?search=${encodeURIComponent(alert.subject)}` : '/transactions'
   return null
 }
 

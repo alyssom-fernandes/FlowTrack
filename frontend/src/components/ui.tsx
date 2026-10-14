@@ -326,6 +326,8 @@ export function ProgressBar({ value, tone = 'accent', height = 6, label, pace, c
 }
 
 // ── Valores em dinheiro ───────────────────────────────────
+// Todo valor que aparece sozinho na tela passa por aqui (valor dentro de frase continua texto).
+// size: "row" até ~20px (listas, tabelas, dicas) · "kpi" de 24 a 32px · "hero" no número dominante.
 // tone "auto": verde para entradas, vermelho para saídas
 export function Money({ value, signed, compact, tone = 'none', size = 'row', style, className = '' }: { value: number; signed?: boolean; compact?: boolean; tone?: 'auto' | 'none'; size?: 'row' | 'kpi' | 'hero'; style?: CSSProperties; className?: string }) {
   const color = tone === 'auto' ? (value > 0 ? 'var(--green)' : value < 0 ? 'var(--red)' : 'var(--text-muted)') : undefined

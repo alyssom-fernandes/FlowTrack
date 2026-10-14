@@ -1,13 +1,13 @@
 // Resumo do filtro atual: entradas, saídas, resultado e categorização automática
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, Skeleton } from '../../components/ui'
+import { Card, Money, Skeleton } from '../../components/ui'
 import { Icon } from '../../components/icons'
-import { formatCurrency, formatPercent, formatSignedCurrency } from '../../utils'
+import { formatPercent } from '../../utils'
 import type { Transaction } from '../../types'
 import { autoStats, sumFlows } from './shared'
 
-function Stat({ label, hint, dot, value, sub }: { label: string; hint?: string; dot?: string; value: string | null; sub?: ReactNode }) {
+function Stat({ label, hint, dot, value, sub }: { label: string; hint?: string; dot?: string; value: ReactNode | null; sub?: ReactNode }) {
   return (
     <div className="tx-stat">
       <span className="tx-stat__label" title={hint}>
@@ -27,9 +27,9 @@ export function SummaryStrip({ data, onShowPending }: { data: Transaction[] | nu
   const auto = data ? autoStats(data) : null
   return (
     <Card padding="none" className="tx-summary" role="group" aria-label={t('transactions.summary.label')} aria-busy={!data || undefined}>
-      <Stat label={t('transactions.summary.income')} dot="var(--chart-income)" value={flows && formatCurrency(flows.income)} />
-      <Stat label={t('transactions.summary.expense')} dot="var(--chart-expense)" value={flows && formatCurrency(flows.expense)} />
-      <Stat label={t('transactions.summary.net')} hint={t('transactions.summary.netHint')} value={flows && formatSignedCurrency(flows.net)} />
+      <Stat label={t('transactions.summary.income')} dot="var(--chart-income)" value={flows && <Money value={flows.income} />} />
+      <Stat label={t('transactions.summary.expense')} dot="var(--chart-expense)" value={flows && <Money value={flows.expense} />} />
+      <Stat label={t('transactions.summary.net')} hint={t('transactions.summary.netHint')} value={flows && <Money value={flows.net} signed />} />
       <Stat label={t('transactions.summary.auto')} hint={t('transactions.summary.autoHint')}
         value={auto && formatPercent(auto.pct, 0, false)}
         sub={!auto ? <Skeleton width="50%" height={12} /> : auto.pending > 0 && !onShowPending

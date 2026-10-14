@@ -59,3 +59,63 @@ export function paceOf(spent: number, limit: number, expected: number): { status
     : 'ok'
   return { status, diff: Math.round((expected - spent) * 100) / 100 }
 }
+
+// ── Estado de um orçamento ────────────────────────────────
+// Fonte única para o alerta, a cor da barra, a pílula e a frase do resumo.
+// A API (backend/app/api/v1/_helpers.py, budget_state) e a demonstração seguem a mesma regra.
+// "paid" (fixo · pago): a categoria é quase toda conta fixa, as contas do mês já caíram
+// e o gasto cabe no limite. Ex.: Moradia em 99% depois do aluguel não é um aviso.
+export type BudgetStatus = PaceStatus | 'paid'
+
+export const BUDGET_COLOR: Record<BudgetStatus, string> = { ...PACE_COLOR, paid: 'var(--chart-neutral)' }
+
+export interface BudgetState {
+  status: BudgetStatus
+  expected: number   // quanto já deveria ter saído até hoje
+  diff: number       // positivo = abaixo do ritmo (folga), negativo = acima
+  left: number       // limite − gasto (negativo quando estourou)
+}
+
+export function budgetState(spent: number, limit: number, bills: Bill[], day: number, dim: number): BudgetState {
+  const expected = expectedBy(limit, bills, day, dim)
+  const pace = paceOf(spent, limit, expected)
+  const billsTotal = bills.reduce((s, b) => s + b.amount, 0)
+  const paid = pace.status !== 'over' && bills.length > 0 && bills.every(b => b.day <= day)
+    && billsTotal >= limit * 0.8 && spent >= billsTotal * 0.9
+  return { status: paid ? 'paid' : pace.status, expected, diff: pace.diff, left: Math.round((limit - spent) * 100) / 100 }
+}
+
+/** Limite de gasto de uma meta pelo ritmo do período (`elapsed` = fração já passada; null sem data de fim). */
+export function goalLimitState(current: number, target: number, elapsed: number | null): PaceStatus {
+  if (current > target) return 'over'
+  if (elapsed === null) return current >= target * 0.9 ? 'warn' : 'ok'
+  return paceOf(current, target, target * elapsed).status
+}
+
+/** Fração do período que já passou, contando o dia de hoje (0 a 1); null sem data de fim. */
+export function periodElapsed(start: string, end: string | null | undefined, today: Date): number | null {
+  if (!end) return null
+  const day = (s: string) => Date.UTC(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1, Number(s.slice(8, 10)))
+  const now = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+  const total = (day(end) - day(start)) / 86_400_000 + 1
+  if (total <= 0) return null
+  return Math.min(1, Math.max(0, ((now - day(start)) / 86_400_000 + 1) / total))
+}
+
+type T = (key: string, opts?: Record<string, unknown>) => string
+
+/** Texto da pílula: "no ritmo", "acima do ritmo", "estourou R$ 24,67", "fixo · pago". */
+export function budgetStatusText(state: BudgetState, t: T, money: (v: number) => string): string {
+  if (state.status === 'over') return t('common.budgetState.over', { value: money(-state.left) })
+  return t(`common.budgetState.${state.status}`)
+}
+
+/** Frase do resumo derivada dos estados: "1 estourou · 2 de 6 acima do ritmo" ou "Todas no ritmo". */
+export function budgetsSummaryText(states: BudgetStatus[], t: T): string {
+  const over = states.filter(s => s === 'over').length
+  const warn = states.filter(s => s === 'warn').length
+  const parts: string[] = []
+  if (over) parts.push(t('common.budgetState.summaryOver', { count: over, total: states.length }))
+  if (warn) parts.push(t('common.budgetState.summaryWarn', { count: warn, total: states.length }))
+  return parts.length ? parts.join(' · ') : t('common.budgetState.summaryOk')
+}

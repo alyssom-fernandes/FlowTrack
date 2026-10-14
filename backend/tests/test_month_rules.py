@@ -78,7 +78,65 @@ class TestRecurringAlert:
                   "transactions": [{**tx("Aluguel", -2223.77, "2026-10-06"), "category_id": "cat-1"}]}
         with api(tables) as (c, _):
             msgs = [a["message"] for a in c.get("/api/v1/alerts").json()["alerts"]]
-        assert "Orçamento “Moradia” em 99%, faltam R$ 26,23" in msgs
+        assert "Orçamento “Moradia” acima do ritmo, faltam R$ 26,23" in msgs
+
+
+def cat_tx(desc, amount, day, cat="cat-1", recurring=False):
+    return {**tx(desc, amount, day, recurring=recurring), "category_id": cat}
+
+
+class TestBudgetPaceAlert:
+    """O alerta segue o mesmo estado da barra e da pílula (lib/pace.ts, budgetState)."""
+    CATS = [{"id": "cat-1", "name": "Moradia", "user_id": None, "is_default": True},
+            {"id": "cat-2", "name": "Lazer", "user_id": None, "is_default": True}]
+
+    def tables(self, budgets, transactions):
+        return {**BASE, "categories": self.CATS, "transactions": transactions,
+                "budgets": [{"id": f"b{i}", "user_id": USER, "category_id": c, "month": "2026-10", "limit_amount": v}
+                            for i, (c, v) in enumerate(budgets)]}
+
+    def alerts(self, tables, today=(2026, 10, 14)):
+        with api(tables, today=today) as (c, _):
+            return [a for a in c.get("/api/v1/alerts").json()["alerts"] if a["category"] == "budget"]
+
+    def test_fixed_bills_already_paid_do_not_alert(self):
+        # Moradia em 99% depois do aluguel, do condomínio e da luz: "fixo · pago", sem aviso
+        bills = [("Aluguel", -1650, 6), ("Condomínio", -380, 6), ("Enel Energia", -168, 12)]
+        txs = [cat_tx(d, v, f"2026-09-{day:02d}", recurring=True) for d, v, day in bills]
+        txs += [cat_tx("Aluguel", -1650, "2026-10-06", recurring=True), cat_tx("Condomínio", -380, "2026-10-06", recurring=True),
+                cat_tx("Enel Energia", -193.77, "2026-10-12", recurring=True)]
+        assert self.alerts(self.tables([("cat-1", 2250)], txs)) == []
+
+    def test_variable_spending_ahead_of_pace_warns_with_subject(self):
+        alerts = self.alerts(self.tables([("cat-2", 350)], [cat_tx("Cinema", -312.40, "2026-10-10", cat="cat-2")]))
+        assert alerts == [{"type": "warning", "message": "Orçamento “Lazer” acima do ritmo, faltam R$ 37,60",
+                           "category": "budget", "subject": "Lazer", "amount": 37.6}]
+
+    def test_over_budget_is_danger_with_the_amount(self):
+        alerts = self.alerts(self.tables([("cat-2", 350)], [cat_tx("Show", -374.67, "2026-10-10", cat="cat-2")]))
+        assert [(a["type"], a["message"]) for a in alerts] == [("danger", "Orçamento “Lazer” estourado em R$ 24,67")]
+
+    def test_seventy_percent_late_in_the_month_is_on_pace(self):
+        # A regra antiga avisava a partir de 80% do limite, sem olhar o dia
+        alerts = self.alerts(self.tables([("cat-2", 350)], [cat_tx("Cinema", -300, "2026-10-10", cat="cat-2")]), today=(2026, 10, 29))
+        assert alerts == []
+
+
+class TestGoalLimitAlert:
+    def goal(self, target):
+        return {"id": "g1", "user_id": USER, "name": "Delivery", "type": "spending_limit", "is_active": True,
+                "target_amount": target, "period": "monthly", "category_id": None, "start_date": "2026-10-01", "end_date": None}
+
+    def alerts(self, spent, today):
+        tables = {**BASE, "goals": [self.goal(1000)], "transactions": [tx("iFood", -spent, "2026-10-02")]}
+        with api(tables, today=today) as (c, _):
+            return [a for a in c.get("/api/v1/alerts").json()["alerts"] if a["category"] == "goal"]
+
+    def test_ahead_of_pace_warns(self):
+        assert [a["message"] for a in self.alerts(500, (2026, 10, 13))] == ["Meta “Delivery” acima do ritmo, faltam R$ 500,00"]
+
+    def test_same_spending_near_the_end_is_on_pace(self):
+        assert self.alerts(800, (2026, 10, 29)) == []
 
 
 class TestCashflowProjection:

@@ -61,6 +61,17 @@
       "title": "Page not found",
       "text": "The address {{path}} doesn't exist in FlowTrack.",
       "action": "Go to the dashboard"
+    },
+    "budgetState": {
+      "ok": "on pace",
+      "warn": "over pace",
+      "over": "over by {{value}}",
+      "paid": "fixed · paid",
+      "summaryOver_one": "{{count}} of {{total}} over budget",
+      "summaryOver_other": "{{count}} of {{total}} over budget",
+      "summaryWarn_one": "{{count}} of {{total}} over pace",
+      "summaryWarn_other": "{{count}} of {{total}} over pace",
+      "summaryOk": "All on pace"
     }
   }
 }

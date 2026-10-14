@@ -151,7 +151,7 @@
   /* Ritmo (gasto contra o dia do mês) e gráficos de quantidade */
   --accent-ink: #c23a62;          /* traço em vinho (linha, nó), um pouco mais claro que o preenchimento */
   --pace-ok:   var(--green);
-  --pace-warn: var(--amber);
+  --pace-warn: var(--amber-fill);  /* barras e linhas: no claro, --amber (texto) puxa para marrom */
   --pace-over: var(--red);
   --chart-spend: #6b6b78;         /* gasto em neutro (3:1 sobre o cartão): a cor fica para o que importa */
   --flow-band-opacity: 0.38;

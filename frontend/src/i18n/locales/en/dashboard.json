@@ -74,11 +74,23 @@
     "alerts": {
       "title": "Alerts",
       "allGood": "All clear",
-      "allGoodText": "No budgets over the limit and no negative balances.",
+      "allGoodText": "No budget off pace and no negative balance.",
       "showAll": "Show all ({{count}})",
       "showLess": "Show less",
-      "recurringGroup_one": "{{count}} recurring payment hasn't shown up this month: {{names}}",
-      "recurringGroup_other": "{{count}} recurring payments haven't shown up this month: {{names}}"
+      "recurringLead_one": "{{count}} recurring payment hasn't shown up this month:",
+      "recurringLead_other": "{{count}} recurring payments haven't shown up this month:",
+      "and": "and",
+      "budgetWarnGroup_one": "{{count}} budget over pace: {{names}}",
+      "budgetWarnGroup_other": "{{count}} budgets over pace: {{names}}",
+      "budgetOverGroup_one": "{{count}} budget over its limit: {{names}}",
+      "budgetOverGroup_other": "{{count}} budgets over their limit: {{names}}",
+      "action": {
+        "budgets": "See budgets",
+        "goals": "See goals",
+        "accounts": "See accounts",
+        "categorize": "Categorize",
+        "history": "See history"
+      }
     },
     "budgets": {
       "title": "Budgets this month",
@@ -86,13 +98,9 @@
       "manage": "Manage",
       "of": "{{spent}} of {{limit}}",
       "left": "{{value}} left",
-      "over": "{{value}} over the limit",
       "emptyTitle": "No budgets this month",
       "emptyText": "Set a limit per category to keep track of your expenses.",
       "emptyAction": "Set a budget",
-      "statusOk": "on pace",
-      "statusWarn": "over pace",
-      "statusOver": "over budget",
       "more_one": "And {{count}} more budget.",
       "more_other": "And {{count}} more budgets."
     },

@@ -5,7 +5,8 @@ import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEven
 import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Icon } from '../../components/icons'
-import { formatCurrency, formatCurrencyCompact, formatPercent, formatMonth, currentLocale } from '../../utils'
+import { Money } from '../../components/ui'
+import { formatPercent, formatMonth, currentLocale } from '../../utils'
 import type { ProjectionData } from '../../types'
 import { axisMoney, niceTicks, type Bucket, type Slice, type TopRow } from './dados'
 
@@ -79,12 +80,12 @@ export function Legend({ items }: { items: { label: string; color: string; faded
   )
 }
 
-export function TipRow({ color, label, value, faded, strong }: { color?: string; label: string; value: string; faded?: boolean; strong?: boolean }) {
+export function TipRow({ color, label, value, faded, strong }: { color?: string; label: string; value: number; faded?: boolean; strong?: boolean }) {
   return (
     <div className="rp-tip__row">
       {color ? <span className="rp-tip__key" style={{ background: color, opacity: faded ? 0.4 : 1 }} /> : <span className="rp-tip__key rp-tip__key--none" />}
       <span className="rp-tip__label">{label}</span>
-      <span className={`rp-tip__value ft-num${strong ? ' rp-tip__value--strong' : ''}`}>{value}</span>
+      <Money value={value} className={`rp-tip__value${strong ? ' rp-tip__value--strong' : ''}`} />
     </div>
   )
 }
@@ -159,14 +160,14 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
   const readout = a && (
     <>
       <div className="rp-tip__title">{a.longLabel}</div>
-      <TipRow color="var(--chart-income)" label={t('reports.legend.income')} value={formatCurrency(a.income)} strong />
-      <TipRow color="var(--chart-spend)" label={t('reports.legend.expense')} value={formatCurrency(a.expense)} strong />
-      <TipRow label={t('reports.legend.balance')} value={formatCurrency(a.income - a.expense)} />
+      <TipRow color="var(--chart-income)" label={t('reports.legend.income')} value={a.income} strong />
+      <TipRow color="var(--chart-spend)" label={t('reports.legend.expense')} value={a.expense} strong />
+      <TipRow label={t('reports.legend.balance')} value={a.income - a.expense} />
       {prev && (
         <>
           <div className="rp-tip__title rp-tip__title--sub">{ap ? ap.longLabel : t('reports.legend.previous')}</div>
-          <TipRow color="var(--chart-income)" faded label={t('reports.legend.income')} value={formatCurrency(ap?.income ?? 0)} />
-          <TipRow color="var(--chart-spend)" faded label={t('reports.legend.expense')} value={formatCurrency(ap?.expense ?? 0)} />
+          <TipRow color="var(--chart-income)" faded label={t('reports.legend.income')} value={ap?.income ?? 0} />
+          <TipRow color="var(--chart-spend)" faded label={t('reports.legend.expense')} value={ap?.expense ?? 0} />
         </>
       )}
     </>
@@ -217,7 +218,7 @@ export function CategoryDonut({ slices, total, compare, ariaLabel }: { slices: S
       <div className="rp-stack">
         <div className="rp-stack__total" aria-hidden>
           <span className="rp-stack__label">{cur ? cur.name : t('reports.categories.total')}</span>
-          <span className="rp-stack__value ft-num">{formatCurrencyCompact(cur ? cur.value : total)}</span>
+          <Money value={cur ? cur.value : total} compact className="rp-stack__value" />
           {cur && <span className="rp-stack__share ft-num">{formatPercent(cur.share, 1, false)}</span>}
         </div>
         <div className="rp-stack__bar" role="img" aria-label={ariaLabel}>
@@ -268,7 +269,7 @@ function CatRowBody({ sl, compare, name }: { sl: Slice; compare: boolean; name: 
         </span>
       )}
       <span className="rp-cat-row__share ft-num">{formatPercent(sl.share, sl.share < 10 ? 1 : 0, false)}</span>
-      <span className="rp-cat-row__value ft-num">{formatCurrency(sl.value)}</span>
+      <Money value={sl.value} className="rp-cat-row__value" />
     </>
   )
 }
@@ -285,7 +286,7 @@ export function TopList({ rows }: { rows: TopRow[] }) {
           <div className="rp-top__main">
             <div className="rp-top__line">
               <span className="rp-top__desc" title={r.description}>{r.description}</span>
-              <span className="rp-top__value ft-num">{formatCurrency(r.value)}</span>
+              <Money value={r.value} className="rp-top__value" />
             </div>
             <div className="rp-top__bar" aria-hidden><span style={{ width: `${Math.max(2, (r.value / max) * 100)}%` }} /></div>
             <div className="rp-top__meta">
@@ -364,9 +365,9 @@ export function ProjectionLines({ data, ariaLabel }: { data: ProjectionData; ari
   const readout = ap && (
     <>
       <div className="rp-tip__title">{cap(formatMonth(ap.month, 'long'))}{ap.is_projection && <span className="rp-tip__tag">{t('reports.projection.projected')}</span>}</div>
-      <TipRow color="var(--chart-income)" label={t('reports.legend.income')} value={formatCurrency(ap.income)} strong />
-      <TipRow color="var(--chart-spend)" label={t('reports.legend.expense')} value={formatCurrency(ap.expense)} strong />
-      <TipRow label={t('reports.legend.balance')} value={formatCurrency(ap.income - ap.expense)} />
+      <TipRow color="var(--chart-income)" label={t('reports.legend.income')} value={ap.income} strong />
+      <TipRow color="var(--chart-spend)" label={t('reports.legend.expense')} value={ap.expense} strong />
+      <TipRow label={t('reports.legend.balance')} value={ap.income - ap.expense} />
     </>
   )
 

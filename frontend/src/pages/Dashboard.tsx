@@ -162,13 +162,19 @@ export function Dashboard() {
         <div className="ft-dash-grid ft-rise">
           <FlowHero transactions={transactions} categories={categories} balance={balance} balanceDelta={balanceDelta}
             accountsCount={accounts.length} prev={prevToDate} now={now} />
-          <PaceCard transactions={transactions} previousMonth={prevMonthTx} budgets={budgets} monthKey={currentMonth} now={now} />
-          <AlertsCard alerts={alerts} loading={alertsLoading} error={alertsError} onRetry={reloadAlerts} />
-          <RecentCard transactions={recent} categories={categories} accounts={accounts} />
-          <BudgetsCard budgets={budgets ?? []} categories={categories} loading={budgets === null} previousMonth={prevMonthTx} monthKey={currentMonth} now={now} />
+          {/* Duas colunas que empilham por conta própria no computador (sem vão entre as linhas);
+              no celular as caixas somem (display: contents) e vale a ordem de leitura da grade */}
+          <div className="ft-dash-col ft-dash-col--main">
+            <PaceCard transactions={transactions} previousMonth={prevMonthTx} budgets={budgets} monthKey={currentMonth} now={now} />
+            <RecentCard transactions={recent} categories={categories} accounts={accounts} />
+          </div>
+          <div className="ft-dash-col ft-dash-col--side">
+            <AlertsCard alerts={alerts} loading={alertsLoading} error={alertsError} onRetry={reloadAlerts} />
+            <BudgetsCard budgets={budgets ?? []} categories={categories} loading={budgets === null} previousMonth={prevMonthTx} monthKey={currentMonth} now={now} />
+            <InsightCard insight={insight} loading={insightLoading} error={insightError} onRefresh={loadInsight} />
+          </div>
           <CashflowCard cashflow={cashflow} points={points} />
           {netWorth !== false && <NetWorthCard nw={netWorth} />}
-          <InsightCard insight={insight} loading={insightLoading} error={insightError} onRefresh={loadInsight} />
         </div>
       </div>
     </Page>

@@ -5,6 +5,7 @@
 import type { Transaction } from '../types'
 import i18n from '../i18n'
 import { categoryLabel } from '../utils'
+import { billsByCategory, budgetState, goalLimitState, periodElapsed } from '../lib/pace'
 import { buildSeed, buildEmpty, newId, iso, samplePdfStatement, DB_VERSION, DEMO_USER_ID, type DemoDB, type GoalRow } from './seed'
 
 const STORAGE_KEY = 'ft-demo-db'
@@ -380,14 +381,17 @@ route('GET', '/alerts', () => {
   const now = new Date()
   const { start, end } = monthBounds(now.getFullYear(), now.getMonth())
   const txs = d.transactions.filter(t => t.transaction_date >= start && t.transaction_date <= end)
-  const alerts: { type: string; message: string; category: string; amount?: number }[] = []
+  const alerts: { type: string; message: string; category: string; subject?: string; amount?: number }[] = []
 
+  // Limite de gasto pelo ritmo do período (mesma regra da tela de Metas e da API)
   for (const g of d.goals.filter(x => x.is_active && x.type === 'spending_limit')) {
+    const range = goalRange(g)
+    if (iso(now) < range.start || g.target_amount <= 0) continue
     const cur = goalCurrent(g)
-    const pct = g.target_amount > 0 ? (cur / g.target_amount) * 100 : 0
     const remaining = r2(g.target_amount - cur)
-    if (pct >= 100) alerts.push({ type: 'danger', message: isEn() ? `Goal “${g.name}” exceeded by ${brl(Math.abs(remaining))}` : `Meta “${g.name}” excedida em ${brl(Math.abs(remaining))}`, category: 'budget', amount: Math.abs(remaining) })
-    else if (pct >= 75) alerts.push({ type: 'warning', message: isEn() ? `Goal “${g.name}” at ${pct.toFixed(0)}%, ${brl(remaining)} left` : `Meta “${g.name}” em ${pct.toFixed(0)}%, faltam ${brl(remaining)}`, category: 'budget', amount: remaining })
+    const state = goalLimitState(cur, g.target_amount, periodElapsed(range.start, g.period === 'custom' ? g.end_date : range.end, now))
+    if (state === 'over') alerts.push({ type: 'danger', message: isEn() ? `Goal “${g.name}” exceeded by ${brl(Math.abs(remaining))}` : `Meta “${g.name}” excedida em ${brl(Math.abs(remaining))}`, category: 'goal', subject: g.name, amount: Math.abs(remaining) })
+    else if (state === 'warn') alerts.push({ type: 'warning', message: isEn() ? `Goal “${g.name}” over pace, ${brl(remaining)} left` : `Meta “${g.name}” acima do ritmo, faltam ${brl(remaining)}`, category: 'goal', subject: g.name, amount: remaining })
   }
   for (const a of d.accounts.filter(x => x.is_active && x.balance < 0)) alerts.push({ type: 'danger', message: isEn() ? `Negative balance: ${a.name}` : `Saldo negativo: ${a.name}`, category: 'account', amount: a.balance })
 
@@ -403,18 +407,22 @@ route('GET', '/alerts', () => {
     if (now.getDate() < Number(t.transaction_date.slice(8, 10)) + 2) continue
     seen.add(n)
     if (seen.size > 5) break
-    alerts.push({ type: 'info', message: isEn() ? `Recurring “${t.description}” not seen this month` : `Recorrente “${t.description}” não apareceu este mês`, category: 'recurring' })
+    alerts.push({ type: 'info', message: isEn() ? `Recurring “${t.description}” not seen this month` : `Recorrente “${t.description}” não apareceu este mês`, category: 'recurring', subject: t.description })
   }
 
+  // Orçamentos pelo ritmo (lib/pace.ts, budgetState): conta fixa já paga não é aviso
   const month = start.slice(0, 7)
   const spent: Record<string, number> = {}
   for (const t of txs) if (t.category_id && t.amount < 0) spent[t.category_id] = (spent[t.category_id] || 0) + Math.abs(t.amount)
-  for (const b of d.budgets.filter(x => x.month === month)) {
-    const s = spent[b.category_id] || 0
-    const pct = b.limit_amount > 0 ? (s / b.limit_amount) * 100 : 0
+  const bills = billsByCategory(d.transactions.filter(x => x.transaction_date >= prev.start && x.transaction_date <= prev.end) as Transaction[])
+  const dim = Number(end.slice(8, 10))
+  for (const b of d.budgets.filter(x => x.month === month && x.limit_amount > 0)) {
+    const s = r2(spent[b.category_id] || 0)
+    const { status, left } = budgetState(s, b.limit_amount, bills.get(b.category_id) ?? [], now.getDate(), dim)
+    if (status !== 'warn' && status !== 'over') continue
     const name = categoryLabel(d.categories.find(c => c.id === b.category_id), isEn() ? 'Category' : 'Categoria')
-    if (pct >= 100) alerts.push({ type: 'danger', message: isEn() ? `Budget “${name}” exceeded` : `Orçamento “${name}” estourado`, category: 'budget' })
-    else if (pct >= 80) alerts.push({ type: 'warning', message: isEn() ? `Budget “${name}” at ${pct.toFixed(0)}%, ${brl(b.limit_amount - s)} left` : `Orçamento “${name}” em ${pct.toFixed(0)}%, faltam ${brl(b.limit_amount - s)}`, category: 'budget', amount: r2(b.limit_amount - s) })
+    if (status === 'over') alerts.push({ type: 'danger', message: isEn() ? `Budget “${name}” over by ${brl(-left)}` : `Orçamento “${name}” estourado em ${brl(-left)}`, category: 'budget', subject: name, amount: r2(-left) })
+    else alerts.push({ type: 'warning', message: isEn() ? `Budget “${name}” over pace, ${brl(left)} left` : `Orçamento “${name}” acima do ritmo, faltam ${brl(left)}`, category: 'budget', subject: name, amount: left })
   }
   return { alerts, total: alerts.length }
 })

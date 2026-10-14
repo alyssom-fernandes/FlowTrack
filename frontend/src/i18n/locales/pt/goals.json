@@ -24,9 +24,8 @@
     "allIncome": "Todas as entradas",
     "of": "de {{value}}",
     "status": {
-      "ok": "Dentro do limite",
-      "okSavings": "No ritmo",
-      "warn": "Atenção",
+      "ok": "No ritmo",
+      "warn": "Acima do ritmo",
       "over": "Estourou",
       "behind": "Abaixo do ritmo",
       "done": "Concluída",
@@ -105,9 +104,6 @@
       "remaining": "Restante",
       "overTotal": "Acima do orçado",
       "usedPct": "{{pct}} do orçado",
-      "overCount_one": "{{count}} categoria acima do limite",
-      "overCount_other": "{{count}} categorias acima do limite",
-      "allWithin": "Todas as categorias dentro do limite",
       "notStarted": "O mês ainda não começou",
       "daysLeft_one": "{{count}} dia até o fim do mês",
       "daysLeft_other": "{{count}} dias até o fim do mês",
@@ -154,11 +150,7 @@
       "restOf": "Gasto {{spent}} de {{limit}} orçados",
       "paceBelow": "{{value}} abaixo do ritmo",
       "paceAbove": "{{value}} acima do ritmo",
-      "paceOver": "Orçamentos estourados",
-      "statusOk": "no ritmo",
-      "statusWarn": "acima do ritmo",
-      "statusOver": "estourou",
-      "free": "{{value}} livres"
+      "paceOver": "Orçamentos estourados"
     }
   }
 }

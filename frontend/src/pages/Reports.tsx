@@ -296,20 +296,20 @@ export function Reports() {
     const unit = report.g === 'week' ? t('reports.table.week') : t('reports.table.month')
     const flowCols: Column<Bucket & { prevIncome: number; prevExpense: number }>[] = [
       { key: 'label', header: unit, title: true, render: b => b.longLabel },
-      { key: 'inc', header: t('reports.table.income'), align: 'right', render: b => formatCurrency(b.income) },
-      { key: 'exp', header: t('reports.table.expense'), align: 'right', render: b => formatCurrency(b.expense) },
-      { key: 'bal', header: t('reports.table.balance'), align: 'right', primary: true, render: b => <span className={b.income - b.expense < 0 ? 'rp-neg' : undefined}>{formatCurrency(b.income - b.expense)}</span> },
+      { key: 'inc', header: t('reports.table.income'), align: 'right', render: b => <Money value={b.income} /> },
+      { key: 'exp', header: t('reports.table.expense'), align: 'right', render: b => <Money value={b.expense} /> },
+      { key: 'bal', header: t('reports.table.balance'), align: 'right', primary: true, render: b => <span className={b.income - b.expense < 0 ? 'rp-neg' : undefined}><Money value={b.income - b.expense} /></span> },
       { key: 'sav', header: t('reports.table.savings'), align: 'right', render: b => (b.income > 0 ? formatPercent(((b.income - b.expense) / b.income) * 100, 1, false) : <span className="rp-muted">—</span>) },
       ...(showPrev ? [
-        { key: 'pinc', header: t('reports.table.prevIncome'), align: 'right' as const, render: (b: Bucket & { prevIncome: number }) => formatCurrency(b.prevIncome) },
-        { key: 'pexp', header: t('reports.table.prevExpense'), align: 'right' as const, render: (b: Bucket & { prevExpense: number }) => formatCurrency(b.prevExpense) },
+        { key: 'pinc', header: t('reports.table.prevIncome'), align: 'right' as const, render: (b: Bucket & { prevIncome: number }) => <Money value={b.prevIncome} /> },
+        { key: 'pexp', header: t('reports.table.prevExpense'), align: 'right' as const, render: (b: Bucket & { prevExpense: number }) => <Money value={b.prevExpense} /> },
       ] : []),
     ]
     const flowRows = report.buckets.map((b, i) => ({ ...b, prevIncome: report.prevBuckets[i]?.income ?? 0, prevExpense: report.prevBuckets[i]?.expense ?? 0 }))
-    const flowTotals = [t('reports.table.total'), formatCurrency(s.income), formatCurrency(s.expense),
-      <span className={s.balance < 0 ? 'rp-neg' : undefined}>{formatCurrency(s.balance)}</span>,
+    const flowTotals = [t('reports.table.total'), <Money value={s.income} />, <Money value={s.expense} />,
+      <span className={s.balance < 0 ? 'rp-neg' : undefined}><Money value={s.balance} /></span>,
       s.savingsRate === null ? '—' : formatPercent(s.savingsRate, 1, false),
-      ...(showPrev ? [formatCurrency(p.income), formatCurrency(p.expense)] : [])]
+      ...(showPrev ? [<Money value={p.income} />, <Money value={p.expense} />] : [])]
     const flowTable = (
       <ReportTable caption={t(report.g === 'week' ? 'reports.flow.titleWeek' : 'reports.flow.titleMonth')} columns={flowCols} rows={flowRows} rowKey={b => b.key} totals={flowTotals} listBelow={showPrev ? 720 : 540} />
     )
@@ -318,15 +318,15 @@ export function Reports() {
     const catCols: Column<CategoryRow & { i: number }>[] = [
       { key: 'name', header: t('reports.table.category'), title: true, render: c => <span className="rp-cell-cat"><i style={{ background: colorOf(c.i) }} aria-hidden />{c.name}</span> },
       { key: 'count', header: t('reports.table.count'), align: 'right', hideMobile: true, render: c => c.count },
-      { key: 'value', header: t('reports.table.value'), align: 'right', primary: true, render: c => formatCurrency(c.value) },
+      { key: 'value', header: t('reports.table.value'), align: 'right', primary: true, render: c => <Money value={c.value} /> },
       { key: 'share', header: t('reports.table.share'), align: 'right', render: c => formatPercent(c.share, 1, false) },
       ...(showPrev ? [
-        { key: 'prev', header: t('reports.table.previous'), align: 'right' as const, hideMobile: true, render: (c: CategoryRow) => (c.prev ? formatCurrency(c.prev) : <span className="rp-muted">—</span>) },
+        { key: 'prev', header: t('reports.table.previous'), align: 'right' as const, hideMobile: true, render: (c: CategoryRow) => (c.prev ? <Money value={c.prev} /> : <span className="rp-muted">—</span>) },
         { key: 'chg', header: t('reports.table.change'), align: 'right' as const, render: (c: CategoryRow) => (c.prev ? <Delta value={c.change} goodWhenUp={false} compact /> : <span className="rp-muted">{t('reports.categories.new')}</span>) },
       ] : []),
     ]
-    const catTotals = [t('reports.table.total'), report.categories.reduce((a, c) => a + c.count, 0), formatCurrency(s.expense), formatPercent(100, 0, false),
-      ...(showPrev ? [formatCurrency(p.expense), <Delta value={pctChange(s.expense, p.expense)} goodWhenUp={false} compact />] : [])]
+    const catTotals = [t('reports.table.total'), report.categories.reduce((a, c) => a + c.count, 0), <Money value={s.expense} />, formatPercent(100, 0, false),
+      ...(showPrev ? [<Money value={p.expense} />, <Delta value={pctChange(s.expense, p.expense)} goodWhenUp={false} compact />] : [])]
 
     const donutLabel = t('reports.aria.categories', { list: report.slices.map(sl => `${sl.name} ${formatPercent(sl.share, 0, false)}`).join(', ') })
     const flowLabel = t('reports.aria.flow', { range: report.rangeText, income: formatCurrency(s.income), expense: formatCurrency(s.expense) })
@@ -345,12 +345,12 @@ export function Reports() {
           <div className="rp-kpis__side">
             <div className="rp-kpi">
               <div className="rp-kpi__label"><span className="rp-kpi__dot" style={{ background: 'var(--chart-income)' }} aria-hidden />{t('reports.kpi.income')}</div>
-              <Money value={s.income} size="kpi" />
+              <Money value={s.income} />
               <div className="rp-kpi__foot">{foot(pctChange(s.income, p.income), true)}</div>
             </div>
             <div className="rp-kpi">
               <div className="rp-kpi__label"><span className="rp-kpi__dot" style={{ background: 'var(--chart-spend)' }} aria-hidden />{t('reports.kpi.expense')}</div>
-              <Money value={s.expense} size="kpi" />
+              <Money value={s.expense} />
               <div className="rp-kpi__foot">{foot(pctChange(s.expense, p.expense), false)}</div>
             </div>
             <div className="rp-kpi">
@@ -454,9 +454,9 @@ function ProjectionCard({ projection, view, onView }: { projection: ProjectionDa
   const cols: Column<(typeof rows)[number]>[] = [
     { key: 'm', header: t('reports.table.month'), title: true, render: r => cap(formatMonth(r.month, 'long')) },
     { key: 'k', header: t('reports.table.kind'), render: r => (r.is_projection ? t('reports.projection.projected') : t('reports.projection.history')) },
-    { key: 'i', header: t('reports.table.income'), align: 'right', render: r => formatCurrency(r.income) },
-    { key: 'e', header: t('reports.table.expense'), align: 'right', render: r => formatCurrency(r.expense) },
-    { key: 'b', header: t('reports.table.balance'), align: 'right', primary: true, render: r => <span className={r.income - r.expense < 0 ? 'rp-neg' : undefined}>{formatCurrency(r.income - r.expense)}</span> },
+    { key: 'i', header: t('reports.table.income'), align: 'right', render: r => <Money value={r.income} /> },
+    { key: 'e', header: t('reports.table.expense'), align: 'right', render: r => <Money value={r.expense} /> },
+    { key: 'b', header: t('reports.table.balance'), align: 'right', primary: true, render: r => <span className={r.income - r.expense < 0 ? 'rp-neg' : undefined}><Money value={r.income - r.expense} /></span> },
   ]
   return (
     <Card>
@@ -480,9 +480,9 @@ function ProjectionCard({ projection, view, onView }: { projection: ProjectionDa
         <span>{t(`reports.projection.explain.${level}`, { count: n })}</span>
       </div>
       <div className="rp-proj-foot">
-        <div className="rp-proj-stat"><span className="rp-proj-stat__label">{t('reports.projection.avgIncome')}</span><span className="rp-proj-stat__value">{formatCurrency(projection.avg_income)}</span></div>
-        <div className="rp-proj-stat"><span className="rp-proj-stat__label">{t('reports.projection.avgExpense')}</span><span className="rp-proj-stat__value">{formatCurrency(projection.avg_expense)}</span></div>
-        <div className="rp-proj-stat"><span className="rp-proj-stat__label">{t('reports.projection.projectedBalance')}</span><span className="rp-proj-stat__value" style={{ color: projected < 0 ? 'var(--red)' : undefined }}>{formatCurrency(projected)}</span></div>
+        <div className="rp-proj-stat"><span className="rp-proj-stat__label">{t('reports.projection.avgIncome')}</span><span className="rp-proj-stat__value"><Money value={projection.avg_income} /></span></div>
+        <div className="rp-proj-stat"><span className="rp-proj-stat__label">{t('reports.projection.avgExpense')}</span><span className="rp-proj-stat__value"><Money value={projection.avg_expense} /></span></div>
+        <div className="rp-proj-stat"><span className="rp-proj-stat__label">{t('reports.projection.projectedBalance')}</span><span className="rp-proj-stat__value" style={{ color: projected < 0 ? 'var(--red)' : undefined }}><Money value={projected} /></span></div>
       </div>
     </Card>
   )

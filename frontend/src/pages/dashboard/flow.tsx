@@ -132,12 +132,21 @@ export function FlowHero({ transactions, categories, balance, balanceDelta, acco
   const rate = income > 0 ? (net / income) * 100 : null
 
   const wrap = useRef<HTMLDivElement>(null)
+  const head = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
+  // Altura da coluna do saldo quando as duas colunas ficam lado a lado: o fluxo ocupa a mesma altura
+  // (antes ficava com ~230 px num cartão de ~460 e sobrava um vão embaixo)
+  const [sideH, setSideH] = useState(0)
   useLayoutEffect(() => {
-    const el = wrap.current
-    if (!el) return
-    const ro = new ResizeObserver(([e]) => setWidth(Math.round(e.contentRect.width)))
+    const el = wrap.current, hd = head.current
+    if (!el || !hd) return
+    const measure = () => {
+      setWidth(Math.round(el.getBoundingClientRect().width))
+      setSideH(Math.abs(hd.offsetTop - el.offsetTop) < 4 ? Math.round(hd.getBoundingClientRect().height) : 0)
+    }
+    const ro = new ResizeObserver(measure)
     ro.observe(el)
+    ro.observe(hd)
     return () => ro.disconnect()
   }, [])
 
@@ -177,7 +186,7 @@ export function FlowHero({ transactions, categories, balance, balanceDelta, acco
   const topKeys = new Set(byValue.slice(0, 3).map(n => n.key))
   const listed = showAll ? [...byValue, ...nodes.filter(n => n.kind === 'left')] : [...byValue.filter(n => topKeys.has(n.key)), ...nodes.filter(n => n.kind === 'left')]
   const hiddenCount = byValue.length - Math.min(3, byValue.length)
-  const height = Math.max(220, nodes.length * LABEL_H)
+  const height = Math.max(220, nodes.length * LABEL_H, sideH)
   const labelsW = Math.min(250, Math.max(190, width * 0.34))
   const plotW = Math.max(0, width - labelsW)
   const geo = useMemo(() => layout(nodes, height), [nodes, height])
@@ -192,7 +201,7 @@ export function FlowHero({ transactions, categories, balance, balanceDelta, acco
 
   return (
     <section className="flow" aria-labelledby="flow-title">
-      <div className="flow__head">
+      <div className="flow__head" ref={head}>
         <div>
           <h2 id="flow-title" className="flow__title">{t('dashboard.flow.title', { month: monthName, day })}</h2>
           {/* Quanto do mês já passou: lembra que os números ainda vão crescer */}
@@ -215,7 +224,7 @@ export function FlowHero({ transactions, categories, balance, balanceDelta, acco
           {stats.map(s => (
             <div key={s.key} className={`flow__stat${s.accent ? ' flow__stat--accent' : ''}`}>
               <dt>{s.label}</dt>
-              <dd><Money value={s.value} size="kpi" /></dd>
+              <dd><Money value={s.value} /></dd>
               <dd className="flow__stat-foot">
                 {s.d && deltaChip(s.d)}
                 {s.key === 'net' && rate !== null && rate >= 0 && <span>{t('dashboard.flow.rate', { pct: formatPercent(rate, 0, false) })}</span>}

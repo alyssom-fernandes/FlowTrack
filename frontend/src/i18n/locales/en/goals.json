@@ -24,9 +24,8 @@
     "allIncome": "All income",
     "of": "of {{value}}",
     "status": {
-      "ok": "Within limit",
-      "okSavings": "On track",
-      "warn": "Close to limit",
+      "ok": "On pace",
+      "warn": "Over pace",
       "over": "Over limit",
       "behind": "Behind pace",
       "done": "Reached",
@@ -105,9 +104,6 @@
       "remaining": "Remaining",
       "overTotal": "Over budget",
       "usedPct": "{{pct}} of budget used",
-      "overCount_one": "{{count}} category over its limit",
-      "overCount_other": "{{count}} categories over their limit",
-      "allWithin": "All categories within their limit",
       "notStarted": "This month hasn’t started yet",
       "daysLeft_one": "{{count}} day until month end",
       "daysLeft_other": "{{count}} days until month end",
@@ -154,11 +150,7 @@
       "restOf": "Spent {{spent}} of {{limit}} budgeted",
       "paceBelow": "{{value}} under pace",
       "paceAbove": "{{value}} over pace",
-      "paceOver": "Over budget",
-      "statusOk": "on pace",
-      "statusWarn": "over pace",
-      "statusOver": "over budget",
-      "free": "{{value}} left"
+      "paceOver": "Over budget"
     }
   }
 }

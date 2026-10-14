@@ -4,12 +4,12 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, CardHeader, EmptyState, IconButton, Money, ProgressBar, Skeleton } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
-import { alertHref, categoryLabel, formatCurrency, formatPercent, formatRelative, formatSignedCurrency } from '../../utils'
+import { alertHref, categoryLabel, currentLocale, formatCurrency, formatPercent, formatRelative } from '../../utils'
 import type { Account, Alert, Budget, Category, CashflowProjection, InsightResponse, NetWorth, Transaction } from '../../types'
 import { CashflowChart, Sparkline } from './charts'
 import { CategoryIcon } from './CategoryIcon'
 import { categoryColor } from '../../lib/categoryColor'
-import { billsByCategory, expectedBy, monthDays, paceOf, PACE_COLOR, type PaceStatus } from '../../lib/pace'
+import { billsByCategory, budgetState, budgetStatusText, monthDays, BUDGET_COLOR, type BudgetStatus } from '../../lib/pace'
 import { dayMonth, insightBlocks, splitHighlights, type ProjectionPoint } from './data'
 
 // Link de texto do cabeçalho dos cartões ("Ver todas", "Gerenciar")
@@ -114,20 +114,20 @@ export function CashflowCard({ cashflow, points }: { cashflow: CashflowProjectio
       {events.length > 0 && <dl className="ft-cash-stats">
         <div className="ft-cash-stat">
           <dt>{t('dashboard.cashflow.today')}</dt>
-          <dd><span className="ft-cash-stat__value ft-num" style={tone(start)}>{formatCurrency(start)}</span></dd>
+          <dd><Money value={start} className="ft-cash-stat__value" style={tone(start)} /></dd>
         </div>
         <div className="ft-cash-stat">
           <dt>{t('dashboard.cashflow.lowest')}</dt>
           <dd>
-            <span className="ft-cash-stat__value ft-num" style={tone(low?.balance ?? start)}>{formatCurrency(low?.balance ?? start)}</span>
+            <Money value={low?.balance ?? start} className="ft-cash-stat__value" style={tone(low?.balance ?? start)} />
             <span className="ft-cash-stat__sub">{lowWhen}</span>
           </dd>
         </div>
         <div className="ft-cash-stat">
           <dt>{t('dashboard.cashflow.in30')}</dt>
           <dd>
-            <span className="ft-cash-stat__value ft-num" style={tone(end)}>{formatCurrency(end)}</span>
-            {change !== 0 && <span className="ft-cash-stat__sub ft-num" style={{ color: change < 0 ? 'var(--red)' : 'var(--green)' }}>{formatSignedCurrency(change)}</span>}
+            <Money value={end} className="ft-cash-stat__value" style={tone(end)} />
+            {change !== 0 && <Money value={change} signed className="ft-cash-stat__sub" style={{ color: change < 0 ? 'var(--red)' : 'var(--green)' }} />}
           </dd>
         </div>
       </dl>}
@@ -146,7 +146,7 @@ export function CashflowCard({ cashflow, points }: { cashflow: CashflowProjectio
                     <span className="ft-upcoming__name">{e.description}</span>
                     <span className="ft-upcoming__src">{t(e.source === 'installment' ? 'dashboard.cashflow.installment' : 'dashboard.cashflow.recurring')}</span>
                   </span>
-                  <span className="ft-upcoming__amount ft-num" style={{ color: e.amount > 0 ? 'var(--green)' : 'var(--text-primary)' }}>{formatSignedCurrency(e.amount)}</span>
+                  <Money value={e.amount} signed className="ft-upcoming__amount" style={{ color: e.amount > 0 ? 'var(--green)' : 'var(--text-primary)' }} />
                 </li>
               ))}
             </ul>
@@ -187,58 +187,92 @@ export function NetWorthCard({ nw }: { nw: NetWorth | null }) {
   return (
     <Card className="ft-dash-networth">
       <CardHeader title={t('dashboard.netWorth.title')} action={<CardLink to="/investments">{t('dashboard.netWorth.link')}</CardLink>} />
-      <div className="ft-nw__value" style={{ color: nw.net_worth < 0 ? 'var(--red)' : undefined }}>{formatCurrency(nw.net_worth)}</div>
-      {first && snaps.length > 1 && (
-        <div className="ft-nw__change ft-num" style={{ color: change < 0 ? 'var(--red)' : 'var(--green)' }}>
-          <Icon name={change < 0 ? 'arrowDownRight' : 'arrowUpRight'} size={13} strokeWidth={2} />
-          {formatSignedCurrency(change)}
-          {first.net_worth > 0 && <span> ({formatPercent((change / first.net_worth) * 100, 1)})</span>}
-          <span className="ft-nw__since">{t('dashboard.netWorth.since', { count: snaps.length })}</span>
-        </div>
-      )}
-      {snaps.length > 1 && (
-        <div style={{ marginTop: '0.875rem' }}>
-          <Sparkline values={snaps.map(s => s.net_worth)} dates={snaps.map(s => s.date)}
-            label={t('dashboard.netWorth.a11y', { count: snaps.length, start: formatCurrency(snaps[0].net_worth), end: formatCurrency(nw.net_worth) })} />
-        </div>
-      )}
-      {total > 0 && (
-        <div className="ft-nw__split">
-          <div className="ft-nw__bar" role="img" aria-label={parts.map(p => `${p.label}: ${formatCurrency(p.value)}`).join(', ')}>
-            {parts.filter(p => p.pct > 0).map(p => <span key={p.key} style={{ width: `${p.pct}%`, background: p.color }} />)}
-          </div>
-          {parts.map(p => (
-            <div key={p.key} className="ft-nw__row">
-              <span className="ft-nw__swatch" style={{ background: p.color }} />
-              <span className="ft-nw__label">{p.label}</span>
-              <span className="ft-nw__pct ft-num">{formatPercent(p.pct, 0, false)}</span>
-              <span className="ft-nw__amount ft-num">{formatCurrency(p.value)}</span>
+      {/* No computador vira uma faixa: valor | evolução | divisão entre contas e investimentos */}
+      <div className="ft-nw__body">
+        <div className="ft-nw__summary">
+          <Money value={nw.net_worth} size="kpi" className="ft-nw__value" style={{ color: nw.net_worth < 0 ? 'var(--red)' : undefined }} />
+          {first && snaps.length > 1 && (
+            <div className="ft-nw__change ft-num" style={{ color: change < 0 ? 'var(--red)' : 'var(--green)' }}>
+              <Icon name={change < 0 ? 'arrowDownRight' : 'arrowUpRight'} size={13} strokeWidth={2} />
+              <Money value={change} signed />
+              {first.net_worth > 0 && <span> ({formatPercent((change / first.net_worth) * 100, 1)})</span>}
+              <span className="ft-nw__since">{t('dashboard.netWorth.since', { count: snaps.length })}</span>
             </div>
-          ))}
+          )}
         </div>
-      )}
+        {snaps.length > 1 && (
+          <div className="ft-nw__chart">
+            <Sparkline values={snaps.map(s => s.net_worth)} dates={snaps.map(s => s.date)}
+              label={t('dashboard.netWorth.a11y', { count: snaps.length, start: formatCurrency(snaps[0].net_worth), end: formatCurrency(nw.net_worth) })} />
+          </div>
+        )}
+        {total > 0 && (
+          <div className="ft-nw__split">
+            <div className="ft-nw__bar" role="img" aria-label={parts.map(p => `${p.label}: ${formatCurrency(p.value)}`).join(', ')}>
+              {parts.filter(p => p.pct > 0).map(p => <span key={p.key} style={{ width: `${p.pct}%`, background: p.color }} />)}
+            </div>
+            {parts.map(p => (
+              <div key={p.key} className="ft-nw__row">
+                <span className="ft-nw__swatch" style={{ background: p.color }} />
+                <span className="ft-nw__label">{p.label}</span>
+                <span className="ft-nw__pct ft-num">{formatPercent(p.pct, 0, false)}</span>
+                <Money value={p.value} className="ft-nw__amount" />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       <p className="ft-dash-note" style={{ marginTop: '0.75rem' }}>{t('dashboard.netWorth.note')}</p>
     </Card>
   )
 }
 
 // ── Alertas ───────────────────────────────────────────────
+// Agrupados por assunto e sempre com o que fazer: "2 orçamentos acima do ritmo: Lazer e
+// Transporte → Ver orçamentos". O estado vem da mesma regra das barras (lib/pace.ts).
 const ALERT_ICON: Record<Alert['type'], { icon: IconName; color: string }> = {
   danger: { icon: 'alertCircle', color: 'var(--red)' },
   warning: { icon: 'alert', color: 'var(--amber)' },
   info: { icon: 'info', color: 'var(--blue)' },
 }
 
+type AlertItem = { key: string; type: Alert['type']; text: ReactNode; action?: { to: string; label: string } }
+
+function groupAlerts(alerts: Alert[], t: (k: string, o?: Record<string, unknown>) => string): AlertItem[] {
+  const list = (names: string[]) => new Intl.ListFormat(currentLocale(), { type: 'conjunction' }).format(names)
+  const names = (as: Alert[]) => as.map(a => a.subject).filter((n): n is string => !!n)
+  const items: AlertItem[] = []
+  const budgets = { to: '/goals?aba=orcamentos', label: t('dashboard.alerts.action.budgets') }
+  for (const [type, key] of [['danger', 'budgetOverGroup'], ['warning', 'budgetWarnGroup']] as const) {
+    const group = alerts.filter(a => a.category === 'budget' && a.type === type)
+    if (group.length === 1) items.push({ key: `budget-${type}`, type, text: group[0].message, action: budgets })
+    else if (group.length > 1) items.push({ key: `budget-${type}`, type, text: t(`dashboard.alerts.${key}`, { count: group.length, names: list(names(group)) }), action: budgets })
+  }
+  alerts.forEach((a, i) => {
+    if (a.category === 'goal') items.push({ key: `goal-${i}`, type: a.type, text: a.message, action: { to: '/goals', label: t('dashboard.alerts.action.goals') } })
+    if (a.category === 'account') items.push({ key: `acc-${i}`, type: a.type, text: a.message, action: { to: '/profile?tab=accounts', label: t('dashboard.alerts.action.accounts') } })
+    if (a.category === 'uncategorized') items.push({ key: 'uncat', type: a.type, text: a.message, action: { to: alertHref(a) ?? '/transactions', label: t('dashboard.alerts.action.categorize') } })
+  })
+  // Recorrentes: uma linha só; cada nome leva ao histórico dela
+  const recurring = alerts.filter(a => a.category === 'recurring')
+  if (recurring.length === 1) {
+    items.push({ key: 'rec', type: 'info', text: recurring[0].message, action: { to: alertHref(recurring[0]) ?? '/transactions', label: t('dashboard.alerts.action.history') } })
+  } else if (recurring.length > 1) {
+    const links = recurring.map((a, i) => (
+      <span key={i}>{i > 0 && (i === recurring.length - 1 ? ` ${t('dashboard.alerts.and')} ` : ', ')}
+        {a.subject ? <Link to={alertHref(a) ?? '/transactions'} className="ft-alert__name">{a.subject}</Link> : a.message}
+      </span>
+    ))
+    items.push({ key: 'rec', type: 'info', text: <>{t('dashboard.alerts.recurringLead', { count: recurring.length })} {links}</> })
+  }
+  const order = { danger: 0, warning: 1, info: 2 }
+  return items.sort((a, b) => order[a.type] - order[b.type])
+}
+
 export function AlertsCard({ alerts, loading, error, onRetry }: { alerts: Alert[]; loading: boolean; error?: boolean; onRetry?: () => void }) {
   const { t } = useTranslation()
   const [all, setAll] = useState(false)
-  const order = { danger: 0, warning: 1, info: 2 }
-  const recurring = alerts.filter(a => a.category === 'recurring')
-  const names = recurring.map(a => /[“"]([^”"]+)[”"]/.exec(a.message)?.[1]).filter(Boolean) as string[]
-  const grouped: Alert[] = recurring.length > 1
-    ? [...alerts.filter(a => a.category !== 'recurring'), { type: 'info', category: 'recurring', message: t('dashboard.alerts.recurringGroup', { count: recurring.length, names: names.join(', ') }) }]
-    : alerts
-  const sorted = [...grouped].sort((a, b) => order[a.type] - order[b.type])
+  const sorted = groupAlerts(alerts, t)
   const visible = all ? sorted : sorted.slice(0, 5)
   return (
     <Card className="ft-dash-alerts" aria-busy={(loading && !alerts.length) || undefined}>
@@ -264,17 +298,17 @@ export function AlertsCard({ alerts, loading, error, onRetry }: { alerts: Alert[
       ) : (
         <>
           <ul className="ft-alert-list">
-            {visible.map((a, i) => {
+            {visible.map(a => {
               const look = ALERT_ICON[a.type] ?? ALERT_ICON.info
-              const href = alertHref(a)
-              const content = (
-                <>
-                  <Icon name={look.icon} size={16} style={{ color: look.color, marginTop: '0.125rem' }} />
-                  <span>{a.message}</span>
-                  {href && <Icon name="chevronRight" size={14} style={{ color: 'var(--text-hint)', marginLeft: 'auto', marginTop: '0.1875rem' }} />}
-                </>
+              return (
+                <li key={a.key} className="ft-alert">
+                  <Icon name={look.icon} size={16} style={{ color: look.color, marginTop: '0.1875rem', flexShrink: 0 }} />
+                  <div className="ft-alert__body">
+                    <span className="ft-alert__text">{a.text}</span>
+                    {a.action && <Link to={a.action.to} className="ft-alert__action">{a.action.label}<Icon name="chevronRight" size={13} /></Link>}
+                  </div>
+                </li>
               )
-              return <li key={i}>{href ? <Link to={href} className="ft-alert-link">{content}</Link> : content}</li>
             })}
           </ul>
           {sorted.length > 5 && (
@@ -304,11 +338,10 @@ export function BudgetsCard({ budgets, categories, loading, previousMonth, month
   }
   const { dim, day } = monthDays(monthKey, now)
   const bills = billsByCategory(previousMonth ?? [])
-  const rank: Record<PaceStatus, number> = { over: 0, warn: 1, ok: 2 }
-  const withPace = budgets.map(b => {
-    const expected = expectedBy(b.limit_amount, bills.get(b.category_id) ?? [], day, dim)
-    return { b, expected, ...paceOf(b.spent, b.limit_amount, expected) }
-  }).sort((x, y) => rank[x.status] - rank[y.status] || x.diff - y.diff)
+  // As 4 que mais pedem atenção: estouradas, acima do ritmo, no ritmo e, por último, as fixas já pagas
+  const rank: Record<BudgetStatus, number> = { over: 0, warn: 1, ok: 2, paid: 3 }
+  const withPace = budgets.map(b => ({ b, ...budgetState(b.spent, b.limit_amount, bills.get(b.category_id) ?? [], day, dim) }))
+    .sort((x, y) => rank[x.status] - rank[y.status] || x.diff - y.diff)
   const sorted = withPace.slice(0, 4)
   const spent = budgets.reduce((s, b) => s + b.spent, 0)
   const limit = budgets.reduce((s, b) => s + b.limit_amount, 0)
@@ -324,23 +357,21 @@ export function BudgetsCard({ budgets, categories, loading, previousMonth, month
           action={<Link to={manage} className="ft-btn ft-btn--secondary ft-btn--sm">{t('dashboard.budgets.emptyAction')}</Link>} />
       ) : (
         <ul className="ft-budget-list">
-          {sorted.map(({ b, expected, status }) => {
+          {sorted.map(state => {
+            const { b, expected, status, left } = state
             const cat = catById.get(b.category_id)
             const name = categoryLabel(cat ?? (b.category_name ? { name: b.category_name } : null), t('dashboard.recent.uncategorized'))
-            const over = b.spent > b.limit_amount
-            const statusText = status === 'over' ? t('dashboard.budgets.statusOver') : status === 'warn' ? t('dashboard.budgets.statusWarn') : t('dashboard.budgets.statusOk')
+            const statusText = budgetStatusText(state, t, formatCurrency)
             return (
               <li key={b.id}>
                 <div className="ft-budget__top">
                   <span className="ft-budget__name"><span className="ft-dot" style={{ background: cat ? categoryColor(cat) : b.category_color || 'var(--chart-neutral)' }} />{name}</span>
                   <span className={`ft-budget__status ft-budget__status--${status}`}>{statusText}</span>
                 </div>
-                <ProgressBar value={b.percent} label={name} color={PACE_COLOR[status]} pace={b.limit_amount > 0 ? (expected / b.limit_amount) * 100 : undefined} />
+                <ProgressBar value={b.percent} label={`${name}: ${statusText}`} color={BUDGET_COLOR[status]} pace={status !== 'paid' && b.limit_amount > 0 ? (expected / b.limit_amount) * 100 : undefined} />
                 <div className="ft-budget__bottom ft-num">
                   <span>{t('dashboard.budgets.of', { spent: formatCurrency(b.spent), limit: formatCurrency(b.limit_amount) })}</span>
-                  <span style={{ color: over ? 'var(--red)' : undefined }}>
-                    {over ? t('dashboard.budgets.over', { value: formatCurrency(b.spent - b.limit_amount) }) : t('dashboard.budgets.left', { value: formatCurrency(b.limit_amount - b.spent) })}
-                  </span>
+                  {left >= 0 && <span>{t('dashboard.budgets.left', { value: formatCurrency(left) })}</span>}
                 </div>
               </li>
             )

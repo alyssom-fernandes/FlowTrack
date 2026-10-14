@@ -61,6 +61,17 @@
       "title": "Página não encontrada",
       "text": "O endereço {{path}} não existe no FlowTrack.",
       "action": "Ir para o painel"
+    },
+    "budgetState": {
+      "ok": "no ritmo",
+      "warn": "acima do ritmo",
+      "over": "estourou {{value}}",
+      "paid": "fixo · pago",
+      "summaryOver_one": "{{count}} de {{total}} estourou",
+      "summaryOver_other": "{{count}} de {{total}} estouraram",
+      "summaryWarn_one": "{{count}} de {{total}} acima do ritmo",
+      "summaryWarn_other": "{{count}} de {{total}} acima do ritmo",
+      "summaryOk": "Todas no ritmo"
     }
   }
 }

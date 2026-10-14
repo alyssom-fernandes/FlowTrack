@@ -1,5 +1,6 @@
 // Contas de metas e orçamentos (sem React): períodos, situação e valores digitados
 import { currentLocale, formatDate, formatMonth, formatNumber, toISODate } from '../../utils'
+import { goalLimitState } from '../../lib/pace'
 import type { Category, Goal } from '../../types'
 
 const DAY = 86_400_000
@@ -48,6 +49,7 @@ export interface GoalView {
   remaining: number    // limite: quanto ainda pode gastar · economia: quanto falta
   status: GoalStatus
   daysLeft: number | null
+  elapsed: number | null   // fração do período que já passou (marca de ritmo na barra)
   periodText: string
 }
 
@@ -63,13 +65,14 @@ export function describeGoal(goal: Goal, today: Date, t: (k: string, o?: Record<
 
   let status: GoalStatus
   if (now < start) status = 'upcoming'
-  else if (isLimit) status = pct > 100 ? 'over' : pct >= 80 ? 'warn' : end && now > end ? 'ended' : 'ok'
+  // Limite pelo ritmo do período (lib/pace.ts): a mesma regra do alerta
+  else if (isLimit) status = goal.current_amount > goal.target_amount ? 'over' : end && now > end ? 'ended' : goalLimitState(goal.current_amount, goal.target_amount, elapsed)
   else if (pct >= 100) status = 'done'
   else if (end && now > end) status = 'ended'
   // Economia atrasada: mais de 5 pontos abaixo do esperado para a fração do período que já passou
   else status = elapsed !== null && pct < elapsed * 100 - 5 ? 'behind' : 'ok'
 
-  return { pct, remaining, status, daysLeft, periodText: periodText(goal, today, t) }
+  return { pct, remaining, status, daysLeft, elapsed, periodText: periodText(goal, today, t) }
 }
 
 function periodText(goal: Pick<Goal, 'period' | 'start_date' | 'end_date'>, today: Date, t: (k: string, o?: Record<string, unknown>) => string): string {
