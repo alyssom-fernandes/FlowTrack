@@ -120,7 +120,7 @@ export function HistoryTab() {
         ) : loading ? (
           <ListSkeleton rows={4} />
         ) : entries!.length === 0 ? (
-          <EmptyState icon="history" title={t('profile.history.emptyTitle')} description={t('profile.history.emptyText')}
+          <EmptyState title={t('profile.history.emptyTitle')} description={t('profile.history.emptyText')}
             action={<Button variant="secondary" iconRight="arrowRight" onClick={() => navigate('/transactions')}>{t('profile.history.emptyAction')}</Button>} />
         ) : (
           <ol className="prf-entries">

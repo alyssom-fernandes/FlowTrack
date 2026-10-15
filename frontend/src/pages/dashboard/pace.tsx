@@ -68,7 +68,7 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
     return (
       <Card className="ft-dash-pace">
         <CardHeader title={t('dashboard.pace.title')} />
-        <EmptyState compact icon="target" title={t('dashboard.pace.emptyTitle')} description={t('dashboard.pace.emptyText')}
+        <EmptyState compact title={t('dashboard.pace.emptyTitle')} description={t('dashboard.pace.emptyText')}
           action={<Link to="/goals?aba=orcamentos" className="ft-btn ft-btn--secondary ft-btn--sm">{t('dashboard.pace.emptyAction')}</Link>} />
       </Card>
     )

@@ -231,7 +231,7 @@ export function Transactions() {
 
       {failed && !busy ? (
         <Card>
-          <EmptyState icon="alertCircle" title={t('transactions.list.loadError')} description={t('transactions.list.loadErrorText')}
+          <EmptyState tone="error" title={t('transactions.list.loadError')} description={t('transactions.list.loadErrorText')}
             action={<Button variant="secondary" icon="refresh" onClick={() => setReload(n => n + 1)}>{t('transactions.list.retry')}</Button>} />
         </Card>
       ) : !ready ? (
@@ -239,10 +239,10 @@ export function Transactions() {
       ) : firstRun ? (
         <Card>
           {accounts.length === 0 ? (
-            <EmptyState icon="wallet" title={t('transactions.list.noAccountTitle')} description={t('transactions.list.noAccountText')}
+            <EmptyState title={t('transactions.list.noAccountTitle')} description={t('transactions.list.noAccountText')}
               action={<Button icon="plus" onClick={() => navigate('/profile')}>{t('transactions.list.goToProfile')}</Button>} />
           ) : (
-            <EmptyState icon="list" title={t('transactions.list.emptyTitle')} description={t('transactions.list.emptyText')}
+            <EmptyState title={t('transactions.list.emptyTitle')} description={t('transactions.list.emptyText')}
               action={<>
                 <Button variant="secondary" icon="upload" onClick={() => setImporting(true)}>{t('transactions.import.title')}</Button>
                 <Button icon="plus" onClick={() => setCreating(true)}>{t('transactions.actions.new')}</Button>
@@ -272,7 +272,7 @@ export function Transactions() {
           <div ref={listTop} className="tx-anchor" />
           <Card padding="none" className="tx-list-card">
             {list.total === 0 ? (
-              <EmptyState icon="search" title={t('transactions.list.noResultsTitle')} description={t('transactions.list.noResultsText')}
+              <EmptyState title={t('transactions.list.noResultsTitle')} description={t('transactions.list.noResultsText')}
                 action={<Button variant="secondary" icon="close" onClick={clearFilters}>{t('transactions.filters.clear')}</Button>} />
             ) : (
               <TransactionList items={list.items} dayTotalsFrom={all} accounts={accounts} categories={categories}

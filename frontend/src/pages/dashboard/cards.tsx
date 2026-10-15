@@ -139,7 +139,7 @@ export function CashflowCard({ cashflow, points }: { cashflow: CashflowProjectio
         </div>
       </dl>}
       {events.length === 0 ? (
-        <EmptyState compact icon="calendar" title={t('dashboard.cashflow.emptyTitle')} description={t('dashboard.cashflow.emptyText')} />
+        <EmptyState compact title={t('dashboard.cashflow.emptyTitle')} description={t('dashboard.cashflow.emptyText')} />
       ) : (
         <>
           <CashflowChart points={points} />
@@ -360,7 +360,7 @@ export function BudgetsCard({ budgets, categories, loading, previousMonth, month
         subtitle={budgets.length ? <span className="ft-num">{t('dashboard.budgets.total', { spent: formatCurrency(spent), limit: formatCurrency(limit) })}</span> : undefined}
         action={budgets.length ? <CardLink to={manage}>{t('dashboard.budgets.manage')}</CardLink> : undefined} />
       {budgets.length === 0 ? (
-        <EmptyState compact icon="target" title={t('dashboard.budgets.emptyTitle')} description={t('dashboard.budgets.emptyText')}
+        <EmptyState compact title={t('dashboard.budgets.emptyTitle')} description={t('dashboard.budgets.emptyText')}
           action={<Link to={manage} className="ft-btn ft-btn--secondary ft-btn--sm">{t('dashboard.budgets.emptyAction')}</Link>} />
       ) : (
         <ul className="ft-budget-list">
@@ -399,7 +399,7 @@ export function RecentCard({ transactions, categories, accounts }: { transaction
     <Card className="ft-dash-recent">
       <CardHeader title={t('dashboard.recent.title')} action={transactions.length ? <CardLink to="/transactions">{t('dashboard.recent.viewAll')}</CardLink> : undefined} />
       {transactions.length === 0 ? (
-        <EmptyState compact icon="list" title={t('dashboard.recent.emptyTitle')} description={t('dashboard.recent.emptyText')}
+        <EmptyState compact title={t('dashboard.recent.emptyTitle')} description={t('dashboard.recent.emptyText')}
           action={<Link to="/transactions?acao=importar" className="ft-btn ft-btn--secondary ft-btn--sm"><Icon name="upload" size={14} />{t('dashboard.recent.emptyAction')}</Link>} />
       ) : (
         <ul className="ft-recent-list">

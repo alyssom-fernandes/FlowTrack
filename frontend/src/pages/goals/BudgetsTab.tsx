@@ -220,14 +220,14 @@ export function BudgetsTab({ creating, onCreatingChange }: { creating: boolean; 
 
       {failed ? (
         <Card>
-          <EmptyState icon="alertCircle" title={t('goals.budgets.loadError')}
+          <EmptyState tone="error" title={t('goals.budgets.loadError')}
             action={<Button variant="secondary" icon="refresh" onClick={() => load(month)}>{t('goals.retry')}</Button>} />
         </Card>
       ) : budgets === null ? (
         <BudgetsSkeleton />
       ) : budgets.length === 0 ? (
         <Card>
-          <EmptyState icon="wallet" title={t('goals.budgets.empty.title', { month: monthName(month, current) })}
+          <EmptyState title={t('goals.budgets.empty.title', { month: monthName(month, current) })}
             description={month < current && !prevBudgets.length ? t('goals.budgets.empty.textPast') : t('goals.budgets.empty.text')}
             action={prevBudgets.length > 0 ? <>
               <Button icon="repeat" loading={busy} onClick={copyPrevious}>{t('goals.budgets.empty.copy', { month: monthName(prev, month) })}</Button>

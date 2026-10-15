@@ -63,6 +63,32 @@
     },
     "editName": "Edit {{name}}",
     "deleteName": "Delete {{name}}",
-    "actionsFor": "Actions for {{name}}"
+    "actionsFor": "Actions for {{name}}",
+    "glyph": {
+      "label": "Icon",
+      "names": {
+        "tag": "Tag",
+        "home": "Home",
+        "utensils": "Food",
+        "car": "Car",
+        "heart": "Health",
+        "book": "Study",
+        "music": "Leisure",
+        "shirt": "Clothes",
+        "repeat": "Subscription",
+        "trending-up": "Investment",
+        "paw-print": "Pet",
+        "gift": "Gift",
+        "briefcase": "Work",
+        "coffee": "Coffee",
+        "dumbbell": "Gym",
+        "smartphone": "Phone",
+        "shopping-bag": "Shopping",
+        "plane": "Travel",
+        "piggy-bank": "Piggy bank",
+        "target": "Target",
+        "shield": "Protection"
+      }
+    }
   }
 }

@@ -63,6 +63,32 @@
     },
     "editName": "Editar {{name}}",
     "deleteName": "Excluir {{name}}",
-    "actionsFor": "Ações de {{name}}"
+    "actionsFor": "Ações de {{name}}",
+    "glyph": {
+      "label": "Ícone",
+      "names": {
+        "tag": "Etiqueta",
+        "home": "Casa",
+        "utensils": "Comida",
+        "car": "Carro",
+        "heart": "Saúde",
+        "book": "Estudo",
+        "music": "Lazer",
+        "shirt": "Roupa",
+        "repeat": "Assinatura",
+        "trending-up": "Investimento",
+        "paw-print": "Pet",
+        "gift": "Presente",
+        "briefcase": "Trabalho",
+        "coffee": "Café",
+        "dumbbell": "Academia",
+        "smartphone": "Celular",
+        "shopping-bag": "Compras",
+        "plane": "Viagem",
+        "piggy-bank": "Cofrinho",
+        "target": "Alvo",
+        "shield": "Proteção"
+      }
+    }
   }
 }

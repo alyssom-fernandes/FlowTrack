@@ -223,7 +223,7 @@ export function ImportModal({ open, onClose, accounts, categories, defaultAccoun
   const back = <Button variant="secondary" onClick={reset}>{t('transactions.import.back')}</Button>
 
   if (!accounts.length) {
-    body = <EmptyState compact icon="wallet" title={t('transactions.list.noAccountTitle')} description={t('transactions.list.noAccountText')}
+    body = <EmptyState compact title={t('transactions.list.noAccountTitle')} description={t('transactions.list.noAccountText')}
       action={<Button icon="plus" onClick={() => navigate('/profile')}>{t('transactions.list.goToProfile')}</Button>} />
   } else if (step === 'choose') {
     body = (

@@ -331,11 +331,18 @@ export function Tabs<T extends string>({ items, value, onChange, block, label }:
 }
 
 // ── Estado vazio ──────────────────────────────────────────
-export function EmptyState({ icon = 'inbox', title, description, action, compact }: { icon?: IconName; title: ReactNode; description?: ReactNode; action?: ReactNode; compact?: boolean }) {
+// Sem o ícone em caixa (era o molde de template): texto direto e uma ação principal. preview mostra,
+// esmaecido, o que a tela vai ter quando houver dados. Ícone só onde ele diz algo: tone "error" (falhou)
+// e "done" (está tudo certo), pequeno e junto do título.
+export function EmptyState({ title, description, action, preview, tone = 'neutral', compact, align = 'center' }: {
+  title: ReactNode; description?: ReactNode; action?: ReactNode; preview?: ReactNode
+  tone?: 'neutral' | 'error' | 'done'; compact?: boolean; align?: 'center' | 'start'
+}) {
+  const mark: IconName | null = tone === 'error' ? 'alertCircle' : tone === 'done' ? 'checkCircle' : null
   return (
-    <div className={`ft-empty${compact ? ' ft-empty--compact' : ''}`}>
-      <div className="ft-empty__icon"><Icon name={icon} size={20} /></div>
-      <div className="ft-empty__title">{title}</div>
+    <div className={`ft-empty ft-empty--${tone}${compact ? ' ft-empty--compact' : ''}${align === 'start' ? ' ft-empty--start' : ''}`}>
+      {preview && <div className="ft-empty__preview" aria-hidden>{preview}</div>}
+      <div className="ft-empty__title">{mark && <Icon name={mark} size={18} className="ft-empty__mark" />}<span>{title}</span></div>
       {description && <p className="ft-empty__text">{description}</p>}
       {action && <div className="ft-empty__action">{action}</div>}
     </div>
@@ -446,7 +453,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, EBState> {
       return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: 'var(--bg)', padding: '1.5rem' }}>
           <div style={{ maxWidth: '24rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="ft-empty__icon" style={{ color: 'var(--red)' }}><Icon name="alertCircle" size={20} /></div>
+            <Icon name="alertCircle" size={24} style={{ color: 'var(--red)' }} />
             <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600 }}>{t('common.crashTitle', 'Algo saiu do lugar')}</h1>
             <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-muted)', lineHeight: 1.55 }}>{t('common.crashText', 'A tela encontrou um erro inesperado. Recarregar costuma resolver; seus dados não foram perdidos.')}</p>
             <Button icon="refresh" onClick={() => window.location.reload()} style={{ marginTop: '0.5rem' }}>{t('common.reload', 'Recarregar')}</Button>

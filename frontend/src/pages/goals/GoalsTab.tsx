@@ -195,14 +195,14 @@ export function GoalsTab({ creating, onCreatingChange }: { creating: boolean; on
     <div className="gl-panel">
       {failed ? (
         <Card>
-          <EmptyState icon="alertCircle" title={t('goals.loadError')}
+          <EmptyState tone="error" title={t('goals.loadError')}
             action={<Button variant="secondary" icon="refresh" onClick={load}>{t('goals.retry')}</Button>} />
         </Card>
       ) : goals === null ? (
         <GoalsSkeleton />
       ) : goals.length === 0 ? (
         <Card>
-          <EmptyState icon="target" title={t('goals.empty.title')} description={t('goals.empty.text')}
+          <EmptyState title={t('goals.empty.title')} description={t('goals.empty.text')}
             action={<>
               <Button icon="plus" onClick={() => openNew('spending_limit')}>{t('goals.empty.limit')}</Button>
               <Button variant="secondary" onClick={() => openNew('savings_target')}>{t('goals.empty.savings')}</Button>

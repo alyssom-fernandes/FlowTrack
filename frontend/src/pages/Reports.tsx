@@ -286,7 +286,7 @@ export function Reports() {
   if (failed) {
     body = (
       <Card>
-        <EmptyState icon="alertCircle" title={t('reports.error.title')} description={t('reports.error.text')}
+        <EmptyState tone="error" title={t('reports.error.title')} description={t('reports.error.text')}
           action={<Button variant="secondary" icon="refresh" onClick={retry}>{t('reports.error.retry')}</Button>} />
       </Card>
     )
@@ -296,7 +296,7 @@ export function Reports() {
     body = (
       <div className="rp-body" aria-busy={loading || undefined}>
         <Card>
-          <EmptyState icon="calendar" title={t('reports.noPeriod.title')} description={t('reports.noPeriod.text', { range: report.rangeText })}
+          <EmptyState title={t('reports.noPeriod.title')} description={t('reports.noPeriod.text', { range: report.rangeText })}
             action={periodKey !== '12m' ? <Button variant="secondary" onClick={() => pickPeriod('12m')}>{t('reports.noPeriod.action')}</Button> : undefined} />
         </Card>
         <ProjectionCard projection={projection} view={views.proj} onView={v => setViews(s => ({ ...s, proj: v }))} />
@@ -416,7 +416,7 @@ export function Reports() {
                 <CardHead title={t('reports.categories.title')} sub={t('reports.categories.summary', { count: report.categories.length, total: formatCurrency(s.expense) })}
                   tools={report.categories.length ? <ViewToggle value={views.cat} onChange={v => setViews(o => ({ ...o, cat: v }))} /> : undefined} />
                 {!report.categories.length ? (
-                  <EmptyState compact icon="pie" title={t('reports.categories.emptyTitle')} description={t('reports.categories.emptyText')} />
+                  <EmptyState compact title={t('reports.categories.emptyTitle')} description={t('reports.categories.emptyText')} />
                 ) : views.cat === 'chart' ? (
                   <CategoryDonut slices={report.slices} total={s.expense} compare={showPrev} ariaLabel={donutLabel} />
                 ) : (
@@ -427,7 +427,7 @@ export function Reports() {
                 <CardHead title={t('reports.top.title')} sub={t('reports.top.subtitle')} />
                 {report.top.length
                   ? <TopList rows={report.top} />
-                  : <EmptyState compact icon="inbox" title={t('reports.categories.emptyTitle')} description={t('reports.categories.emptyText')} />}
+                  : <EmptyState compact title={t('reports.categories.emptyTitle')} description={t('reports.categories.emptyText')} />}
               </Card>
             </div>
           </div>
@@ -460,14 +460,14 @@ export function Reports() {
 
       {emptyAccount ? (
         <Card>
-          <EmptyState icon="pie" title={t('reports.empty.title')} description={t('reports.empty.text')}
+          <EmptyState title={t('reports.empty.title')} description={t('reports.empty.text')}
             action={<Button icon="plus" onClick={() => navigate('/transactions')}>{t('reports.empty.action')}</Button>} />
         </Card>
       ) : (
         <>
           {filters}
           {customError ? (
-            <Card><EmptyState compact icon="calendar" title={t('reports.period.chooseTitle')} description={t('reports.period.chooseText')} /></Card>
+            <Card><EmptyState compact title={t('reports.period.chooseTitle')} description={t('reports.period.chooseText')} /></Card>
           ) : body}
         </>
       )}

@@ -153,7 +153,7 @@ export function TransactionModal({ open, onClose, initial, accounts, categories,
   if (open && !accounts.length) {
     return (
       <Modal open={open} onClose={onClose} title={title} width="28rem">
-        <EmptyState compact icon="wallet" title={t('transactions.form.noAccountTitle')} description={t('transactions.form.noAccountText')}
+        <EmptyState compact title={t('transactions.form.noAccountTitle')} description={t('transactions.form.noAccountText')}
           action={<Button icon="plus" onClick={() => navigate('/profile')}>{t('transactions.list.goToProfile')}</Button>} />
       </Modal>
     )

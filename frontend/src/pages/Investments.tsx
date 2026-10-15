@@ -84,7 +84,7 @@ export function Investments() {
   if (failed) {
     body = (
       <Card>
-        <EmptyState icon="alertCircle" title={t('investments.loadError')}
+        <EmptyState tone="error" title={t('investments.loadError')}
           action={<Button variant="secondary" icon="refresh" onClick={load}>{t('investments.retry')}</Button>} />
       </Card>
     )
@@ -93,7 +93,7 @@ export function Investments() {
   } else if (items.length === 0) {
     body = (
       <Card>
-        <EmptyState icon="trendUp" title={t('investments.empty.title')} description={t('investments.empty.text')}
+        <EmptyState title={t('investments.empty.title')} description={t('investments.empty.text')}
           action={<Button icon="plus" onClick={() => setCreating(true)}>{t('investments.empty.action')}</Button>} />
       </Card>
     )

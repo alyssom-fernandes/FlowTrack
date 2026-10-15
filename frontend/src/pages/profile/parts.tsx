@@ -155,7 +155,7 @@ export function ListSkeleton({ rows = 3, mark = true }: { rows?: number; mark?: 
 export function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
   const { t } = useTranslation()
   return (
-    <EmptyState compact icon="alertCircle" title={message}
+    <EmptyState compact tone="error" title={message}
       action={<Button variant="secondary" size="sm" icon="refresh" onClick={onRetry}>{t('profile.retry')}</Button>} />
   )
 }

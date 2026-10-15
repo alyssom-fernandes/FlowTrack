@@ -79,7 +79,7 @@ export function AccountsTab() {
         ) : loading ? (
           <ListSkeleton rows={3} />
         ) : accounts!.length === 0 ? (
-          <EmptyState icon="bank" title={t('profile.accounts.emptyTitle')} description={t('profile.accounts.emptyText')}
+          <EmptyState title={t('profile.accounts.emptyTitle')} description={t('profile.accounts.emptyText')}
             action={<Button icon="plus" onClick={openNew}>{t('profile.accounts.new')}</Button>} />
         ) : (
           <>

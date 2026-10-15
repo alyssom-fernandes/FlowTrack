@@ -72,7 +72,7 @@ export function CategoriesTab() {
         ) : loading ? (
           <ListSkeleton rows={2} />
         ) : custom.length === 0 ? (
-          <EmptyState compact icon="tag" title={t('profile.categories.emptyTitle')} description={t('profile.categories.emptyText')}
+          <EmptyState compact title={t('profile.categories.emptyTitle')} description={t('profile.categories.emptyText')}
             action={<Button icon="plus" onClick={openNew}>{t('profile.categories.new')}</Button>} />
         ) : (
           <ul className="prf-list">

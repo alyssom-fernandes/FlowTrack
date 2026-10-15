@@ -148,7 +148,7 @@ export function Dashboard() {
       <Page>
         {header}
         <Card>
-          <EmptyState icon="alertCircle" title={t('dashboard.error.title')} description={t('dashboard.error.text')}
+          <EmptyState tone="error" title={t('dashboard.error.title')} description={t('dashboard.error.text')}
             action={<Button icon="refresh" onClick={() => setAttempt(a => a + 1)}>{t('dashboard.error.retry')}</Button>} />
         </Card>
       </Page>
