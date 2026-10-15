@@ -2,6 +2,8 @@
 const nova = /^(nova transação|nova|new transaction|new)$/i
 const importar = /^(importar|import)$/i
 const exportar = /^(exportar|export)$/i
+// No celular, Importar e Exportar ficam no "⋯" ao lado do título
+const maisAcoes = /^(importar e exportar|import and export)$/i
 
 const CSV = [
   'Data;Histórico;Valor',
@@ -27,8 +29,25 @@ DATA:OFXSGML
 const arquivo = (name, mimeType, text) => ({ name, mimeType, buffer: Buffer.from(text, 'utf8') })
 
 async function abrirImportar(page) {
-  await page.getByRole('button', { name: importar }).first().click()
+  const direto = page.getByRole('button', { name: importar }).first()
+  if (await direto.isVisible().catch(() => false)) await direto.click()
+  else {
+    await page.getByRole('button', { name: maisAcoes }).click()
+    await page.getByRole('dialog').getByRole('button', { name: /^(importar extrato|import statement)$/i }).click()
+  }
   await page.getByRole('dialog').waitFor()
+}
+
+async function abrirExportar(page) {
+  const direto = page.getByRole('button', { name: exportar })
+  if (await direto.isVisible().catch(() => false)) await direto.click()
+  else await page.getByRole('button', { name: maisAcoes }).click()
+}
+
+// Pílula do mês: abre o menu de períodos
+async function abrirPeriodos(page) {
+  await page.locator('.tx-month__current').click()
+  await page.locator('.tx-period').waitFor()
 }
 
 async function enviar(page, file) {
@@ -55,11 +74,13 @@ export default [
         await m.accountsService.create({ name: 'Nubank', bank_name: 'Nubank', bank_color: '#820ad1', account_type: 'checking', balance: 0 })
       })
       await page.reload()
-      await page.getByText(/nenhuma transação ainda|no transactions yet/i).waitFor()
+      await page.getByText(/seu extrato vira|your statement turns/i).waitFor()
     },
   },
   { id: 'transacoes-filtrada', rota: '/transactions?period=this_month&category_id=cat-1' },
   { id: 'transacoes-sem-categoria', rota: '/transactions?category_id=none' },
+  // "Sem categoria" sem nenhuma: boa notícia ("Tudo categorizado"), sem "Limpar filtros" como ação principal
+  { id: 'transacoes-tudo-categorizado', rota: '/transactions?category_id=none&period=custom&start_date=2026-10-11&end_date=2026-10-15' },
   // Modo "A revisar": sem categoria ou IA com pouca confiança, de todos os meses
   { id: 'transacoes-revisar', rota: '/transactions?review=1' },
   // Revisão: trocar a categoria das parcelas agrupadas oferece "Aplicar sempre" logo abaixo da linha
@@ -80,19 +101,38 @@ export default [
     id: 'transacoes-filtros-celular', rota: '/transactions', somente: 'mobile', inteira: false,
     acao: async page => {
       await page.getByRole('button', { name: /^(filtros|filters)/i }).click()
-      await page.getByLabel(/^(período|period)$/i).selectOption('last_month')
       await page.getByLabel(/^(tipo|type)$/i).selectOption('debit')
     },
   },
   {
-    id: 'transacoes-periodo-personalizado', rota: '/transactions', somente: 'desktop', inteira: false,
-    acao: async page => { await page.getByLabel(/^(período|period)$/i).selectOption('custom') },
+    // Menu da pílula do mês aberto
+    id: 'transacoes-periodo-menu', rota: '/transactions', inteira: false, acao: abrirPeriodos,
+  },
+  {
+    // Intervalo personalizado (1 a 10 do mês atual): a pílula vira "1 – 10 de out." com "×" e as setas somem
+    id: 'transacoes-periodo-personalizado', rota: '/transactions', inteira: false,
+    acao: async page => {
+      await abrirPeriodos(page)
+      await page.locator('.tx-period').getByRole('button', { name: /^(personalizado|custom)$/i }).click()
+      const [ini, fim] = await page.evaluate(() => {
+        const d = new Date(), p = n => String(n).padStart(2, '0')
+        const base = `${d.getFullYear()}-${p(d.getMonth() + 1)}`
+        return [`${base}-01`, `${base}-10`]
+      })
+      await page.locator('.tx-period').getByLabel(/^(de|from)$/i).fill(ini)
+      await page.locator('.tx-period').getByLabel(/^(até|to)$/i).fill(fim)
+      await page.waitForTimeout(400)
+    },
+  },
+  // Intervalo personalizado com o menu fechado (só a pílula e a lista)
+  {
+    id: 'transacoes-periodo-intervalo', rota: '/transactions?period=custom&start_date=2026-10-01&end_date=2026-10-10',
   },
   {
     id: 'transacoes-sem-resultado', rota: '/transactions',
     acao: async page => {
       await page.getByRole('searchbox').first().fill('zzzz sem resultado')
-      await page.getByText(/nada encontrado|nothing found/i).waitFor()
+      await page.getByText(/nenhuma transação com|no transactions with/i).waitFor()
     },
   },
   { id: 'transacoes-pagina-2', rota: '/transactions?period=&page=2', somente: 'desktop' },
@@ -113,6 +153,7 @@ export default [
       await dialog.getByLabel(/^(valor|amount)$/i).fill('489,90')
       await dialog.getByRole('checkbox', { name: /^(parcelado|installments)/i }).check()
       await dialog.getByLabel(/^(parcelas|number of installments)$/i).fill('6')
+      await dialog.getByRole('button', { name: /^(mais detalhes|more details)/i }).click()
       await dialog.getByLabel(/^(tags)/i).fill('casa, eletro')
     },
   },
@@ -142,7 +183,7 @@ export default [
       await page.locator('.tx-del').nth(1).click()
     },
   },
-  { id: 'transacoes-exportar', rota: '/transactions', inteira: false, acao: async page => { await page.getByRole('button', { name: exportar }).click() } },
+  { id: 'transacoes-exportar', rota: '/transactions', inteira: false, acao: abrirExportar },
   { id: 'transacoes-importar', rota: '/transactions', inteira: false, acao: abrirImportar },
   {
     id: 'transacoes-importar-erro', rota: '/transactions', inteira: false,

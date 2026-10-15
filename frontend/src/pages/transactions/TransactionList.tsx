@@ -195,6 +195,43 @@ function TransferRow({ out, from, to, mobile, onEdit, onDelete }: { out: Transac
   )
 }
 
+// ── Prévia do primeiro contato: três linhas de exemplo, com o mesmo desenho dos cartões da lista ──
+// Categorias padrão (Alimentação, Receita, Transporte); só desenho, fica esmaecida pelo EmptyState
+const SAMPLES = [
+  { key: 'market', category: 'Alimentação', amount: -248.9 },
+  { key: 'salary', category: 'Receita', amount: 6200 },
+  { key: 'ride', category: 'Transporte', amount: -23.4 },
+] as const
+
+export function SampleRows({ categories }: { categories: Category[] }) {
+  const { t } = useTranslation()
+  return (
+    <ul className="tx-ul tx-sample">
+      {SAMPLES.map(s => {
+        const cat = categories.find(c => c.name === s.category && c.is_default !== false)
+        return (
+          <li key={s.key} className="tx-card">
+            <CategoryGlyph category={cat} size={36} />
+            <div className="tx-card__body">
+              <div className="tx-card__top">
+                <span className="tx-desc">{t(`transactions.list.sample.${s.key}`)}</span>
+                <Money value={s.amount} signed tone="auto" className="tx-amount" />
+              </div>
+              <div className="tx-card__sub">
+                {cat && (
+                  <span className="tx-cat__chip" style={{ '--c': categoryColor(cat) } as React.CSSProperties}>
+                    <span className="tx-cat__dot" /><span className="tx-cat__name">{categoryLabel(cat)}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 export function ListSkeleton({ rows = 8 }: { rows?: number }) {
   const mobile = useIsMobile()
   return (

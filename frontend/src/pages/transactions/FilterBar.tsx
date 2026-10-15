@@ -1,15 +1,12 @@
-// Busca e filtros: em linha no computador, recolhíveis no celular
+// Busca e filtros: em linha no computador, recolhíveis no celular.
+// O período não mora aqui: é a pílula do mês (MonthNav), o único controle de tempo da tela.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, IconButton, Input, Select } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { categoryLabel } from '../../utils'
 import type { Account, Category } from '../../types'
-import { activeFilterCount, hasAnyFilter, NO_CATEGORY, periodRange, PERIODS, useIsMobile, type Filters, type Period } from './shared'
-
-const PERIOD_KEY: Record<Period, string> = {
-  '': 'allTime', this_month: 'thisMonth', last_month: 'lastMonth', last_3: 'last3', this_year: 'thisYear', custom: 'custom',
-}
+import { activeFilterCount, NO_CATEGORY, useIsMobile, type Filters } from './shared'
 
 function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   const { t } = useTranslation()
@@ -70,19 +67,8 @@ export function FilterBar({ filters, onChange, onClear, accounts, categories, ta
   const set = onChange
   const sortedCats = useMemo(() => [...categories].sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b))), [categories])
 
-  const setPeriod = (period: Period) => {
-    if (period === 'custom') {
-      // Começa no intervalo que estava valendo (ou no mês atual)
-      const current = periodRange({ ...filters, period: filters.period || 'this_month' })
-      set({ period, start_date: filters.start_date || current.start || '', end_date: filters.end_date || current.end || '' })
-    } else set({ period, start_date: '', end_date: '' })
-  }
-
   const selects = (
     <>
-      <Select label={t('transactions.filters.period')} value={filters.period} onChange={e => setPeriod(e.target.value as Period)}>
-        {PERIODS.map(p => <option key={p} value={p}>{t(`transactions.filters.${PERIOD_KEY[p]}`)}</option>)}
-      </Select>
       <Select label={t('transactions.filters.account')} value={filters.account_id} onChange={e => set({ account_id: e.target.value })}>
         <option value="">{t('transactions.filters.allAccounts')}</option>
         {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -107,13 +93,6 @@ export function FilterBar({ filters, onChange, onClear, accounts, categories, ta
     </>
   )
 
-  const range = filters.period === 'custom' && (
-    <div className="tx-filters__range">
-      <Input type="date" label={t('transactions.filters.from')} value={filters.start_date} max={filters.end_date || undefined} onChange={e => set({ start_date: e.target.value })} />
-      <Input type="date" label={t('transactions.filters.to')} value={filters.end_date} min={filters.start_date || undefined} onChange={e => set({ end_date: e.target.value })} />
-    </div>
-  )
-
   if (mobile) {
     return (
       <div className="tx-filters-m">
@@ -127,8 +106,7 @@ export function FilterBar({ filters, onChange, onClear, accounts, categories, ta
         {open && (
           <Card padding="sm" id="tx-filtros" className="tx-filters-m__panel">
             <div className="tx-filters-m__grid">{selects}</div>
-            {range}
-            {hasAnyFilter(filters) && <Button variant="ghost" icon="close" block onClick={onClear}>{t('transactions.filters.clear')}</Button>}
+            {(count > 0 || !!filters.search.trim()) && <Button variant="ghost" icon="close" block onClick={onClear}>{t('transactions.filters.clear')}</Button>}
           </Card>
         )}
       </div>
@@ -171,15 +149,9 @@ export function FilterBar({ filters, onChange, onClear, accounts, categories, ta
               {tags.map(tag => <option key={tag} value={tag}>#{tag}</option>)}
             </FilterChip>
           )}
-          {/* Outros períodos (o mês corrente é o padrão e não conta como filtro) */}
-          <FilterChip label={t('transactions.filters.period')} value={filters.period} display={t(`transactions.filters.${PERIOD_KEY[filters.period]}`)}
-            active={filters.period !== 'this_month'} onChange={v => setPeriod(v as Period)} onClear={() => setPeriod('this_month')}>
-            {PERIODS.map(p => <option key={p} value={p}>{t(`transactions.filters.${PERIOD_KEY[p]}`)}</option>)}
-          </FilterChip>
         </div>
         {active > 0 && <Button variant="ghost" size="sm" icon="close" className="tx-filters__clear" onClick={onClear}>{t('transactions.filters.clearShort')}</Button>}
       </div>
-      {range}
     </Card>
   )
 }

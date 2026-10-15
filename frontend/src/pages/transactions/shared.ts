@@ -1,5 +1,6 @@
 // ── Transações: filtros, períodos, valores e agrupamento ──
 import { useSyncExternalStore } from 'react'
+import type { TFunction } from 'i18next'
 import { categoriesService, transactionsService } from '../../services'
 import type { Category, Transaction, TransactionFilters } from '../../types'
 import { shownCategory } from '../../lib/review'
@@ -40,6 +41,41 @@ export function periodRange(f: Pick<Filters, 'period' | 'start_date' | 'end_date
   }
 }
 
+// ── Nome do período (pílula do mês e frases dos vazios e da exportação) ──
+export function monthOf(f: Filters): Date | null {
+  const { start, end } = periodRange(f)
+  if (!start || !end) return null
+  const s = new Date(start + 'T00:00:00'), e = new Date(end + 'T00:00:00')
+  const last = new Date(s.getFullYear(), s.getMonth() + 1, 0)
+  return s.getDate() === 1 && e.getTime() === last.getTime() ? s : null
+}
+
+export const monthName = (d: Date) => new Intl.DateTimeFormat(currentLocale(), { month: 'long', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined }).format(d)
+
+// "1 – 10 de out." / "Oct 1 – 10" (com o ano só fora do ano corrente)
+function rangeText(start: string, end: string): string {
+  const s = new Date(start + 'T00:00:00'), e = new Date(end + 'T00:00:00')
+  const year = s.getFullYear() !== new Date().getFullYear() || e.getFullYear() !== s.getFullYear() ? 'numeric' : undefined
+  const fmt = new Intl.DateTimeFormat(currentLocale(), { day: 'numeric', month: 'short', year })
+  return fmt.formatRange(s, e)
+}
+const dayText = (iso: string) => new Intl.DateTimeFormat(currentLocale(), { day: 'numeric', month: 'short' }).format(new Date(iso + 'T00:00:00'))
+
+/** Nome do período: o da pílula ("Outubro", "Todo o período") e o das frases ("em outubro", "em todo o período"). */
+export function periodText(f: Filters, t: TFunction): { label: string; phrase: string } {
+  const month = monthOf(f)
+  if (month) { const m = monthName(month); return { label: m, phrase: t('transactions.period.inMonth', { month: m }) } }
+  if (f.period === '') return { label: t('transactions.filters.allTime'), phrase: t('transactions.period.inAll') }
+  if (f.period === 'last_3') return { label: t('transactions.filters.last3'), phrase: t('transactions.period.inLast3') }
+  if (f.period === 'this_year') return { label: t('transactions.filters.thisYear'), phrase: t('transactions.period.inYear') }
+  const { start, end } = periodRange(f)
+  const label = start && end ? rangeText(start, end)
+    : start ? t('transactions.period.since', { date: dayText(start) })
+    : end ? t('transactions.period.until', { date: dayText(end) })
+    : t('transactions.filters.allTime')
+  return { label, phrase: start || end ? t('transactions.period.inRange', { range: label }) : t('transactions.period.inAll') }
+}
+
 export function toQuery(f: Filters): TransactionFilters {
   const { start, end } = periodRange(f)
   const q: TransactionFilters = {}
@@ -58,12 +94,13 @@ export function toQuery(f: Filters): TransactionFilters {
 // O mês corrente é a vista padrão, não conta como filtro
 export const DEFAULT_FILTERS: Filters = { ...EMPTY_FILTERS, period: 'this_month' }
 
+// O período não entra na conta: quem cuida dele é a pílula do mês (com o próprio "×")
 export function activeFilterCount(f: Filters): number {
-  return [f.account_id, f.category_id, f.type, f.period === 'this_month' ? '' : f.period, f.tag, f.review].filter(Boolean).length
+  return [f.account_id, f.category_id, f.type, f.tag, f.review].filter(Boolean).length
 }
 
 export function hasAnyFilter(f: Filters): boolean {
-  return activeFilterCount(f) > 0 || !!f.search.trim()
+  return activeFilterCount(f) > 0 || !!f.search.trim() || f.period !== 'this_month'
 }
 
 // Todas as transações do filtro (exportação e resumo), em lotes de 500

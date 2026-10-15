@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { Badge, Button, EmptyState, Money, Modal, Select, Spinner, Tabs } from '../../components/ui'
 import { Icon, type IconName } from '../../components/icons'
 import { transactionsService } from '../../services'
-import { categoryLabel, formatCurrency, formatDateShort, formatPercent, formatSignedCurrency } from '../../utils'
+import { categoryLabel, currentLocale, formatCurrency, formatDateShort, formatPercent, formatSignedCurrency } from '../../utils'
 import { categoryColor } from '../../lib/categoryColor'
 import { REVIEW_CONFIDENCE } from '../../lib/review'
 import type { Account, Category, ParsedTransaction } from '../../types'
@@ -35,6 +35,9 @@ function toRows(list: ParsedTransaction[]): PreviewRow[] {
     categoryId: tx.suggested_category_id ?? '', suggestedId: tx.suggested_category_id, confidence: tx.suggested_confidence,
   }))
 }
+
+// Cabeçalho do dia na revisão: "13 de out." (como na lista; o ano só fora do ano corrente)
+const dayLabel = (iso: string) => new Intl.DateTimeFormat(currentLocale(), { day: 'numeric', month: 'short', ...(iso.startsWith(String(new Date().getFullYear())) ? {} : { year: 'numeric' }) }).format(new Date(iso + 'T00:00:00'))
 
 function Steps({ current }: { current: number }) {
   const { t } = useTranslation()
@@ -67,6 +70,8 @@ export function ImportModal({ open, onClose, accounts, categories, defaultAccoun
   const [step, setStep] = useState<Step>('choose')
   // Valor em edição fica cru ("-54,90"); fora da edição aparece como no resto do app ("-R$ 54,90")
   const [editingAmount, setEditingAmount] = useState<string | null>(null)
+  // Data do dia em edição: a data aparece como texto no cabeçalho e vira campo ao clicar
+  const [editingDay, setEditingDay] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const [accountId, setAccountId] = useState('')
@@ -163,6 +168,22 @@ export function ImportModal({ open, onClose, accounts, categories, defaultAccoun
     return acc
   }, { income: 0, expense: 0 })
   const update = (key: string, patch: Partial<PreviewRow>) => setRows(prev => prev.map(r => (r.key === key ? { ...r, ...patch } : r)))
+  // Agrupadas por dia, do mais recente para o mais antigo (n = posição no arquivo, para os rótulos)
+  const days = useMemo(() => {
+    const list = parsedRows.map((r, i) => ({ ...r, n: i + 1 })).sort((a, b) => b.date.localeCompare(a.date))
+    const out: { date: string; items: typeof list }[] = []
+    for (const r of list) {
+      const last = out[out.length - 1]
+      if (last && last.date === r.date) last.items.push(r)
+      else out.push({ date: r.date, items: [r] })
+    }
+    return out
+  }, [parsedRows])
+  // Mudar a data no cabeçalho muda a de todas as linhas daquele dia
+  const moveDay = (from: string, to: string) => {
+    setEditingDay(null)
+    if (to && to !== from) setRows(prev => prev.map(r => (r.date === from ? { ...r, date: to } : r)))
+  }
   const allSelected = rows.length > 0 && rows.every(r => r.selected)
   const someSelected = rows.some(r => r.selected)
 
@@ -268,37 +289,65 @@ export function ImportModal({ open, onClose, accounts, categories, defaultAccoun
           </span>
         </div>
         <ul className="tx-rlist">
-          {parsedRows.map((r, i) => {
-            const bad = r.selected && (!Number.isFinite(r.amount) || r.amount === 0)
-            const cat = categories.find(c => c.id === r.categoryId)
-            const suggested = !!cat && r.categoryId === r.suggestedId
-            const review = !cat || (suggested && (r.confidence ?? 0) < REVIEW_CONFIDENCE)
+          {days.map(day => {
+            const dayName = t('transactions.import.dayDate', { date: day.date ? dayLabel(day.date) : t('transactions.import.noDate'), count: day.items.length })
             return (
-              <li key={r.key} className={`tx-rrow${r.selected ? '' : ' is-off'}${review ? ' is-review' : ''}`}>
-                <input type="checkbox" className="tx-rrow__check" checked={r.selected} aria-label={t('transactions.import.rowSelect', { n: i + 1 })} onChange={() => update(r.key, { selected: !r.selected })} />
-                <input type="date" className="tx-cell tx-rrow__date" value={r.date} aria-label={t('transactions.import.rowDate', { n: i + 1 })} onChange={e => update(r.key, { date: e.target.value })} />
-                <input className="tx-cell tx-rrow__desc" value={r.description} aria-label={t('transactions.import.rowDescription', { n: i + 1 })} onChange={e => update(r.key, { description: e.target.value })} />
-                <input className={`tx-cell tx-rrow__amt ft-num${bad ? ' is-bad' : r.amount > 0 ? ' is-in' : ' is-out'}`} inputMode="decimal"
-                  value={editingAmount === r.key || !Number.isFinite(r.amount) ? r.amountStr : formatSignedCurrency(r.amount)} aria-invalid={bad || undefined}
-                  onFocus={e => { setEditingAmount(r.key); requestAnimationFrame(() => e.target.select()) }} onBlur={() => setEditingAmount(null)}
-                  aria-label={t('transactions.import.rowAmount', { n: i + 1 })} onChange={e => update(r.key, { amountStr: e.target.value })} />
-                {/* Categoria sugerida pelas regras, com a confiança; dá para trocar antes de importar */}
-                <span className="tx-rcat">
-                  <span className={`tx-cat__chip${cat ? '' : ' tx-cat__chip--none'}${suggested && review ? ' tx-cat__chip--suggested' : ''}`}
-                    style={cat ? { '--c': categoryColor(cat) } as React.CSSProperties : undefined}>
-                    {cat ? <span className="tx-cat__dot" /> : <Icon name="plus" size={12} />}
-                    <span className="tx-cat__name">{cat ? categoryLabel(cat) : t('transactions.row.uncategorized')}</span>
-                    <Icon name="chevronDown" size={12} className="tx-cat__chev" />
-                    <select className="tx-cat__select" value={r.categoryId} aria-label={t('transactions.import.rowCategory', { n: i + 1 })}
-                      onChange={e => update(r.key, { categoryId: e.target.value })}>
-                      <option value="">{t('transactions.row.uncategorized')}</option>
-                      {sortedCats.map(c => <option key={c.id} value={c.id}>{categoryLabel(c)}</option>)}
-                    </select>
-                  </span>
-                  {suggested && r.confidence !== undefined && (
-                    <span className="tx-ai" title={t('transactions.import.suggestedHint')}>{t('transactions.import.suggested', { pct: formatPercent(r.confidence * 100, 0, false) })}</span>
+              <li key={day.date || 'none'} className="tx-rday">
+                <div className="tx-rday__head">
+                  {editingDay === day.date ? (
+                    <input type="date" className="tx-cell tx-rday__input" defaultValue={day.date} autoFocus aria-label={dayName}
+                      onBlur={e => moveDay(day.date, e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
+                        if (e.key === 'Escape') { e.stopPropagation(); setEditingDay(null) }
+                      }} />
+                  ) : (
+                    <button type="button" className="tx-rday__date" title={t('transactions.import.dayEdit')} aria-label={dayName} onClick={() => setEditingDay(day.date)}>
+                      {day.date ? dayLabel(day.date) : t('transactions.import.noDate')}
+                    </button>
                   )}
-                </span>
+                </div>
+                <ul className="tx-rday__list">
+                  {day.items.map(r => {
+                    const bad = r.selected && (!Number.isFinite(r.amount) || r.amount === 0)
+                    const cat = categories.find(c => c.id === r.categoryId)
+                    const suggested = !!cat && r.categoryId === r.suggestedId
+                    const review = !cat || (suggested && (r.confidence ?? 0) < REVIEW_CONFIDENCE)
+                    // Confiança 1 = regra criada pela pessoa ("Aplicar sempre"): só "Regra", sem porcentagem
+                    const own = suggested && r.confidence === 1
+                    return (
+                      <li key={r.key} className={`tx-rrow${r.selected ? '' : ' is-off'}${review ? ' is-review' : ''}`}>
+                        <label className="tx-rrow__hit">
+                          <input type="checkbox" className="tx-rrow__check" checked={r.selected} aria-label={t('transactions.import.rowSelect', { n: r.n })} onChange={() => update(r.key, { selected: !r.selected })} />
+                        </label>
+                        <input className="tx-cell tx-rrow__desc" value={r.description} aria-label={t('transactions.import.rowDescription', { n: r.n })} onChange={e => update(r.key, { description: e.target.value })} />
+                        <input className={`tx-cell tx-rrow__amt ft-num${bad ? ' is-bad' : r.amount > 0 ? ' is-in' : ' is-out'}`} inputMode="decimal"
+                          value={editingAmount === r.key || !Number.isFinite(r.amount) ? r.amountStr : formatSignedCurrency(r.amount)} aria-invalid={bad || undefined}
+                          onFocus={e => { setEditingAmount(r.key); requestAnimationFrame(() => e.target.select()) }} onBlur={() => setEditingAmount(null)}
+                          aria-label={t('transactions.import.rowAmount', { n: r.n })} onChange={e => update(r.key, { amountStr: e.target.value })} />
+                        {/* Categoria sugerida pelas regras, com a confiança; dá para trocar antes de importar */}
+                        <span className="tx-rcat">
+                          <span className={`tx-cat__chip${cat ? '' : ' tx-cat__chip--none'}${suggested && review ? ' tx-cat__chip--suggested' : ''}`}
+                            style={cat ? { '--c': categoryColor(cat) } as React.CSSProperties : undefined}>
+                            {cat ? <span className="tx-cat__dot" /> : <Icon name="plus" size={12} />}
+                            <span className="tx-cat__name">{cat ? categoryLabel(cat) : t('transactions.row.uncategorized')}</span>
+                            <Icon name="chevronDown" size={12} className="tx-cat__chev" />
+                            <select className="tx-cat__select" value={r.categoryId} aria-label={t('transactions.import.rowCategory', { n: r.n })}
+                              onChange={e => update(r.key, { categoryId: e.target.value })}>
+                              <option value="">{t('transactions.row.uncategorized')}</option>
+                              {sortedCats.map(c => <option key={c.id} value={c.id}>{categoryLabel(c)}</option>)}
+                            </select>
+                          </span>
+                          {suggested && r.confidence !== undefined && (
+                            <span className="tx-ai" title={t(own ? 'transactions.import.suggestedRuleHint' : 'transactions.import.suggestedHint')}>
+                              {own ? t('transactions.import.suggestedRule') : t('transactions.import.suggested', { pct: formatPercent(r.confidence * 100, 0, false) })}
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
               </li>
             )
           })}
@@ -385,7 +434,7 @@ export function ImportModal({ open, onClose, accounts, categories, defaultAccoun
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={t('transactions.import.title')} width={step === 'review' ? '52rem' : '40rem'} footer={footer}>
+    <Modal open={open} onClose={onClose} title={t('transactions.import.title')} width="55rem" footer={footer}>
       {accounts.length > 0 && <Steps current={STEP_INDEX[step]} />}
       {body}
     </Modal>

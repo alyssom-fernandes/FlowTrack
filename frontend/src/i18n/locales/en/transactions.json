@@ -19,7 +19,11 @@
       "exported_one": "File created with {{count}} transaction",
       "exported_other": "File created with {{count}} transactions",
       "exportEmpty": "There are no transactions to export with these filters.",
-      "exportError": "Could not create the file. Please try again."
+      "exportError": "Could not create the file. Please try again.",
+      "more": "Import and export",
+      "importHint": "PDF, OFX or CSV from your bank",
+      "exportScopeN_one": "Exports the {{count}} transaction {{period}}, with the current filters.",
+      "exportScopeN_other": "Exports the {{count}} transactions {{period}}, with the current filters."
     },
     "filters": {
       "label": "Filters",
@@ -81,17 +85,30 @@
       "loadError": "Could not load your transactions",
       "loadErrorText": "Check your connection and try again.",
       "retry": "Try again",
-      "emptyTitle": "No transactions yet",
-      "emptyText": "Import your bank statement as PDF, OFX or CSV, or add your first transaction by hand.",
+      "emptyTitle": "Your statement turns into a list like this",
+      "emptyText": "Import the PDF, OFX or CSV from your bank: each transaction arrives with date, category and amount. Or add the first one by hand.",
       "noAccountTitle": "Add an account to get started",
       "noAccountText": "Every transaction belongs to an account. Create your first one in Profile, then come back to import a statement.",
       "goToProfile": "Add account",
-      "noResultsTitle": "Nothing found",
-      "noResultsText": "No transactions match your search and filters.",
+      "noResultsText": "The search also respects the account, category, type and tag filters.",
       "edit": "Edit",
       "delete": "Delete",
       "editAria": "Edit {{name}}",
-      "deleteAria": "Delete {{name}}"
+      "deleteAria": "Delete {{name}}",
+      "addByHand": "Add by hand",
+      "sample": {
+        "market": "Groceries",
+        "salary": "Salary",
+        "ride": "Uber"
+      },
+      "noSearchTitle": "No transactions with “{{term}}” {{period}}",
+      "noFilterTitle": "No transactions with these filters {{period}}",
+      "noPeriodTitle": "No transactions {{period}}",
+      "searchAllTime": "Search the whole period",
+      "seeAllTime": "See the whole period",
+      "allCategorizedTitle": "Everything is categorized",
+      "allCategorizedText": "No uncategorized transactions {{period}}.",
+      "seeAll": "See all transactions"
     },
     "row": {
       "installment": "Installment {{current}} of {{total}}",
@@ -169,7 +186,13 @@
       "toastInstallments": "{{count}} installments added",
       "toastTransfer": "Transfer recorded",
       "toastUpdated": "Transaction updated",
-      "toastDeleted": "Transaction deleted"
+      "toastDeleted": "Transaction deleted",
+      "createInstallmentsTotal": "Create {{count}} installments · {{total}}",
+      "moreDetails": "More details",
+      "moreDetailsHint": "Notes, tags and recurring",
+      "moreDetailsTransfer": "Notes",
+      "moreFilled_one": "{{count}} filled in",
+      "moreFilled_other": "{{count}} filled in"
     },
     "delete": {
       "title": "Delete transaction",
@@ -266,7 +289,13 @@
       "toReview_other": "{{count}} uncategorized",
       "rowCategory": "Category for row {{n}}",
       "suggested": "Rule · {{pct}}",
-      "suggestedHint": "Suggested by the categorization rules (no AI). Change it if it's wrong."
+      "suggestedHint": "Suggested by the categorization rules (no AI). Change it if it's wrong.",
+      "dayDate_one": "{{date}}, {{count}} transaction. Change the date",
+      "dayDate_other": "{{date}}, {{count}} transactions. Change the date",
+      "dayEdit": "Click to change the date of this day’s transactions",
+      "noDate": "No date",
+      "suggestedRule": "Rule",
+      "suggestedRuleHint": "A rule you created for this description. Change it if it is not right."
     },
     "export": {
       "sheetTitle": "FlowTrack — Transactions",
@@ -303,11 +332,11 @@
     "month": {
       "label": "Month",
       "prev": "Go to {{month}}",
-      "next": "Go to {{month}}"
+      "next": "Go to {{month}}",
+      "choose": "Period: {{period}}. Choose another period",
+      "reset": "Back to this month"
     },
     "review": {
-      "chip_one": "{{count}} to review",
-      "chip_other": "{{count}} to review",
       "title_one": "{{count}} transaction to review",
       "title_other": "{{count}} transactions to review",
       "text": "Uncategorized, or categorized by AI with less than 85% confidence. Confirm with ✓ or pick another category.",
@@ -335,6 +364,15 @@
       "saved_other": "Rule saved: {{count}} more transactions moved to {{category}}.",
       "savedFuture": "Rule saved: future “{{name}}” go to {{category}}.",
       "error": "Couldn't save the rule."
+    },
+    "period": {
+      "inMonth": "in {{month}}",
+      "inAll": "in the whole period",
+      "inLast3": "in the last 3 months",
+      "inYear": "this year",
+      "inRange": "in {{range}}",
+      "since": "Since {{date}}",
+      "until": "Until {{date}}"
     }
   }
 }

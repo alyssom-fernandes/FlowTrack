@@ -9,12 +9,12 @@ import type { Account, Category, Transaction } from '../types'
 import { FilterBar } from './transactions/FilterBar'
 import { SummaryStrip } from './transactions/SummaryStrip'
 import { MonthNav } from './transactions/MonthNav'
-import { ListSkeleton, TransactionList } from './transactions/TransactionList'
+import { ListSkeleton, SampleRows, TransactionList } from './transactions/TransactionList'
 import { TransactionModal, type SavedKind } from './transactions/TransactionModal'
 import { ImportModal } from './transactions/ImportModal'
 import { ExportMenu } from './transactions/ExportMenu'
 import { describeFilters, exportTransactions, type ExportFormat } from './transactions/exportFile'
-import { DEFAULT_FILTERS, fetchAll, filtersFromParams, filtersToParams, hasAnyFilter, NO_CATEGORY, PAGE_SIZE, toQuery, transferPeer, type Filters } from './transactions/shared'
+import { activeFilterCount, DEFAULT_FILTERS, periodText, fetchAll, filtersFromParams, filtersToParams, hasAnyFilter, NO_CATEGORY, PAGE_SIZE, toQuery, transferPeer, useIsMobile, type Filters } from './transactions/shared'
 import { needsReview, shownCategory } from '../lib/review'
 import { Icon } from '../components/icons'
 import './transactions/transactions.css'
@@ -24,6 +24,7 @@ interface ListState { items: Transaction[]; total: number; pages: number }
 export function Transactions() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const mobile = useIsMobile()
   const { toast } = useToastStore()
   const [params, setParams] = useSearchParams()
   // Filtros e página vivem no estado; a URL só espelha (dá para recarregar e compartilhar o link)
@@ -61,7 +62,8 @@ export function Transactions() {
   const closeImport = () => { setImporting(false); setPendingAction(null) }
 
   const updateFilters = (patch: Partial<Filters>) => { setFiltersState(f => ({ ...f, ...patch })); setPage(1) }
-  const clearFilters = () => { setFiltersState({ ...DEFAULT_FILTERS }); setPage(1) }
+  // "Limpar filtros" não mexe no período (é a pílula do mês que cuida dele)
+  const clearFilters = () => { setFiltersState(f => ({ ...DEFAULT_FILTERS, period: f.period, start_date: f.start_date, end_date: f.end_date })); setPage(1) }
 
   useEffect(() => {
     const wanted = filtersToParams(filters, page)
@@ -260,17 +262,40 @@ export function Transactions() {
   const subtitle = !ready ? <Skeleton width={140} height={14} style={{ marginTop: '0.375rem' }} />
     : list.total === 0 ? undefined
     : t(filtered ? 'transactions.found' : 'transactions.count', { count: list.total })
+  const period = periodText(filters, t)
+  const exportScope = list && list.total > 0
+    ? t('transactions.actions.exportScopeN', { count: list.total, period: period.phrase })
+    : t('transactions.actions.exportScope')
+
+  // Lista vazia com filtro: o texto diz o que foi buscado e em que período, e a ação resolve o caso
+  const noResults = () => {
+    const term = filters.search.trim()
+    const others = activeFilterCount(filters) - (filters.category_id ? 1 : 0)
+    if (filters.category_id === NO_CATEGORY && !term && others === 0) {
+      // Nenhuma sem categoria é boa notícia (o "..": período que termina em abreviação, como "out.")
+      return <EmptyState tone="done" title={t('transactions.list.allCategorizedTitle')} description={t('transactions.list.allCategorizedText', { period: period.phrase }).replace(/\.\.$/, '.')}
+        action={<Button variant="ghost" onClick={() => updateFilters({ category_id: '' })}>{t('transactions.list.seeAll')}</Button>} />
+    }
+    const wider = filters.period !== '' && (
+      <Button variant="secondary" icon="search" onClick={() => updateFilters({ period: '', start_date: '', end_date: '' })}>
+        {t(term ? 'transactions.list.searchAllTime' : 'transactions.list.seeAllTime')}
+      </Button>
+    )
+    const title = term ? t('transactions.list.noSearchTitle', { term, period: period.phrase })
+      : activeFilterCount(filters) ? t('transactions.list.noFilterTitle', { period: period.phrase })
+      : t('transactions.list.noPeriodTitle', { period: period.phrase })
+    const clear = activeFilterCount(filters) > 0 && <Button variant="ghost" icon="close" onClick={clearFilters}>{t('transactions.filters.clear')}</Button>
+    return <EmptyState title={title} description={activeFilterCount(filters) ? t('transactions.list.noResultsText') : undefined}
+      action={(wider || clear) && <>{wider}{clear}</>} />
+  }
 
   return (
     <Page className="tx-page">
       <PageHeader title={t('transactions.title')} subtitle={subtitle} actions={!firstRun && (
         <>
-          <Button variant="secondary" icon="upload" onClick={() => setImporting(true)}>{t('transactions.actions.import')}</Button>
-          <ExportMenu busy={exporting} onExport={runExport} />
-          <Button icon="plus" onClick={() => setCreating(true)}>
-            <span className="tx-only-desktop">{t('transactions.actions.new')}</span>
-            <span className="tx-only-mobile">{t('transactions.actions.newShort')}</span>
-          </Button>
+          {!mobile && <Button variant="secondary" icon="upload" onClick={() => setImporting(true)}>{t('transactions.actions.import')}</Button>}
+          <ExportMenu busy={exporting} onExport={runExport} onImport={() => setImporting(true)} scope={exportScope} />
+          <Button icon="plus" onClick={() => setCreating(true)}>{t(mobile ? 'transactions.actions.newShort' : 'transactions.actions.new')}</Button>
         </>
       )} />
 
@@ -287,10 +312,11 @@ export function Transactions() {
             <EmptyState title={t('transactions.list.noAccountTitle')} description={t('transactions.list.noAccountText')}
               action={<Button icon="plus" onClick={() => navigate('/profile')}>{t('transactions.list.goToProfile')}</Button>} />
           ) : (
-            <EmptyState title={t('transactions.list.emptyTitle')} description={t('transactions.list.emptyText')}
+            // Primeiro contato: o desenho do que o extrato vira, com a importação como ação principal
+            <EmptyState preview={<SampleRows categories={categories} />} title={t('transactions.list.emptyTitle')} description={t('transactions.list.emptyText')}
               action={<>
-                <Button variant="secondary" icon="upload" onClick={() => setImporting(true)}>{t('transactions.import.title')}</Button>
-                <Button icon="plus" onClick={() => setCreating(true)}>{t('transactions.actions.new')}</Button>
+                <Button icon="upload" onClick={() => setImporting(true)}>{t('transactions.import.title')}</Button>
+                <Button variant="secondary" icon="plus" onClick={() => setCreating(true)}>{t('transactions.list.addByHand')}</Button>
               </>} />
           )}
         </Card>
@@ -299,7 +325,7 @@ export function Transactions() {
           <p className="tx-print-only">{describeFilters(filters, accounts, categories)}</p>
           <FilterBar filters={filters} onChange={updateFilters} onClear={clearFilters} accounts={accounts} categories={categories} tags={tags} />
           <MonthNav filters={filters} onChange={updateFilters} />
-          {list.total > 0 && !reviewing && <SummaryStrip data={all} />}
+          {list.total > 0 && !reviewing && <SummaryStrip data={all} categories={categories} onReview={() => updateFilters({ review: '1' })} />}
           {reviewing ? (
             <div className="tx-review" role="status">
               <span className="tx-review__icon" aria-hidden><Icon name="sparkle" size={16} /></span>
@@ -309,17 +335,10 @@ export function Transactions() {
               </div>
               <Button variant="ghost" size="sm" icon="close" onClick={() => updateFilters({ review: '' })}>{t('transactions.review.exit')}</Button>
             </div>
-          ) : reviewCount ? (
-            <button type="button" className="tx-review-chip" onClick={() => updateFilters({ review: '1' })}>
-              <Icon name="sparkle" size={14} />{t('transactions.review.chip', { count: reviewCount })}<Icon name="arrowRight" size={13} />
-            </button>
           ) : null}
           <div ref={listTop} className="tx-anchor" />
           <Card padding="none" className="tx-list-card">
-            {list.total === 0 ? (
-              <EmptyState title={t('transactions.list.noResultsTitle')} description={t('transactions.list.noResultsText')}
-                action={<Button variant="secondary" icon="close" onClick={clearFilters}>{t('transactions.filters.clear')}</Button>} />
-            ) : (
+            {list.total === 0 ? noResults() : (
               <TransactionList items={list.items} dayTotalsFrom={all} accounts={accounts} categories={categories}
                 page={Math.min(page, list.pages)} totalPages={list.pages} total={list.total} busy={busy}
                 onPage={goToPage} onEdit={setEditing} onDelete={setDeleting} onCategory={changeCategory} onConfirm={reviewing ? confirmOne : undefined} offer={offer} />

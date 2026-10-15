@@ -19,7 +19,11 @@
       "exported_one": "Arquivo gerado com {{count}} transação",
       "exported_other": "Arquivo gerado com {{count}} transações",
       "exportEmpty": "Não há transações para exportar com estes filtros.",
-      "exportError": "Não foi possível gerar o arquivo. Tente de novo."
+      "exportError": "Não foi possível gerar o arquivo. Tente de novo.",
+      "more": "Importar e exportar",
+      "importHint": "PDF, OFX ou CSV do seu banco",
+      "exportScopeN_one": "Exporta a {{count}} transação {{period}}, com os filtros atuais.",
+      "exportScopeN_other": "Exporta as {{count}} transações {{period}}, com os filtros atuais."
     },
     "filters": {
       "label": "Filtros",
@@ -81,17 +85,30 @@
       "loadError": "Não foi possível carregar as transações",
       "loadErrorText": "Confira a conexão e tente de novo.",
       "retry": "Tentar de novo",
-      "emptyTitle": "Nenhuma transação ainda",
-      "emptyText": "Importe o extrato do seu banco em PDF, OFX ou CSV, ou registre a primeira transação à mão.",
+      "emptyTitle": "Seu extrato vira uma lista assim",
+      "emptyText": "Importe o PDF, OFX ou CSV do seu banco: cada transação chega com data, categoria e valor. Ou registre a primeira à mão.",
       "noAccountTitle": "Cadastre uma conta para começar",
       "noAccountText": "Toda transação pertence a uma conta. Crie a primeira no Perfil e depois volte para importar o extrato.",
       "goToProfile": "Cadastrar conta",
-      "noResultsTitle": "Nada encontrado",
-      "noResultsText": "Nenhuma transação corresponde à busca e aos filtros escolhidos.",
+      "noResultsText": "A busca também respeita os filtros de conta, categoria, tipo e tag.",
       "edit": "Editar",
       "delete": "Excluir",
       "editAria": "Editar {{name}}",
-      "deleteAria": "Excluir {{name}}"
+      "deleteAria": "Excluir {{name}}",
+      "addByHand": "Registrar à mão",
+      "sample": {
+        "market": "Supermercado",
+        "salary": "Salário",
+        "ride": "Uber"
+      },
+      "noSearchTitle": "Nenhuma transação com “{{term}}” {{period}}",
+      "noFilterTitle": "Nenhuma transação com estes filtros {{period}}",
+      "noPeriodTitle": "Nenhuma transação {{period}}",
+      "searchAllTime": "Buscar em todo o período",
+      "seeAllTime": "Ver todo o período",
+      "allCategorizedTitle": "Tudo categorizado",
+      "allCategorizedText": "Nenhuma transação sem categoria {{period}}.",
+      "seeAll": "Ver todas as transações"
     },
     "row": {
       "installment": "Parcela {{current}} de {{total}}",
@@ -169,7 +186,13 @@
       "toastInstallments": "{{count}} parcelas registradas",
       "toastTransfer": "Transferência registrada",
       "toastUpdated": "Transação atualizada",
-      "toastDeleted": "Transação excluída"
+      "toastDeleted": "Transação excluída",
+      "createInstallmentsTotal": "Criar {{count}} parcelas · {{total}}",
+      "moreDetails": "Mais detalhes",
+      "moreDetailsHint": "Notas, tags e recorrente",
+      "moreDetailsTransfer": "Notas",
+      "moreFilled_one": "{{count}} preenchido",
+      "moreFilled_other": "{{count}} preenchidos"
     },
     "delete": {
       "title": "Excluir transação",
@@ -266,7 +289,13 @@
       "toReview_other": "{{count}} sem categoria",
       "rowCategory": "Categoria da linha {{n}}",
       "suggested": "Regra · {{pct}}",
-      "suggestedHint": "Sugerida pelas regras de categorização (sem IA). Troque se não for essa."
+      "suggestedHint": "Sugerida pelas regras de categorização (sem IA). Troque se não for essa.",
+      "dayDate_one": "{{date}}, {{count}} transação. Mudar a data",
+      "dayDate_other": "{{date}}, {{count}} transações. Mudar a data",
+      "dayEdit": "Clique para mudar a data das transações deste dia",
+      "noDate": "Sem data",
+      "suggestedRule": "Regra",
+      "suggestedRuleHint": "Regra que você criou para esta descrição. Troque se não for essa."
     },
     "export": {
       "sheetTitle": "FlowTrack — Transações",
@@ -303,11 +332,11 @@
     "month": {
       "label": "Mês",
       "prev": "Ir para {{month}}",
-      "next": "Ir para {{month}}"
+      "next": "Ir para {{month}}",
+      "choose": "Período: {{period}}. Escolher outro período",
+      "reset": "Voltar para este mês"
     },
     "review": {
-      "chip_one": "{{count}} a revisar",
-      "chip_other": "{{count}} a revisar",
       "title_one": "{{count}} transação para revisar",
       "title_other": "{{count}} transações para revisar",
       "text": "Sem categoria ou categorizadas pela IA com menos de 85% de confiança. Confirme com ✓ ou escolha outra categoria.",
@@ -335,6 +364,15 @@
       "saved_other": "Regra salva: mais {{count}} transações foram para {{category}}.",
       "savedFuture": "Regra salva: as próximas “{{name}}” vão para {{category}}.",
       "error": "Não foi possível salvar a regra."
+    },
+    "period": {
+      "inMonth": "em {{month}}",
+      "inAll": "em todo o período",
+      "inLast3": "nos últimos 3 meses",
+      "inYear": "neste ano",
+      "inRange": "em {{range}}",
+      "since": "Desde {{date}}",
+      "until": "Até {{date}}"
     }
   }
 }
