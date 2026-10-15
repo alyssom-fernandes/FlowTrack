@@ -5,6 +5,7 @@ async function criarCategoria(page) {
   await page.getByRole('button', { name: /nova categoria|new category/i }).first().click()
   await page.getByLabel(/^(nome|name)$/i).fill('Pets')
   await page.getByRole('radio', { name: /#2a78d6/i }).click()
+  await page.getByRole('radio', { name: /^pet$/i }).click()
   await page.getByRole('button', { name: /criar categoria|create category/i }).click()
   await page.getByRole('button', { name: /^Pets/ }).first().waitFor()
   await semToast(page)
@@ -42,6 +43,15 @@ export default [
   // Categorias
   { id: 'perfil-categorias', rota: '/profile?tab=categories' },
   { id: 'perfil-nova-categoria', rota: '/profile?tab=categories', inteira: false, acao: async page => { await page.getByRole('button', { name: /nova categoria|new category/i }).first().click() } },
+  {
+    // Prévia ao vivo: nome digitado, cor e glifo escolhidos antes de criar
+    id: 'perfil-nova-categoria-preenchida', rota: '/profile?tab=categories', inteira: false, acao: async page => {
+      await page.getByRole('button', { name: /nova categoria|new category/i }).first().click()
+      await page.getByLabel(/^(nome|name)$/i).fill('Pets')
+      await page.getByRole('radio', { name: /#2a78d6/i }).click()
+      await page.getByRole('radio', { name: /^pet$/i }).click()
+    },
+  },
   { id: 'perfil-categoria-criada', rota: '/profile?tab=categories', acao: criarCategoria },
   {
     id: 'perfil-editar-categoria', rota: '/profile?tab=categories', inteira: false, acao: async page => {

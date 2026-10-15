@@ -1,14 +1,14 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
-import { Badge, Button, Card, CardHeader, ConfirmDialog, IconButton, Input, Modal } from '../../components/ui'
+import { Link, useNavigate } from 'react-router-dom'
+import { Badge, Button, Card, CardHeader, ConfirmDialog, IconButton, Input, Modal, Money, Skeleton } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { useAuthStore, useToastStore } from '../../store'
-import { authService } from '../../services'
+import { accountsService, authService, transactionsService } from '../../services'
 import { demo } from '../../demo'
 import { getTheme, applyTheme, type Theme } from '../../lib/theme'
 import { LANGUAGES, setLanguage } from '../../i18n'
-import { formatMonth } from '../../utils'
+import { currentLocale, formatMonth, getCurrentMonthRange } from '../../utils'
 import { SettingRow, Segmented, ThemePicker } from './parts'
 import { focusInvalid } from './helpers'
 
@@ -43,7 +43,8 @@ export function GeneralTab() {
 
   return (
     <div className="prf-general">
-      {/* Cabeçalho de identidade: o cartão dominante da tela */}
+      {/* Cabeçalho de identidade: o cartão dominante da tela. O aviso de dados fictícios fica só na faixa
+          do topo; aqui entram os fatos da conta, cada um levando à aba ou à tela que o detalha. */}
       <Card className="ft-card--hero prf-general__id">
         <div className="prf-identity">
           <span className="prf-avatar" aria-hidden>{name.charAt(0).toUpperCase()}</span>
@@ -55,12 +56,7 @@ export function GeneralTab() {
             {!isDemo && since && <div className="prf-identity__meta">{t('profile.identity.memberSince', { date: since })}</div>}
           </div>
         </div>
-        {isDemo && (
-          <p className="prf-note">
-            <Icon name="info" size={14} />
-            <span>{t('profile.identity.demoNote')}</span>
-          </p>
-        )}
+        <AccountFacts />
       </Card>
 
       <Card className="prf-general__prefs">
@@ -116,6 +112,52 @@ export function GeneralTab() {
       <ConfirmDialog open={restoreOpen} onClose={() => setRestoreOpen(false)} onConfirm={restore} danger={false}
         title={t('profile.data.restoreConfirmTitle')} message={t('profile.data.restoreConfirmText')} confirmLabel={t('profile.data.restoreAction')} />
     </div>
+  )
+}
+
+// ── Fatos da conta: saldo nas contas e transações do mês, com link para o detalhe ──
+function AccountFacts() {
+  const { t } = useTranslation()
+  const [facts, setFacts] = useState<{ accounts: number; balance: number; transactions: number } | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    Promise.all([accountsService.list(), transactionsService.list({ ...getCurrentMonthRange(), page_size: 1 })])
+      .then(([acc, tx]) => {
+        if (!alive) return
+        const list = acc.accounts || []
+        setFacts({ accounts: list.length, balance: list.reduce((s, a) => s + a.balance, 0), transactions: tx.total ?? 0 })
+      })
+      .catch(() => { if (alive) setFailed(true) })
+    return () => { alive = false }
+  }, [])
+
+  // Sem os números, o cartão fica só com a identidade (não vale um erro aqui: cada aba tem o seu)
+  if (failed) return null
+  if (!facts) {
+    return (
+      <div className="prf-facts" aria-hidden>
+        {[0, 1].map(i => (
+          <span key={i} className="prf-fact prf-fact--skel"><Skeleton width={96} height={18} /><Skeleton width={120} height={12} /></span>
+        ))}
+      </div>
+    )
+  }
+  const month = new Intl.DateTimeFormat(currentLocale(), { month: 'long' }).format(new Date())
+  return (
+    <nav className="prf-facts" aria-label={t('profile.identity.factsLabel')}>
+      <Link to="/profile?tab=accounts" className="prf-fact">
+        <Money value={facts.balance} className="prf-fact__value" />
+        <span className="prf-fact__label">{t('profile.identity.balanceIn', { count: facts.accounts })}</span>
+        <Icon name="chevronRight" size={16} className="prf-fact__chevron" />
+      </Link>
+      <Link to="/transactions" className="prf-fact">
+        <span className="prf-fact__value ft-num">{facts.transactions}</span>
+        <span className="prf-fact__label">{t('profile.identity.transactionsIn', { count: facts.transactions, month })}</span>
+        <Icon name="chevronRight" size={16} className="prf-fact__chevron" />
+      </Link>
+    </nav>
   )
 }
 
