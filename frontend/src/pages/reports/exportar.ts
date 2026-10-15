@@ -6,7 +6,8 @@ import { buildXlsx, type XlsxColumn, type XlsxValue } from '../../lib/xlsx'
 import { buildCsv, downloadBlob, generatedAt as generatedAtFor } from '../../lib/export'
 import { categoryLabel, currentLocale, formatCurrency, formatPercent } from '../../utils'
 import type { Account, Category, Transaction } from '../../types'
-import { axisMoney, niceTicks, type Bucket, type CategoryRow, type Granularity, type Range, type Summary, type TopRow } from './dados'
+import { variationTone } from '../../lib/variation'
+import { axisMoney, changeText, niceTicks, type Bucket, type CategoryRow, type Granularity, type Range, type Summary, type TopRow } from './dados'
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`reports.${key}`, opts ?? {}) as string
 
@@ -95,13 +96,15 @@ export async function exportPdf(model: ReportModel) {
   const delta = (d: number | null, good: boolean, pp: boolean, x: number, yy: number, maxW: number) => {
     if (!model.hasPrev || d === null) { font(7, 'normal', C.hint); text(model.hasPrev ? t('kpi.noBase') : t('kpi.noPrev'), x, yy, { maxWidth: maxW }); return }
     const flat = Math.abs(d) < 0.05
-    const color = flat ? C.muted : (d > 0) === good ? C.incomeText : C.expenseText
+    // Mesma régua da tela: cor de estado só a partir de ±5%
+    const tone = variationTone(d, good)
+    const color = tone === 'good' ? C.incomeText : tone === 'bad' ? C.expenseText : C.muted
     doc.setFillColor(...color)
     if (!flat) {
       if (d > 0) doc.triangle(x, yy - 0.2, x + 2.4, yy - 0.2, x + 1.2, yy - 2.3, 'F')
       else doc.triangle(x, yy - 2.3, x + 2.4, yy - 2.3, x + 1.2, yy - 0.2, 'F')
     }
-    const v = flat ? '0%' : pp ? t('kpi.pp', { value: formatPercent(Math.abs(d), 1, false).replace(/\s?%/, '') }) : formatPercent(Math.abs(d), Math.abs(d) >= 100 ? 0 : 1, false)
+    const v = flat ? '0%' : pp ? t('kpi.pp', { value: formatPercent(Math.abs(d), 1, false).replace(/\s?%/, '') }) : changeText(d)
     font(7.5, 'bold', color); text(v, x + (flat ? 0 : 3.4), yy)
     const vw = doc.getTextWidth(pdfText(v))
     font(7, 'normal', C.hint); text(t('pdf.vsPrev'), x + (flat ? 0 : 3.4) + vw + 1.5, yy, { maxWidth: Math.max(8, maxW - vw - 5) })
@@ -249,7 +252,10 @@ export async function exportPdf(model: ReportModel) {
   const changeCell = (v: number | null, goodWhenUp: boolean): Cell => {
     if (v === null || !Number.isFinite(v)) return { text: '—', color: C.hint }
     const flat = Math.abs(v) < 0.05
-    return { text: flat ? '0%' : formatPercent(v, 1, true), color: flat ? C.muted : (v > 0) === goodWhenUp ? C.incomeText : C.expenseText }
+    const tone = variationTone(v, goodWhenUp)
+    // Uma casa fixa com sinal; de +100% para cima, múltiplo ("×5,9")
+    const text = flat ? '0%' : v >= 100 ? changeText(v) : `${v > 0 ? '+' : '−'}${changeText(v)}`
+    return { text, color: tone === 'good' ? C.incomeText : tone === 'bad' ? C.expenseText : C.muted }
   }
 
   if (model.categories.length) {

@@ -57,12 +57,14 @@
       "pp": "{{value}} p.p.",
       "transfersNote": "Transferências entre suas contas não entram nos totais.",
       "left": "Sobra do período",
-      "ofIncome": "{{pct}} do que entrou"
+      "ofIncome": "{{pct}} do que entrou",
+      "noPrevNote": "Sem período anterior para comparar."
     },
     "delta": {
       "up": "{{value}} acima do período anterior",
       "down": "{{value}} abaixo do período anterior",
-      "same": "Igual ao período anterior"
+      "same": "Igual ao período anterior",
+      "times": "{{value}} o valor do período anterior"
     },
     "legend": {
       "income": "Receitas",
@@ -70,9 +72,14 @@
       "balance": "Sobra",
       "previous": "Período anterior",
       "previousShort": "Período anterior",
-      "previousFaded": "Período anterior (tom suave)",
       "incomeTick": "Receitas (traço)",
-      "netAbove": "Sobra do período, acima de cada coluna"
+      "netAbove": "Sobra, acima do traço",
+      "current": "Atual",
+      "previousGhost": "Anterior"
+    },
+    "insight": {
+      "above": "gasto {{pct}} acima da média",
+      "below": "gasto {{pct}} abaixo da média"
     },
     "flow": {
       "titleMonth": "Receitas e gastos por mês",
@@ -88,13 +95,11 @@
       "expense": "Gastos",
       "balance": "Sobra",
       "savings": "% do que entrou",
-      "prevIncome": "Receitas ant.",
-      "prevExpense": "Gastos ant.",
       "total": "Total",
       "category": "Categoria",
       "count": "Lançamentos",
       "value": "Valor",
-      "share": "% do total",
+      "share": "% dos gastos",
       "previous": "Anterior",
       "change": "Variação",
       "kind": "Tipo",
@@ -106,7 +111,10 @@
       "typeExpense": "Gasto",
       "typeTransfer": "Transferência",
       "byMonth": "Por mês",
-      "byWeek": "Por semana"
+      "byWeek": "Por semana",
+      "prevGroup": "Período anterior ({{range}})",
+      "expenseChange": "Variação do gasto",
+      "vsPrev": "vs. {{label}}"
     },
     "categories": {
       "title": "Gastos por categoria",
@@ -203,7 +211,7 @@
     },
     "flowTab": {
       "title": "Para onde foi o dinheiro",
-      "sub": "{{range}}: de onde veio, para quais categorias foi e quanto sobrou",
+      "sub": "{{range}}: de onde veio, para quais categorias foi e quanto sobrou (% do que entrou)",
       "empty": "Nenhuma receita ou gasto neste período."
     }
   }

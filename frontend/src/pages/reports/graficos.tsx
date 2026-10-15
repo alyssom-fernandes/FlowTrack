@@ -8,7 +8,8 @@ import { Icon } from '../../components/icons'
 import { Money } from '../../components/ui'
 import { formatPercent, formatMonth, currentLocale, toISODate } from '../../utils'
 import type { ProjectionData } from '../../types'
-import { axisMoney, niceTicks, type Bucket, type Slice, type TopRow } from './dados'
+import { variationDir, variationTone } from '../../lib/variation'
+import { axisMoney, changeText, niceTicks, snugAxis, spendOutlier, type Bucket, type Slice, type TopRow } from './dados'
 
 // Largura útil de um gráfico numa folha A4 (186 mm de área menos o respiro do cartão)
 const PRINT_WIDTH = 672
@@ -52,11 +53,15 @@ function barPath(x: number, top: number, w: number, h: number) {
 export function Delta({ value, goodWhenUp, kind = 'percent', compact }: { value: number | null; goodWhenUp: boolean; kind?: 'percent' | 'pp'; compact?: boolean }) {
   const { t } = useTranslation()
   if (value === null || !Number.isFinite(value)) return null
-  const flat = Math.abs(value) < 0.05
-  const up = value > 0
-  const tone = flat ? 'flat' : up === goodWhenUp ? 'good' : 'bad'
-  const text = kind === 'pp' ? t('reports.kpi.pp', { value: formatPercent(Math.abs(value), 1, false).replace(/\s?%/, '') }) : formatPercent(Math.abs(value), Math.abs(value) >= 100 ? 0 : 1, false)
-  const label = flat ? t('reports.delta.same') : t(up ? 'reports.delta.up' : 'reports.delta.down', { value: text })
+  const dir = variationDir(value)
+  const flat = dir === 'flat'
+  const up = dir === 'up'
+  // Cor de estado só a partir de ±5% (lib/variation); abaixo disso a seta fica neutra
+  const vt = variationTone(value, goodWhenUp)
+  const tone = flat || vt === 'neutral' ? 'flat' : vt
+  const times = kind === 'percent' && value >= 100
+  const text = kind === 'pp' ? t('reports.kpi.pp', { value: formatPercent(Math.abs(value), 1, false).replace(/\s?%/, '') }) : changeText(value)
+  const label = flat ? t('reports.delta.same') : t(times ? 'reports.delta.times' : up ? 'reports.delta.up' : 'reports.delta.down', { value: text })
   return (
     <span className={`rp-delta rp-delta--${tone}${compact ? ' rp-delta--compact' : ''}`} title={label} aria-label={label}>
       {!flat && <Icon name={up ? 'arrowUpRight' : 'arrowDownRight'} size={compact ? 12 : 14} strokeWidth={2} />}
@@ -107,22 +112,24 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
   const [ref, width] = useChartWidth<HTMLDivElement>()
   const [active, setActive] = useState<number | null>(null)
   const compact = width > 0 && width < 560
-  const H = compact ? 210 : 248
+  // Etiqueta de leitura (como no Mercury): o período de gasto mais fora da média, ancorado na coluna.
+  // Na comparação a leitura já é "atual × anterior", então ela não aparece.
+  const outlier = prev ? null : spendOutlier(buckets)
+  const H = (compact ? 210 : 248) + (outlier ? 28 : 0)
   const n = buckets.length
   const values = [...buckets.flatMap(b => [b.income, b.expense]), ...(prev ?? []).flatMap(b => [b.income, b.expense])]
-  const ticks = niceTicks(Math.max(0, ...values))
-  const yMax = ticks[ticks.length - 1] || 1
+  // Eixo até o maior valor + 10%: as barras ocupam a altura do gráfico, sem meio vazio em cima
+  const { ticks, yMax } = snugAxis(Math.max(0, ...values))
   const tickLabels = ticks.map(v => axisMoney(v))
   const hasYear = buckets.some(b => b.yearMark)
-  const m = { top: 22, right: 2, bottom: hasYear ? 40 : 26, left: Math.max(...tickLabels.map(l => l.length)) * 6.2 + 12 }
+  const m = { top: outlier ? 50 : 22, right: 2, bottom: hasYear ? 40 : 26, left: Math.max(...tickLabels.map(l => l.length)) * 6.8 + 12 }
   const plotW = Math.max(0, width - m.left - m.right)
   const plotH = H - m.top - m.bottom
   const band = plotW / Math.max(n, 1)
-  const per = prev ? 2 : 1
-  const gap = 2
-  const pairGap = prev ? 3 : 0
-  const barW = clamp((band * (compact ? 0.6 : 0.5) - gap * (per - 1) - pairGap) / per, 3, prev ? 22 : 36)
-  const groupW = barW * per + gap * (per - 1) + pairGap
+  // Uma barra por coluna, com ~55% da largura dela; o período anterior vai atrás, como sombra
+  const barW = clamp(band * 0.55, 3, 96)
+  const ghostPad = prev ? clamp(band * 0.07, 3, 8) : 0
+  const groupW = barW + ghostPad * 2
   const y = (v: number) => m.top + plotH - (v / yMax) * plotH
   const labelW = buckets[0]?.key.length === 10 ? 44 : 30
   const every = Math.max(1, Math.ceil(labelW / Math.max(band, 1)))
@@ -146,36 +153,70 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
   const lastStarted = buckets.reduce((acc, b, i) => (b.future ? acc : i), n - 1)
   const shown = active ?? (compact ? lastStarted : null)
   const bars: ReactNode[] = []
+  const netY: number[] = []
   for (let i = 0; i < n; i++) {
     const b = buckets[i], p = prev?.[i]
-    const items: { inc: number; exp: number; faded?: boolean; current?: boolean }[] = prev
-      ? [{ inc: p?.income ?? 0, exp: p?.expense ?? 0, faded: true }, { inc: b.income, exp: b.expense, current: b.key === thisMonth }]
-      : [{ inc: b.income, exp: b.expense, current: b.key === thisMonth }]
-    for (let j = 0, x = m.left + i * band + (band - groupW) / 2; j < items.length; j++) {
-      const it = items[j]
-      const top = y(it.exp)
-      const d = barPath(x, top, barW, m.top + plotH - top)
-      if (d) bars.push(<path key={`${i}-${j}`} d={d} fill="var(--chart-spend)" opacity={it.faded ? 0.4 : 1}
-        stroke={it.current ? 'var(--accent-ink)' : undefined} strokeWidth={it.current ? 1.5 : undefined} />)
-      if (it.inc > 0) {
-        const ty = y(it.inc)
-        bars.push(<line key={`${i}-${j}-r`} x1={x - 3} x2={x + barW + 3} y1={ty} y2={ty} stroke="var(--chart-income)" strokeWidth={2.5}
-          strokeLinecap="round" opacity={it.faded ? 0.45 : 1} />)
+    const x = m.left + i * band + (band - barW) / 2
+    // Período anterior: barra-sombra um pouco mais larga, atrás da atual (30%), e a receita
+    // anterior em traço pontilhado. Comparar fica na mesma posição, sem pares lado a lado.
+    if (p) {
+      const pTop = y(p.expense)
+      const pd = barPath(x - ghostPad, pTop, barW + ghostPad * 2, m.top + plotH - pTop)
+      if (pd) bars.push(<path key={`${i}-p`} d={pd} fill="var(--chart-spend)" opacity={0.3} />)
+      if (p.income > 0) {
+        const py = y(p.income)
+        bars.push(<line key={`${i}-pr`} x1={x - ghostPad} x2={x + barW + ghostPad} y1={py} y2={py} stroke="var(--chart-income)" strokeWidth={2}
+          strokeDasharray="2 3" opacity={0.85} />)
       }
-      // Sobra do período (só na barra atual, sem repetir na comparação). Rótulo só onde cabe na
-      // coluna; no celular, só no período em leitura (os vizinhos se atropelavam), e nunca fora do gráfico.
-      if (!it.faded && !b.future && (it.inc > 0 || it.exp > 0)) {
-        const net = it.inc - it.exp
-        const label = axisMoney(net, true)
-        const lw = label.length * 6.4
-        if (compact ? i === shown : band >= Math.max(34, lw + 6)) {
-          const cx = clamp(x + barW / 2, m.left + lw / 2, width - m.right - lw / 2)
-          bars.push(<text key={`${i}-${j}-s`} x={cx} y={Math.min(y(it.inc), top) - 8} textAnchor="middle"
-            className={`rp-net${net < 0 ? ' rp-net--neg' : ''}`}>{label}</text>)
-        }
-      }
-      x += barW + gap + (prev && j === 0 ? pairGap : 0)
     }
+    const top = y(b.expense)
+    const current = b.key === thisMonth
+    const d = barPath(x, top, barW, m.top + plotH - top)
+    if (d) bars.push(<path key={`${i}-c`} d={d} fill="var(--chart-spend)"
+      stroke={current ? 'var(--accent-ink)' : undefined} strokeWidth={current ? 1.5 : undefined} />)
+    if (b.income > 0) {
+      const ty = y(b.income)
+      bars.push(<line key={`${i}-r`} x1={x - 3} x2={x + barW + 3} y1={ty} y2={ty} stroke="var(--chart-income)" strokeWidth={2.5} strokeLinecap="round" />)
+    }
+    // Sobra do período, colada acima do traço de receita (ou do topo da barra, quando faltou).
+    // Na comparação não aparece (a pergunta ali é atual × anterior). Rótulo só onde cabe na
+    // coluna; no celular, só no período em leitura (os vizinhos se atropelavam), e nunca fora do gráfico.
+    const tipY = Math.min(b.income > 0 ? y(b.income) : top, top)
+    netY[i] = tipY
+    if (!prev && !b.future && (b.income > 0 || b.expense > 0)) {
+      const net = b.income - b.expense
+      const label = axisMoney(net, true)
+      const lw = label.length * 6.4
+      if (compact ? i === shown : band >= Math.max(34, lw + 6)) {
+        const cx = clamp(x + barW / 2, m.left + lw / 2, width - m.right - lw / 2)
+        netY[i] = tipY - 18
+        bars.push(<text key={`${i}-s`} x={cx} y={tipY - 6} textAnchor="middle"
+          className={`rp-net${net < 0 ? ' rp-net--neg' : ''}`}>{label}</text>)
+      }
+    }
+  }
+
+  // Etiqueta do período fora da curva: pílula no alto, com um fio até a coluna
+  let insight: ReactNode = null
+  if (outlier && width > 0) {
+    const ob = buckets[outlier.index]
+    const pctText = formatPercent(Math.abs(outlier.pct), 0, false)
+    const rest = t(outlier.pct > 0 ? 'reports.insight.above' : 'reports.insight.below', { pct: pctText })
+    const head = `${ob.label}:`
+    const w = Math.round((head.length + rest.length + 1) * 6.1 + 24)
+    const cx = m.left + (outlier.index + 0.5) * band
+    const left = clamp(cx - w / 2, 0, width - w)
+    const py = 6, ph = 24
+    bars.push(
+      <g key="insight" className="rp-insight">
+        <line x1={cx} x2={cx} y1={py + ph} y2={Math.max(py + ph, netY[outlier.index] - 4)} stroke="var(--border-strong)" strokeWidth={1} strokeDasharray="2 2" />
+        <rect x={left + 0.5} y={py + 0.5} width={w - 1} height={ph} rx={ph / 2} fill="var(--bg-elevated)" stroke="var(--border-strong)" />
+        <text x={left + w / 2} y={py + ph / 2 + 0.5} dy="0.35em" textAnchor="middle" className="rp-insight__text">
+          <tspan className="rp-insight__head">{head}</tspan> {rest}
+        </text>
+      </g>,
+    )
+    insight = <span className="rp-sr">{`${ob.longLabel}: ${rest}`}</span>
   }
 
   const a = shown !== null ? buckets[shown] : null
@@ -219,6 +260,7 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
             ) : null)}
           </svg>
         )}
+        {insight}
         {!compact && active !== null && readout && (
           <Tip x={m.left + (active + 0.5) * band} top={m.top} width={width} gap={groupW / 2 + 8} tipWidth={prev ? 220 : 200}>{readout}</Tip>
         )}
@@ -230,6 +272,7 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
 
 // ── Gastos por categoria (rosca + legenda com valores) ────
 export function CategoryDonut({ slices, total, compare, ariaLabel }: { slices: Slice[]; total: number; compare: boolean; ariaLabel: string }) {
+  const { t } = useTranslation()
   const [active, setActive] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
   const cur = active !== null ? slices[active] : null
@@ -244,7 +287,7 @@ export function CategoryDonut({ slices, total, compare, ariaLabel }: { slices: S
           <div className="rp-stack__total" aria-hidden>
             <span className="rp-stack__label">{shownSl.name}</span>
             <Money value={shownSl.value} compact className="rp-stack__value" />
-            <span className="rp-stack__share ft-num">{formatPercent(shownSl.share, 1, false)}</span>
+            <span className="rp-stack__share ft-num">{t('reports.top.share', { value: formatPercent(shownSl.share, 1, false) })}</span>
           </div>
         )}
         <div className="rp-stack__bar" role="img" aria-label={ariaLabel}>
@@ -294,7 +337,7 @@ function CatRowBody({ sl, compare, name }: { sl: Slice; compare: boolean; name: 
           {sl.prev > 0 ? <Delta value={sl.change} goodWhenUp={false} compact /> : <span className="rp-cat-row__muted">{t('reports.categories.new')}</span>}
         </span>
       )}
-      <span className="rp-cat-row__share ft-num">{formatPercent(sl.share, sl.share < 10 ? 1 : 0, false)}</span>
+      <span className="rp-cat-row__share ft-num">{formatPercent(sl.share, 1, false)}</span>
       <Money value={sl.value} className="rp-cat-row__value" />
     </>
   )
@@ -353,7 +396,7 @@ export function ProjectionLines({ data, ariaLabel }: { data: ProjectionData; ari
   const tickLabels = ticks.map(v => axisMoney(v))
   const yearOf = (k: string) => k.slice(0, 4)
   const multiYear = pts.length > 0 && yearOf(pts[0].month) !== yearOf(pts[n - 1].month)
-  const m = { top: 22, right: compact ? 12 : 76, bottom: multiYear ? 40 : 26, left: Math.max(...tickLabels.map(l => l.length)) * 6.2 + 12 }
+  const m = { top: 22, right: compact ? 12 : 76, bottom: multiYear ? 40 : 26, left: Math.max(...tickLabels.map(l => l.length)) * 6.8 + 12 }
   const plotW = Math.max(0, width - m.left - m.right)
   const plotH = H - m.top - m.bottom
   const step = plotW / Math.max(n, 1)
@@ -464,12 +507,29 @@ export function ProjectionLines({ data, ariaLabel }: { data: ProjectionData; ari
 }
 
 // ── Tabela (vira lista no celular) ────────────────────────
-export interface Column<T> { key: string; header: string; align?: 'left' | 'right'; render: (row: T) => ReactNode; primary?: boolean; title?: boolean; hideMobile?: boolean }
+// group: cabeçalho de grupo sobre colunas vizinhas ("Período anterior (mai–jul)");
+// onlyList: só aparece no modo lista (celular); rowLabel: rótulo da linha na lista, quando muda por linha
+export interface Column<T> {
+  key: string; header: string; align?: 'left' | 'right'; render: (row: T) => ReactNode; primary?: boolean; title?: boolean; hideMobile?: boolean
+  group?: string; onlyList?: boolean; rowLabel?: (row: T) => string
+}
 
-const cellClass = <T,>(c: Column<T>) => [c.align === 'right' ? 'is-right' : '', c.primary ? 'is-primary' : '', c.title ? 'is-title' : '', c.hideMobile ? 'is-hide-mobile' : ''].filter(Boolean).join(' ') || undefined
+const cellClass = <T,>(c: Column<T>) => [c.align === 'right' ? 'is-right' : '', c.primary ? 'is-primary' : '', c.title ? 'is-title' : '', c.hideMobile ? 'is-hide-mobile' : '', c.onlyList ? 'is-only-list' : '', c.group ? 'is-grouped' : ''].filter(Boolean).join(' ') || undefined
+
+// Linha de grupos: colunas vizinhas com o mesmo grupo viram uma célula só (colSpan)
+function groupCells<T>(columns: Column<T>[]): { key: string; label: string; span: number; onlyList: boolean }[] {
+  const out: { key: string; label: string; span: number; onlyList: boolean }[] = []
+  for (const c of columns) {
+    const last = out[out.length - 1]
+    const label = c.group ?? ''
+    if (last && last.label === label && !c.onlyList && !last.onlyList) last.span++
+    else out.push({ key: c.key, label, span: 1, onlyList: !!c.onlyList })
+  }
+  return out
+}
 
 // listBelow: abaixo dessa largura (px) do cartão a tabela vira lista
-export function ReportTable<T>({ columns, rows, rowKey, totals, caption, listBelow = 520 }: { columns: Column<T>[]; rows: T[]; rowKey: (r: T) => string; totals?: ReactNode[]; caption: string; listBelow?: number }) {
+export function ReportTable<T>({ columns, rows, rowKey, totals, totalLabels, caption, listBelow = 520 }: { columns: Column<T>[]; rows: T[]; rowKey: (r: T) => string; totals?: ReactNode[]; totalLabels?: Record<string, string>; caption: string; listBelow?: number }) {
   const ref = useRef<HTMLDivElement>(null)
   const [list, setList] = useState(false)
   useLayoutEffect(() => {
@@ -486,20 +546,27 @@ export function ReportTable<T>({ columns, rows, rowKey, totals, caption, listBel
       <table className="rp-table">
         <caption className="rp-sr">{caption}</caption>
         <thead>
+          {columns.some(c => c.group) && (
+            <tr className="rp-table__groups">
+              {groupCells(columns).map(g => (
+                <th key={g.key} colSpan={g.span} scope={g.label ? 'colgroup' : undefined} className={[g.label ? 'is-group' : '', g.onlyList ? 'is-only-list' : ''].filter(Boolean).join(' ') || undefined}>{g.label}</th>
+              ))}
+            </tr>
+          )}
           <tr>{columns.map(c => <th key={c.key} scope="col" className={cellClass(c)}>{c.header}</th>)}</tr>
         </thead>
         <tbody>
           {rows.map(r => (
             <tr key={rowKey(r)}>
               {columns.map(c => (
-                <td key={c.key} data-label={c.header} className={cellClass(c)}>{c.render(r)}</td>
+                <td key={c.key} data-label={c.rowLabel ? c.rowLabel(r) : c.header} className={cellClass(c)}>{c.render(r)}</td>
               ))}
             </tr>
           ))}
         </tbody>
         {totals && (
           <tfoot>
-            <tr>{totals.map((v, i) => <td key={columns[i].key} data-label={columns[i].header} className={cellClass(columns[i])}>{v}</td>)}</tr>
+            <tr>{totals.map((v, i) => <td key={columns[i].key} data-label={totalLabels?.[columns[i].key] ?? columns[i].header} className={cellClass(columns[i])}>{v}</td>)}</tr>
           </tfoot>
         )}
       </table>

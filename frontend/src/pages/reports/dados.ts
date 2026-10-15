@@ -111,6 +111,13 @@ export function pctChange(curr: number, prev: number): number | null {
   return ((curr - prev) / Math.abs(prev)) * 100
 }
 
+// Variação em texto, sem sinal (a seta diz a direção): uma casa decimal fixa ("7,5%");
+// de +100% para cima vira múltiplo ("×5,9"), mais fácil de ler que "496%"
+export function changeText(v: number): string {
+  if (v >= 100) return `×${new Intl.NumberFormat(currentLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(1 + v / 100)}`
+  return new Intl.NumberFormat(currentLocale(), { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Math.abs(v) / 100)
+}
+
 // ── Série no tempo ────────────────────────────────────────
 export type Granularity = 'week' | 'month'
 
@@ -249,6 +256,22 @@ export function topExpenses(txs: Transaction[], categories: Category[], noCatego
     .slice(0, limit)
 }
 
+// ── Mês fora da curva (etiqueta de leitura no Mês a mês) ──
+// Entre os períodos já fechados (sem o corrente, ainda pela metade, e sem os futuros), o gasto
+// mais longe da média. Só vale com 3 ou mais períodos e um desvio que importe (±5%, a mesma
+// régua das setas coloridas); senão não há o que destacar.
+export interface Outlier { index: number; pct: number }
+
+export function spendOutlier(buckets: Bucket[], today = toISODate(), minPct = 5): Outlier | null {
+  const closed = buckets.map((b, i) => ({ b, i })).filter(({ b }) => !b.future && b.end < today && b.expense > 0)
+  if (closed.length < 3) return null
+  const avg = closed.reduce((s, x) => s + x.b.expense, 0) / closed.length
+  if (avg <= 0) return null
+  const best = closed.reduce((a, x) => (Math.abs(x.b.expense - avg) > Math.abs(a.b.expense - avg) ? x : a))
+  const pct = ((best.b.expense - avg) / avg) * 100
+  return Math.abs(pct) >= minPct ? { index: best.i, pct } : null
+}
+
 // ── Eixos ─────────────────────────────────────────────────
 // Divisões "redondas" para o eixo de valores (0, 2 mil, 4 mil…)
 export function niceTicks(max: number, count = 4): number[] {
@@ -260,6 +283,15 @@ export function niceTicks(max: number, count = 4): number[] {
   for (let v = 0; v < max + step * 0.001; v += step) ticks.push(Math.round(v * 100) / 100)
   if (ticks[ticks.length - 1] < max) ticks.push(ticks[ticks.length - 1] + step)
   return ticks
+}
+
+// Eixo justo: o topo é o maior valor + 10% (não a próxima divisão redonda, que deixava metade do
+// gráfico vazia: R$ 7,6 mil no topo e eixo até R$ 10 mil). As linhas de grade seguem redondas.
+export function snugAxis(max: number, count = 4): { ticks: number[]; yMax: number } {
+  if (max <= 0) return { ticks: [0, 1], yMax: 1 }
+  const yMax = max * 1.1
+  const ticks = niceTicks(yMax, count).filter(v => v <= yMax)
+  return { ticks, yMax }
 }
 
 // "R$ 2 mil" / "R$2K" — só para eixos

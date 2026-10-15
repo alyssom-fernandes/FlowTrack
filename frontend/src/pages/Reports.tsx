@@ -14,7 +14,7 @@ import {
 } from './reports/dados'
 import { CategoryDonut, Delta, FlowBars, Legend, ProjectionLines, ReportTable, TopList, type Column } from './reports/graficos'
 import { FlowDiagram } from './dashboard/flow'
-import { buildFlow } from './dashboard/flowData'
+import { buildFlow, type FlowData } from './dashboard/flowData'
 import './reports/reports.css'
 
 type View = 'chart' | 'table'
@@ -24,6 +24,15 @@ type Section = typeof SECTIONS[number]
 type ExportKind = 'pdf' | 'xlsx' | 'csv' | 'print'
 
 interface Loaded { range: Range; prevRange: Range; current: Transaction[]; previous: Transaction[] }
+
+// Fluxo: fontes de renda abaixo de 2% do que entrou vão para "Outras receitas" (como "Outras N" no
+// destino); sozinhas elas viravam um nó de poucos pixels com o rótulo colado no vizinho
+function groupSmallSources(flow: FlowData, othersLabel: string): FlowData {
+  const small = flow.sources.filter(x => x.key === '__others__' || x.value < flow.income * 0.02)
+  if (!small.length || small.length === flow.sources.length) return flow
+  const value = small.reduce((sum, x) => sum + x.value, 0)
+  return { ...flow, sources: [...flow.sources.filter(x => !small.includes(x)), { key: '__others__', label: othersLabel, value }] }
+}
 
 const cap = (s: string) => s.charAt(0).toLocaleUpperCase(currentLocale()) + s.slice(1)
 
@@ -205,7 +214,7 @@ export function Reports() {
       categories: categoriesRows,
       slices: toSlices(categoriesRows, n => t('reports.categories.others', { count: n })),
       top: topExpenses(data.current, categories, noCat, 5),
-      flow: buildFlow(data.current, categories, t, `period=custom&start_date=${data.range.start}&end_date=${data.range.end}`),
+      flow: groupSmallSources(buildFlow(data.current, categories, t, `period=custom&start_date=${data.range.start}&end_date=${data.range.end}`), t('dashboard.flow.otherIncome')),
       rangeText: formatRange(data.range),
       prevRangeText: formatRange(data.prevRange),
     }
@@ -305,29 +314,45 @@ export function Reports() {
   } else {
     const { summary: s, prevSummary: p, hasPrev } = report
     const showPrev = compare && hasPrev
+    // Sem período anterior: nenhuma linha de variação no resumo, só uma nota abaixo dele
     const foot = (value: number | null, goodWhenUp: boolean, kind: 'percent' | 'pp' = 'percent') =>
-      !hasPrev ? <span>{t('reports.kpi.noPrev')}</span>
+      !hasPrev ? null
         : value === null ? <span>{t('reports.kpi.noBase')}</span>
         : <><Delta value={value} goodWhenUp={goodWhenUp} kind={kind} /><span>{t('reports.kpi.vsPrevShort')}</span></>
+    // A taxa de economia é dita uma vez só ("37% do que entrou"), com a variação em p.p. ao lado
+    const rateShown = s.savingsRate !== null && s.savingsRate >= 0
     const unit = report.g === 'week' ? t('reports.table.week') : t('reports.table.month')
-    const flowCols: Column<Bucket & { prevIncome: number; prevExpense: number }>[] = [
+    type FlowRow = Bucket & { prevIncome: number; prevExpense: number; prevLabel: string }
+    // Rótulo curto do período anterior, para o cabeçalho de grupo ("mai–jul") e a linha do celular
+    const prevShort = (b?: Bucket) => (b ? (report.g === 'week' ? b.label : formatMonth(b.key, 'short')) : '')
+    const pb = report.prevBuckets
+    const prevSpan = pb.length > 1 ? `${prevShort(pb[0])}–${prevShort(pb[pb.length - 1])}` : prevShort(pb[0])
+    const prevGroup = t('reports.table.prevGroup', { range: prevSpan })
+    const flowCols: Column<FlowRow>[] = [
       { key: 'label', header: unit, title: true, render: b => b.longLabel },
       { key: 'inc', header: t('reports.table.income'), align: 'right', render: b => <Money value={b.income} /> },
       { key: 'exp', header: t('reports.table.expense'), align: 'right', render: b => <Money value={b.expense} /> },
+      // No celular (lista) a comparação vira uma linha só no gasto: "vs. mai  +R$ 604,00"
+      ...(showPrev ? [{ key: 'vs', header: t('reports.table.expenseChange'), align: 'right' as const, onlyList: true,
+        rowLabel: (b: FlowRow) => t('reports.table.vsPrev', { label: b.prevLabel }),
+        render: (b: FlowRow) => <Money value={b.expense - b.prevExpense} signed /> }] : []),
       { key: 'bal', header: t('reports.table.balance'), align: 'right', primary: true, render: b => <span className={b.income - b.expense < 0 ? 'rp-neg' : undefined}><Money value={b.income - b.expense} /></span> },
       { key: 'sav', header: t('reports.table.savings'), align: 'right', render: b => (b.income > 0 ? formatPercent(((b.income - b.expense) / b.income) * 100, 1, false) : <span className="rp-muted">—</span>) },
       ...(showPrev ? [
-        { key: 'pinc', header: t('reports.table.prevIncome'), align: 'right' as const, render: (b: Bucket & { prevIncome: number }) => <Money value={b.prevIncome} /> },
-        { key: 'pexp', header: t('reports.table.prevExpense'), align: 'right' as const, render: (b: Bucket & { prevExpense: number }) => <Money value={b.prevExpense} /> },
+        { key: 'pinc', header: t('reports.table.income'), group: prevGroup, align: 'right' as const, hideMobile: true, render: (b: FlowRow) => <Money value={b.prevIncome} /> },
+        { key: 'pexp', header: t('reports.table.expense'), group: prevGroup, align: 'right' as const, hideMobile: true, render: (b: FlowRow) => <Money value={b.prevExpense} /> },
+        { key: 'chg', header: t('reports.table.expenseChange'), align: 'right' as const, hideMobile: true,
+          render: (b: FlowRow) => (b.prevExpense ? <Delta value={pctChange(b.expense, b.prevExpense)} goodWhenUp={false} compact /> : <span className="rp-muted">—</span>) },
       ] : []),
     ]
-    const flowRows = report.buckets.map((b, i) => ({ ...b, prevIncome: report.prevBuckets[i]?.income ?? 0, prevExpense: report.prevBuckets[i]?.expense ?? 0 }))
+    const flowRows: FlowRow[] = report.buckets.map((b, i) => ({ ...b, prevIncome: pb[i]?.income ?? 0, prevExpense: pb[i]?.expense ?? 0, prevLabel: prevShort(pb[i]) }))
     const flowTotals = [t('reports.table.total'), <Money value={s.income} />, <Money value={s.expense} />,
+      ...(showPrev ? [<Money value={s.expense - p.expense} signed />] : []),
       <span className={s.balance < 0 ? 'rp-neg' : undefined}><Money value={s.balance} /></span>,
       s.savingsRate === null ? '—' : formatPercent(s.savingsRate, 1, false),
-      ...(showPrev ? [<Money value={p.income} />, <Money value={p.expense} />] : [])]
+      ...(showPrev ? [<Money value={p.income} />, <Money value={p.expense} />, <Delta value={pctChange(s.expense, p.expense)} goodWhenUp={false} compact />] : [])]
     const flowTable = (
-      <ReportTable caption={t(report.g === 'week' ? 'reports.flow.titleWeek' : 'reports.flow.titleMonth')} columns={flowCols} rows={flowRows} rowKey={b => b.key} totals={flowTotals} listBelow={showPrev ? 720 : 540} />
+      <ReportTable caption={t(report.g === 'week' ? 'reports.flow.titleWeek' : 'reports.flow.titleMonth')} columns={flowCols} rows={flowRows} rowKey={b => b.key} totals={flowTotals} totalLabels={showPrev ? { vs: t('reports.table.vsPrev', { label: prevSpan }) } : undefined} listBelow={showPrev ? 780 : 540} />
     )
 
     const colorOf = (i: number) => report.categories.length <= 6 || i < 5 ? report.categories[i]?.color : 'var(--cat-group)'
@@ -354,29 +379,27 @@ export function Reports() {
             <span className="rp-kpi__label">{s.balance >= 0 ? t('reports.kpi.left') : t('reports.kpi.balance')}</span>
             <Money value={s.balance} size="hero" className="rp-kpis__value" style={s.balance < 0 ? { color: 'var(--red)' } : undefined} />
             <span className="rp-kpis__sub">
-              {s.savingsRate !== null && s.savingsRate >= 0 && <span>{t('reports.kpi.ofIncome', { pct: formatPercent(s.savingsRate, 0, false) })}</span>}
-              {foot(pctChange(s.balance, p.balance), true)}
+              {rateShown && <span>{t('reports.kpi.ofIncome', { pct: formatPercent(s.savingsRate ?? 0, 0, false) })}</span>}
+              {rateShown
+                ? foot(p.savingsRate === null ? null : (s.savingsRate ?? 0) - p.savingsRate, true, 'pp')
+                : foot(pctChange(s.balance, p.balance), true)}
             </span>
           </div>
           <div className="rp-kpis__side">
             <div className="rp-kpi">
               <div className="rp-kpi__label"><span className="rp-kpi__dot" style={{ background: 'var(--chart-income)' }} aria-hidden />{t('reports.kpi.income')}</div>
               <Money value={s.income} />
-              <div className="rp-kpi__foot">{foot(pctChange(s.income, p.income), true)}</div>
+              {hasPrev && <div className="rp-kpi__foot">{foot(pctChange(s.income, p.income), true)}</div>}
             </div>
             <div className="rp-kpi">
               <div className="rp-kpi__label"><span className="rp-kpi__dot" style={{ background: 'var(--chart-spend)' }} aria-hidden />{t('reports.kpi.expense')}</div>
               <Money value={s.expense} />
-              <div className="rp-kpi__foot">{foot(pctChange(s.expense, p.expense), false)}</div>
-            </div>
-            <div className="rp-kpi">
-              <div className="rp-kpi__label">{t('reports.kpi.savings')}</div>
-              <span className="ft-money ft-num">{s.savingsRate === null ? '—' : formatPercent(s.savingsRate, 1, false)}</span>
-              <div className="rp-kpi__foot">{s.savingsRate === null ? <span>{t('reports.kpi.noIncome')}</span> : foot(p.savingsRate === null ? null : s.savingsRate - p.savingsRate, true, 'pp')}</div>
+              {hasPrev && <div className="rp-kpi__foot">{foot(pctChange(s.expense, p.expense), false)}</div>}
             </div>
           </div>
         </section>
-        <p className="rp-note"><Icon name="info" size={14} />{t('reports.kpi.transfersNote')}</p>
+        <p className="rp-note"><Icon name="info" size={14} />
+          <span>{t('reports.kpi.transfersNote')}{!hasPrev && <> {t('reports.kpi.noPrevNote')}</>}</span></p>
 
         <div className="rp-sections">
           <Tabs<Section> label={t('reports.sections.label')} value={section} onChange={pickSection}
@@ -398,11 +421,15 @@ export function Reports() {
                 tools={<ViewToggle value={views.flow} onChange={v => setViews(o => ({ ...o, flow: v }))} />} />
               {views.flow === 'chart' ? (
                 <>
-                  <Legend items={[
+                  {/* Na comparação a legenda cabe numa linha: atual, anterior (sombra) e o traço da receita */}
+                  <Legend items={showPrev ? [
+                    { label: t('reports.legend.current'), color: 'var(--chart-spend)' },
+                    { label: t('reports.legend.previousGhost'), color: 'var(--chart-spend)', faded: true },
+                    { label: t('reports.legend.incomeTick'), color: 'var(--chart-income)', line: 'solid' },
+                  ] : [
                     { label: t('reports.legend.expense'), color: 'var(--chart-spend)' },
                     { label: t('reports.legend.incomeTick'), color: 'var(--chart-income)', line: 'solid' },
                     { label: t('reports.legend.netAbove'), color: 'var(--text-muted)', line: 'text' },
-                    ...(showPrev ? [{ label: t('reports.legend.previousFaded'), color: 'var(--chart-neutral)', faded: true }] : []),
                   ]} />
                   <FlowBars buckets={report.buckets} prev={showPrev ? report.prevBuckets : undefined} ariaLabel={flowLabel} />
                   <div className="rp-print-only rp-print-table" style={{ marginTop: 12 }}>{flowTable}</div>

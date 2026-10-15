@@ -57,12 +57,14 @@
       "pp": "{{value}} pp",
       "transfersNote": "Transfers between your own accounts are left out of the totals.",
       "left": "Left over in the period",
-      "ofIncome": "{{pct}} of what came in"
+      "ofIncome": "{{pct}} of what came in",
+      "noPrevNote": "No previous period to compare with."
     },
     "delta": {
       "up": "{{value}} higher than the previous period",
       "down": "{{value}} lower than the previous period",
-      "same": "Same as the previous period"
+      "same": "Same as the previous period",
+      "times": "{{value}} the previous period"
     },
     "legend": {
       "income": "Income",
@@ -70,9 +72,14 @@
       "balance": "Left over",
       "previous": "Previous period",
       "previousShort": "Previous period",
-      "previousFaded": "Previous period (muted)",
       "incomeTick": "Income (line)",
-      "netAbove": "Left over in the period, above each column"
+      "netAbove": "Left over, above the line",
+      "current": "Current",
+      "previousGhost": "Previous"
+    },
+    "insight": {
+      "above": "spending {{pct}} above average",
+      "below": "spending {{pct}} below average"
     },
     "flow": {
       "titleMonth": "Income and expenses by month",
@@ -88,13 +95,11 @@
       "expense": "Expenses",
       "balance": "Left over",
       "savings": "% of income",
-      "prevIncome": "Prev. income",
-      "prevExpense": "Prev. expenses",
       "total": "Total",
       "category": "Category",
       "count": "Transactions",
       "value": "Amount",
-      "share": "% of total",
+      "share": "% of spending",
       "previous": "Previous",
       "change": "Change",
       "kind": "Type",
@@ -106,7 +111,10 @@
       "typeExpense": "Expense",
       "typeTransfer": "Transfer",
       "byMonth": "By month",
-      "byWeek": "By week"
+      "byWeek": "By week",
+      "prevGroup": "Previous period ({{range}})",
+      "expenseChange": "Spending change",
+      "vsPrev": "vs. {{label}}"
     },
     "categories": {
       "title": "Expenses by category",
@@ -203,7 +211,7 @@
     },
     "flowTab": {
       "title": "Where the money went",
-      "sub": "{{range}}: where it came from, which categories it went to and what was left",
+      "sub": "{{range}}: where it came from, which categories it went to and what was left (% of income)",
       "empty": "No income or spending in this period."
     }
   }

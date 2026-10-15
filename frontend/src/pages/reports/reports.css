@@ -45,7 +45,7 @@
 .rp-delta--good { color: var(--green); }
 .rp-delta--bad { color: var(--red); }
 .rp-delta--flat { color: var(--text-muted); }
-.rp-delta--compact { font-size: var(--font-size-xs); }
+.rp-delta--compact { font-size: 12px; }
 
 /* Grade dos cartões */
 .rp-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 1rem; align-items: stretch; }
@@ -65,17 +65,20 @@
 .rp-legend__line { width: 1.125rem; height: 0; border-top: 2px solid currentColor; }
 .rp-legend__line--dashed { border-top-style: dashed; }
 .rp-legend__line--band { height: 0.625rem; border: 0; border-radius: 2px; background: currentColor; opacity: 0.18; }
-.rp-legend__text { font-size: 11px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.rp-legend__text { font-size: 12px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 /* Sobra do mês acima da barra (texto em tinta de texto; vermelho só quando faltou) */
-.rp-net { font-size: 11px; font-weight: 600; fill: var(--text-secondary); font-variant-numeric: tabular-nums; font-family: var(--font); }
+.rp-net { font-size: 12px; font-weight: 600; fill: var(--text-secondary); font-variant-numeric: tabular-nums; font-family: var(--font); }
 .rp-net--neg { fill: var(--red); }
+/* Etiqueta de leitura no Mês a mês: o período mais fora da média, numa pílula com fio até a coluna */
+.rp-insight__text { font-size: 12px; font-weight: 500; fill: var(--text-secondary); font-family: var(--font); }
+.rp-insight__head { fill: var(--text-primary); font-weight: 600; }
 
 .rp-chart { position: relative; width: 100%; }
 .rp-svg { display: block; overflow: visible; touch-action: pan-y; }
 .rp-svg:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 4px; border-radius: var(--radius-sm); }
-.rp-axis { font-size: 11px; fill: var(--chart-axis); font-variant-numeric: tabular-nums; font-family: var(--font); }
+.rp-axis { font-size: 12px; fill: var(--chart-axis); font-variant-numeric: tabular-nums; font-family: var(--font); }
 .rp-axis--active { fill: var(--text-primary); font-weight: 600; }
-.rp-axis--year { fill: var(--text-hint); font-size: 11px; }
+.rp-axis--year { fill: var(--text-hint); font-size: 12px; }
 .rp-axis--future { opacity: 0.55; }
 .rp-axis--zone { fill: var(--text-muted); font-weight: 500; }
 .rp-end-label { font-size: 12px; font-weight: 500; fill: var(--text-secondary); font-family: var(--font); }
@@ -165,6 +168,12 @@
 .rp-table th:last-child, .rp-table td:last-child { padding-right: 0; }
 .rp-table .is-right { text-align: right; white-space: nowrap; }
 .rp-table .is-title { color: var(--text-primary); font-weight: 500; white-space: nowrap; }
+/* Cabeçalho de grupo ("Período anterior (mai–jul)") sobre as colunas do período anterior */
+.rp-table__groups th { border-bottom: none; padding-bottom: 0.25rem; }
+.rp-table__groups th.is-group { text-align: right; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 0.375rem; }
+.rp-table__groups + tr th { padding-top: 0.5rem; }
+.rp-table .is-only-list { display: none; }
+.rp-table-wrap--list .rp-table td.is-only-list { display: flex; }
 .rp-table tfoot td { border-bottom: none; border-top: 1px solid var(--border-strong); color: var(--text-primary); font-weight: 600; }
 .rp-table tbody tr:hover td { background: var(--bg-subtle); }
 .rp-cell-cat { display: inline-flex; align-items: center; gap: 0.5rem; }
@@ -201,7 +210,7 @@
   .rp-kpi { gap: 0.25rem; }
   .rp-kpi__value { font-size: 1.1875rem; }
   .rp-kpi__label { font-size: var(--font-size-sm); }
-  .rp-view .ft-tab { height: 2.375rem; }
+  .rp-view .ft-tab { height: 2.5rem; min-width: 2.5rem; }
   .rp-view-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .rp-donut { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 1rem; }
   .rp-cat-list { width: 100%; }
@@ -265,12 +274,18 @@
   .rp-table-wrap--list .rp-table tfoot td { border-bottom: none; border-top: 1px solid var(--border-strong); color: var(--text-primary); font-weight: 600; }
   .rp-table-wrap--list .rp-table td::before { content: none; }
   .rp-table-wrap--list .rp-table .is-hide-mobile { display: table-cell; }
+  .rp-table-wrap--list .rp-table td.is-only-list, .rp-table-wrap--list .rp-table th.is-only-list { display: none; }
+  .rp-table-wrap--list .rp-table__groups th { display: table-cell; }
   .rp-donut { grid-template-columns: auto minmax(0, 1fr) !important; }
   .rp-tip, .rp-readout, .rp-cat-row__chev { display: none !important; }
   .rp-body[aria-busy='true'] { opacity: 1; }
   .rp-table { font-size: 11.5px; }
   .rp-table td { padding: 5px 8px; }
   .rp-print-table { break-inside: auto; }
+  /* Com a comparação a tabela por mês tem 9 colunas: mais justa na folha para caber a variação */
+  .rp-print-table .rp-table, .rp-print-table .rp-delta { font-size: 10px; }
+  .rp-print-table .rp-table th { font-size: 9px; letter-spacing: 0.02em; padding: 0 5px 4px; }
+  .rp-print-table .rp-table td, .rp-print-table .rp-table-wrap--list .rp-table td { padding: 4px 5px; }
   .ft-page-footer { break-inside: avoid; border-top-color: #dcdce0; }
 }
 
@@ -293,20 +308,16 @@
 .rp-kpis__main { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
 .rp-kpis__value { font-size: clamp(2.25rem, 4.2vw, 3.25rem); font-weight: 300; letter-spacing: -0.04em; line-height: 1.05; color: var(--text-primary); }
 .rp-kpis__sub { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; font-size: var(--font-size-sm); color: var(--text-muted); margin-top: 0.25rem; }
-.rp-kpis__side { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.rp-kpis__side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .rp-kpis__side .rp-kpi { padding-left: 1rem; border-left: 1px solid var(--border-subtle); background: none; border-top: none; border-right: none; border-bottom: none; box-shadow: none; border-radius: 0; }
 .rp-kpis__side .rp-kpi .ft-money { font-size: var(--font-size-xl); font-weight: 500; letter-spacing: -0.02em; color: var(--text-primary); }
 @media (max-width: 900px) {
   .rp-kpis--strip { grid-template-columns: minmax(0, 1fr); padding: 1.25rem; }
 }
-@media (max-width: 599px) {
-  .rp-kpis__side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .rp-kpis__side .rp-kpi:nth-child(3) { grid-column: 1 / -1; border-left: none; padding-left: 0; }
-}
 @media print {
   .rp-kpis--strip { grid-template-columns: minmax(0, 1fr) !important; gap: 8px !important; padding: 10px 12px !important; background: #fff !important; }
   .rp-kpis__value { font-size: 26px !important; }
-  .rp-kpis__side { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .rp-kpis__side { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
   .rp-kpis__side .rp-kpi { min-width: 0; padding-left: 8px; }
   .rp-kpis__side .rp-kpi .ft-money { font-size: 15px !important; }
   .rp-kpi__foot { flex-wrap: wrap !important; }
