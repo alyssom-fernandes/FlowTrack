@@ -135,7 +135,7 @@ Requisitos: Node.js 20+, Python 3.11+ e um projeto no [Supabase](https://supabas
 ### Testes
 
 ```bash
-# Backend: 163 testes (pytest)
+# Backend: 185 testes (pytest)
 cd backend && .venv\Scripts\python -m pytest tests -q
 
 # Ponta a ponta: 20 cenários, no computador e no celular (Playwright, contra um build local da demonstração)

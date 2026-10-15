@@ -135,7 +135,7 @@ Requirements: Node.js 20+, Python 3.11+ and a [Supabase](https://supabase.com) p
 ### Tests
 
 ```bash
-# Backend: 163 tests (pytest)
+# Backend: 185 tests (pytest)
 cd backend && .venv\Scripts\python -m pytest tests -q
 
 # End to end: 20 scenarios on a desktop and a phone viewport (Playwright, against a local build of the demo)

@@ -2,6 +2,30 @@
 
 All notable changes to FlowTrack are documented here. Dates follow the commits where each set of changes landed.
 
+## [2.1.0] — 2026-10-15
+
+The third pass of the visual review: less dashboard boilerplate, one clear subject per screen, and the review flow that learns.
+
+### Added
+- **"Always apply"** — when you change a category while reviewing, the app offers to use it for every installment of that purchase and for future ones with the same description; the rule is saved per user (`POST /api/v1/category-rules`, stored in the merchant cache) and is used by the categorization queue and by the import preview, where it shows as "Rule"
+- **Goal identity** — savings goals have their own color and icon, chosen in the form, and say when they will be reached at the current pace (`color` and `icon` on goals, migration v2.2 in `docs/migrations.sql`)
+- **Icon picker** for custom categories, with a live preview of the pill
+
+### Changed
+- **Sign-in** — the preview is the main element and ends in a small flow: money in → categories → left over
+- **Variations** — up and down arrows are neutral below ±5% and show the amount next to the percentage; color is kept for changes that matter
+- **Dashboard** — the pace chart scales to what was spent so far; the forecast is gray and the net-worth point is wine; the empty state shows a faded outline of the real dashboard instead of a grid of cards
+- **Reports** — month by month scales to the data and points out the period that strays most from the average; the comparison draws the previous period as a dashed outline; tables group the previous period and add the change in spending; percentages use one decimal and say their base; small income sources are grouped
+- **Transactions** — on phones, "New" is the only filled button and the first transaction appears higher; the month pill holds every period option; the New/Edit form starts with a large amount; the import review is grouped by day at one width; installments of the same purchase are one row while reviewing
+- **Profile** — the identity card shows account facts; edit and delete appear on hover
+- **Investments** — the chart axis shows start and end, the largest holding replaces repeated counts, and the distribution is a list with small bars
+- **Empty states** — no more icon in a box; one primary action per screen and, where it helps, a faded preview of what will appear
+- "Other" given by the AI when nothing fits counts as uncategorized everywhere (lists, reports, PDF and spreadsheets)
+
+### Fixed
+- Modal headers get a divider when the content scrolls, and the close button keeps 40 px on phones
+- 22 more backend tests (185 in total)
+
 ## [2.0.1] — 2026-10-14
 
 A visual review of every screenshot of the app (976 photos: each screen, modal and state at 1366 and 375 pixels, dark and light, in Portuguese and English) and the fixes it found.
