@@ -323,10 +323,11 @@ export function Reports() {
       { key: 'label', header: unit, title: true, render: b => b.longLabel },
       { key: 'inc', header: t('reports.table.income'), align: 'right', render: b => <Money value={b.income} /> },
       { key: 'exp', header: t('reports.table.expense'), align: 'right', render: b => <Money value={b.expense} /> },
-      // No celular (lista) a comparação vira uma linha só no gasto: "vs. mai  +R$ 604,00"
+      // No celular (lista) a comparação vira uma linha só no gasto: "Gasto vs. mai  ↗ 15,6% (+R$ 604,00)",
+      // com a mesma régua de cor do computador
       ...(showPrev ? [{ key: 'vs', header: t('reports.table.expenseChange'), align: 'right' as const, onlyList: true,
         rowLabel: (b: FlowRow) => t('reports.table.vsPrev', { label: b.prevLabel }),
-        render: (b: FlowRow) => <Money value={b.expense - b.prevExpense} signed /> }] : []),
+        render: (b: FlowRow) => <span className="rp-vs"><Delta value={pctChange(b.expense, b.prevExpense)} goodWhenUp={false} compact /><span>(<Money value={b.expense - b.prevExpense} signed />)</span></span> }] : []),
       { key: 'bal', header: t('reports.table.balance'), align: 'right', primary: true, render: b => <span className={b.income - b.expense < 0 ? 'rp-neg' : undefined}><Money value={b.income - b.expense} /></span> },
       { key: 'sav', header: t('reports.table.savings'), align: 'right', render: b => (b.income > 0 ? formatPercent(((b.income - b.expense) / b.income) * 100, 1, false) : <span className="rp-muted">—</span>) },
       ...(showPrev ? [

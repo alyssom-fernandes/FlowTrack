@@ -211,7 +211,7 @@ export function TransactionModal({ open, onClose, initial, accounts, categories,
       {isEdit && initial && onDelete && (
         <Button variant="ghost" icon="trash" className="tx-modal-delete" onClick={() => onDelete(initial)} disabled={saving}>{t('transactions.form.delete')}</Button>
       )}
-      <Button variant="secondary" onClick={onClose} disabled={saving}>{t('transactions.form.cancel')}</Button>
+      <Button variant="secondary" className={isEdit && onDelete ? 'tx-modal-cancel' : undefined} onClick={onClose} disabled={saving}>{t('transactions.form.cancel')}</Button>
       <Button type="submit" form="tx-form" loading={saving}>{submitLabel}</Button>
     </>
   )

@@ -21,7 +21,8 @@ const DRAWN: Record<string, ReactNode> = {
   dumbbell: <path d="M6.5 6.5v11M17.5 6.5v11M3.5 9.5v5M20.5 9.5v5M6.5 12h11" />,
   smartphone: <><rect x="6.5" y="2.5" width="11" height="19" rx="2" /><path d="M11 18h2" /></>,
   'shopping-bag': <><path d="M5 7.5h14l-1 13H6l-1-13Z" /><path d="M9 10V6.5a3 3 0 0 1 6 0V10" /></>,
-  plane: <><path d="M21 3 3 10.5l7 2.5 2.5 7L21 3Z" /><path d="m10 13 4.5-4.5" /></>,
+  // Avião de viagem visto de cima (o de papel lia como "enviar")
+  plane: <path d="M12 2.5c.9 0 1.5.8 1.5 1.8V9l7.5 4.5V15l-7.5-2.2V18l2.2 1.6V21L12 20l-3.7 1v-1.4l2.2-1.6v-5.2L3 15v-1.5L10.5 9V4.3c0-1 .6-1.8 1.5-1.8Z" />,
 }
 
 const SHARED: Record<string, IconName> = {
@@ -53,23 +54,27 @@ export function Glyph({ name, size = 16 }: { name?: string | null; size?: number
   return <Icon name={(name && SHARED[name]) || 'tag'} size={size} />
 }
 
+// Para metas: só glifos de objetivo (sem garfo, camiseta ou assinatura, que são de gasto)
+const GOAL_CHOICES = ['piggy-bank', 'plane', 'home', 'car', 'book', 'shield', 'gift', 'heart', 'briefcase', 'smartphone', 'target', 'trending-up'] as const
+
 /** Grade de glifos (um grupo de rádio): setas mudam a escolha, como nas abas. color tinge o escolhido. */
-export function GlyphPicker({ value, onChange, color = 'var(--accent-text)', label }: { value?: string | null; onChange: (name: string) => void; color?: string; label?: string }) {
+export function GlyphPicker({ value, onChange, color = 'var(--accent-text)', label, set = 'category' }: { value?: string | null; onChange: (name: string) => void; color?: string; label?: string; set?: 'category' | 'goal' }) {
   const { t } = useTranslation()
   const list = useRef<HTMLDivElement>(null)
-  const current = GLYPH_CHOICES.includes(value as typeof GLYPH_CHOICES[number]) ? value : 'tag'
+  const choices: readonly string[] = set === 'goal' ? GOAL_CHOICES : GLYPH_CHOICES
+  const current = value && choices.includes(value) ? value : choices[0]
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const idx = GLYPH_CHOICES.indexOf(current as typeof GLYPH_CHOICES[number])
+    const idx = choices.indexOf(current)
     const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
     if (!step) return
     e.preventDefault()
-    const next = (idx + step + GLYPH_CHOICES.length) % GLYPH_CHOICES.length
-    onChange(GLYPH_CHOICES[next])
+    const next = (idx + step + choices.length) % choices.length
+    onChange(choices[next])
     requestAnimationFrame(() => list.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus())
   }
   return (
     <div ref={list} role="radiogroup" aria-label={label ?? t('common.glyph.label')} className="ft-glyphs" style={{ '--glyph-color': color } as React.CSSProperties} onKeyDown={onKeyDown}>
-      {GLYPH_CHOICES.map(name => {
+      {choices.map(name => {
         const on = name === current
         return (
           <button key={name} type="button" role="radio" aria-checked={on} tabIndex={on ? 0 : -1} className="ft-glyph-opt"

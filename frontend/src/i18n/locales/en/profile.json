@@ -140,7 +140,8 @@
       "deleteError": "Couldn't delete the category."
     },
     "colors": {
-      "pick": "Color {{color}}"
+      "pick": "Color {{color}}",
+      "usedBy": "{{color}} · already used by {{name}}"
     },
     "history": {
       "title": "Change history",

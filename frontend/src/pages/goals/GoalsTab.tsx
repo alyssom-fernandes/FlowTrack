@@ -68,7 +68,8 @@ function GoalCard({ goal, category, today, forecast, onEdit, onDelete }: {
           <h3 className="gl-card__name">{goal.name}</h3>
           <div className="gl-card__meta">
             <span className="gl-card__meta-item">
-              <span className="gl-dot" style={{ background: category ? categoryColor(category) : 'var(--chart-neutral)' }} aria-hidden />
+              {/* Na meta de economia a cor é a da própria meta: o ponto da categoria brigava com ela */}
+              {isLimit && <span className="gl-dot" style={{ background: category ? categoryColor(category) : 'var(--chart-neutral)' }} aria-hidden />}
               {category ? categoryLabel(category) : isLimit ? t('goals.allSpending') : t('goals.allIncome')}
             </span>
             <span className="gl-card__meta-item"><Icon name="calendar" size={13} />{v.periodText}</span>
@@ -120,19 +121,22 @@ function GoalsSkeleton() {
   )
 }
 
-// Prévia do vazio: o desenho de uma meta de economia e de um limite, sem números
+// Prévia do vazio: uma meta de economia e um limite de exemplo, com nome, valores e a faixa na cor
+// da meta (barras cinza sem texto pareciam a tela carregando)
 function GoalsPreview() {
+  const { t } = useTranslation()
   return (
     <div className="gl-preview">
-      <div className="gl-preview__card gl-preview__card--savings">
-        <span className="gl-preview__band" />
-        <span className="gl-preview__line" style={{ width: '45%' }} />
-        <span className="gl-preview__bar"><span style={{ width: '62%' }} /></span>
+      <div className="gl-preview__card gl-preview__card--savings" style={{ '--c': 'var(--cat-3)' } as React.CSSProperties}>
+        <span className="gl-preview__band"><Glyph name="plane" size={40} /></span>
+        <span className="gl-preview__title">{t('goals.empty.sampleSavings')}</span>
+        <span className="gl-preview__value ft-num">{t('goals.budgets.spentOf', { spent: formatCurrency(3200), limit: formatCurrency(8000) })}</span>
+        <ProgressBar value={40} color="var(--pace-ok)" />
       </div>
       <div className="gl-preview__card">
-        <span className="gl-preview__line" style={{ width: '55%' }} />
-        <span className="gl-preview__line gl-preview__line--big" style={{ width: '35%' }} />
-        <span className="gl-preview__bar"><span style={{ width: '78%' }} /></span>
+        <span className="gl-preview__title">{t('goals.empty.sampleLimit')}</span>
+        <span className="gl-preview__value ft-num">{t('goals.budgets.spentOf', { spent: formatCurrency(980), limit: formatCurrency(1500) })}</span>
+        <ProgressBar value={65} color="var(--pace-ok)" />
       </div>
     </div>
   )

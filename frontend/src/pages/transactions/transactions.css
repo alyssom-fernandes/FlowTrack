@@ -316,7 +316,9 @@ section + section .tx-day__head { border-top: 1px solid var(--border-subtle); }
 .tx-review__totals { color: var(--text-hint); }
 .tx-rlist { list-style: none; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
 @media (min-width: 600px) { .tx-rlist { max-height: 19rem; overflow-y: auto; } }
-.tx-rrow { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr) 7.5rem 16rem; gap: 0.625rem; align-items: center; padding: 0.25rem 0.75rem 0.25rem 0.5rem; border-bottom: 1px solid var(--border-subtle); transition: opacity var(--transition); box-shadow: inset 3px 0 0 transparent; }
+.tx-rrow { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr) 16rem 7.5rem; grid-template-areas: 'check desc cat amt'; gap: 0.625rem; align-items: center; padding: 0.25rem 0.75rem 0.25rem 0.5rem; border-bottom: 1px solid var(--border-subtle); transition: opacity var(--transition); box-shadow: inset 3px 0 0 transparent; }
+/* Ordem da lista de Transações: descrição · categoria · valor (o valor na borda direita) */
+.tx-rrow__hit { grid-area: check; } .tx-rrow__desc { grid-area: desc; } .tx-rcat { grid-area: cat; } .tx-rrow__amt { grid-area: amt; }
 /* Cabeçalho do dia: a data em texto, que vira campo ao clicar (muda a data das transações do dia) */
 .tx-rday__head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; min-height: 2.25rem; padding: 0 0.75rem; background: linear-gradient(var(--bg-subtle), var(--bg-subtle)), var(--bg-card); border-bottom: 1px solid var(--border-subtle); }
 .tx-rday + .tx-rday .tx-rday__head { border-top: 1px solid var(--border-subtle); }
@@ -337,7 +339,7 @@ section + section .tx-day__head { border-top: 1px solid var(--border-subtle); }
   width: 100%; min-width: 0; height: 2rem; padding: 0 0.5rem; border-radius: var(--radius-sm); border: 1px solid transparent; background: transparent;
   font-size: var(--font-size-sm); color: var(--text-secondary); text-overflow: ellipsis; transition: border-color var(--transition), background var(--transition);
 }
-.tx-cell:hover { border-color: var(--border); }
+@media (hover: hover) { .tx-cell:hover { border-color: var(--border); } }  /* no toque o hover ficava preso depois do toque */
 .tx-cell:focus { outline: none; border-color: var(--border-focus); background: var(--bg-input); box-shadow: var(--focus-ring); }
 .tx-rrow__desc { color: var(--text-primary); }
 .tx-rrow__amt { text-align: right; font-weight: 600; }
@@ -380,7 +382,7 @@ section + section .tx-day__head { border-top: 1px solid var(--border-subtle); }
   .tx-print-only { display: block; font-size: var(--font-size-sm); color: var(--text-muted); margin-top: -0.5rem; }
   .tx-cols { grid-template-columns: 2rem minmax(0, 1fr) 9.5rem 7.5rem 7.5rem; column-gap: 0.75rem; }
   .tx-row, .tx-head, .tx-day__head { padding-left: 0.75rem; padding-right: 0.75rem; }
-  .tx-page .ft-page-header__actions, .tx-filters, .tx-filters-m, .tx-pager__nav, .tx-row__actions, .tx-cat__chev, .tx-pending svg, .tx-review-foot, .tx-month, .tx-confirm { display: none !important; }
+  .tx-page .ft-page-header__actions, .tx-filters, .tx-filters-m, .tx-pager__nav, .tx-row__actions, .tx-cat__chev, .tx-pending svg, .tx-review-foot, .ft-month, .tx-confirm { display: none !important; }
   .tx-list-card, .tx-summary { box-shadow: none; break-inside: auto; }
   .tx-row, .tx-card, .tx-day__head { break-inside: avoid; }
   .tx-list--busy { opacity: 1; }
@@ -433,24 +435,6 @@ button.tx-pending { min-height: 1.75rem; }
   .tx-summary button.tx-pending { min-height: 2.5rem; padding: 0 0.25rem; }
 }
 
-/* Mês em pílula com setas */
-.tx-month { display: flex; align-items: center; justify-content: center; gap: 0.25rem; }
-.tx-month__arrow { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; border-radius: var(--radius-full); color: var(--text-muted); transition: background var(--dur-1) ease, color var(--dur-1) ease; }
-.tx-month__arrow:hover:not(:disabled) { background: var(--bg-subtle); color: var(--text-primary); }
-.tx-month__arrow:disabled { opacity: 0.3; cursor: default; }
-.tx-month__side { width: 7rem; text-align: center; font-size: var(--font-size-sm); color: var(--text-hint); text-transform: capitalize; white-space: nowrap; }
-.tx-month__side.is-future { opacity: 0.45; }
-.tx-month__pill { position: relative; display: inline-flex; align-items: center; border-radius: var(--radius-full); background: var(--accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent); }
-.tx-month__current {
-  min-width: 9rem; height: 2.5rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; padding: 0 1.125rem 0 1.25rem;
-  border-radius: var(--radius-full); color: var(--text-primary); font-weight: 600; white-space: nowrap; transition: background var(--dur-1) ease;
-}
-.tx-month__current:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.tx-month__name { text-transform: capitalize; }
-.tx-month__chev { color: var(--text-muted); }
-.tx-month.is-ranged .tx-month__current { min-width: 0; padding-right: 0.25rem; }
-.tx-month__clear { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; border-radius: 50%; color: var(--text-muted); transition: background var(--dur-1) ease, color var(--dur-1) ease; }
-.tx-month__clear:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--text-primary); }
 /* Menu de períodos: abre sob a pílula */
 .tx-period {
   position: absolute; top: calc(100% + 0.375rem); left: 50%; transform: translateX(-50%); z-index: 60; width: 21rem; padding: 0.375rem;
@@ -465,7 +449,7 @@ button.tx-pending { min-height: 1.75rem; }
 .tx-period__opt[aria-pressed='true'] { color: var(--text-primary); font-weight: 600; }
 .tx-period__opt svg { color: var(--accent-text); }
 .tx-period__range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; padding: 0.5rem 0.375rem 0.375rem; border-top: 1px solid var(--border-subtle); margin-top: 0.25rem; }
-@media (max-width: 767px) { .tx-month__side { display: none; } .tx-period { width: min(21rem, calc(100vw - 2rem)); } }
+@media (max-width: 767px) { .tx-period { width: min(21rem, calc(100vw - 2rem)); } }
 
 /* ── A revisar: sem categoria ou IA com pouca confiança ── */
 .tx-review {
@@ -533,3 +517,12 @@ button.tx-pending { min-height: 1.75rem; }
 /* Parcelas agrupadas na revisão: "5 ×" antes do valor de cada parcela */
 .tx-amount-times { display: inline-flex; align-items: baseline; gap: 0.375rem; }
 .tx-amount-times > .ft-num { font-size: var(--font-size-sm); color: var(--text-muted); font-weight: 500; }
+
+/* Celular estreito: a faixa da revisão usa a largura toda e sai pelo "×" no canto */
+@media (max-width: 479px) {
+  .tx-review { position: relative; align-items: flex-start; padding-right: 3rem; }
+  .tx-review__icon { display: none; }
+  .tx-review__exit.ft-btn { position: absolute; top: 0.25rem; right: 0.25rem; width: 2.5rem; height: 2.5rem; padding: 0; gap: 0; font-size: 0; }
+}
+/* Editar no celular: o "×" do título já fecha; o rodapé fica com Salvar e Excluir */
+@media (max-width: 599px) { .tx-modal-cancel { display: none; } }

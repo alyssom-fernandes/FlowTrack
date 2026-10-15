@@ -46,7 +46,7 @@ async function abrirExportar(page) {
 
 // Pílula do mês: abre o menu de períodos
 async function abrirPeriodos(page) {
-  await page.locator('.tx-month__current').click()
+  await page.locator('.ft-month__current').click()
   await page.locator('.tx-period').waitFor()
 }
 

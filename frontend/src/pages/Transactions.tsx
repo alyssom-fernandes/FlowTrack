@@ -333,7 +333,7 @@ export function Transactions() {
                 <strong>{t('transactions.review.title', { count: reviewCount ?? 0 })}</strong>
                 <span>{t('transactions.review.text')}</span>
               </div>
-              <Button variant="ghost" size="sm" icon="close" onClick={() => updateFilters({ review: '' })}>{t('transactions.review.exit')}</Button>
+              <Button variant="ghost" size="sm" icon="close" className="tx-review__exit" aria-label={t('transactions.review.exit')} onClick={() => updateFilters({ review: '' })}>{t('transactions.review.exit')}</Button>
             </div>
           ) : null}
           <div ref={listTop} className="tx-anchor" />

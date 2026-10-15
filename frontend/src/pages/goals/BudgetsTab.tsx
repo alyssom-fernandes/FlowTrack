@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { Button, Card, ConfirmDialog, EmptyState, IconButton, Money, ProgressBar, RowActions, Skeleton } from '../../components/ui'
+import { Button, Card, ConfirmDialog, EmptyState, Money, ProgressBar, RowActions, Skeleton } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { budgetsService, categoriesService, transactionsService } from '../../services'
 import { categoryColor } from '../../lib/categoryColor'
@@ -9,7 +9,7 @@ import { billsByCategory, budgetState, budgetStatusText, budgetsSummaryText, mon
 import { useToastStore } from '../../store'
 import { categoryLabel, formatCurrency, formatPercent } from '../../utils'
 import type { Budget, Category, Transaction } from '../../types'
-import { isSpendingCategory, monthBounds, monthKey, monthName, monthTitle, shiftMonth } from './helpers'
+import { isSpendingCategory, monthBounds, monthKey, monthName, shiftMonth } from './helpers'
 import { BudgetModal } from './BudgetModal'
 
 type Paced = BudgetState & { budget: Budget }
@@ -108,14 +108,26 @@ function BudgetsSkeleton() {
   )
 }
 
-// Prévia do vazio: linhas de orçamento desenhadas, sem números
+// Prévia do vazio: três orçamentos de exemplo, com nome, cor e valores (barras cinza sem texto
+// pareciam a tela carregando)
+const SAMPLE_BUDGETS = [
+  { name: 'Alimentação', spent: 560, limit: 1000, tone: 'ok' as const },
+  { name: 'Transporte', spent: 234, limit: 400, tone: 'ok' as const },
+  { name: 'Lazer', spent: 312, limit: 350, tone: 'warn' as const },
+]
+
 function BudgetsPreview() {
+  const { t } = useTranslation()
   return (
     <div className="gl-preview gl-preview--rows">
-      {[72, 48, 88, 30].map((w, i) => (
-        <div key={i} className="gl-preview__row">
-          <span className="gl-preview__line" style={{ width: `${40 + (i % 2) * 15}%` }} />
-          <span className="gl-preview__bar"><span style={{ width: `${w}%` }} /></span>
+      {SAMPLE_BUDGETS.map(s => (
+        <div key={s.name} className="gl-preview__row">
+          <span className="gl-preview__name">
+            <span className="gl-dot" style={{ background: categoryColor({ name: s.name, color: '', is_default: true }) }} />
+            <span>{categoryLabel({ name: s.name })}</span>
+          </span>
+          <ProgressBar value={(s.spent / s.limit) * 100} color={BUDGET_COLOR[s.tone]} />
+          <span className="gl-preview__value ft-num">{t('goals.budgets.spentOf', { spent: formatCurrency(s.spent), limit: formatCurrency(s.limit) })}</span>
         </div>
       ))}
     </div>
@@ -231,14 +243,25 @@ export function BudgetsTab({ creating, onCreatingChange, onEmptyChange }: {
 
   return (
     <div className="gl-panel" style={{ gap: '1rem' }}>
-      <div className="gl-toolbar">
-        <div className="gl-month" role="group" aria-label={t('goals.budgets.monthNav')}>
-          <IconButton icon="chevronLeft" variant="secondary" label={t('goals.budgets.prevMonth')} onClick={() => setMonth(prev)} />
-          <h2 className="gl-month__label" aria-live="polite">{monthTitle(month)}</h2>
-          <IconButton icon="chevronRight" variant="secondary" label={t('goals.budgets.nextMonth')} onClick={() => setMonth(shiftMonth(month, 1))} />
-        </div>
-        {month !== current && <Button variant="ghost" size="sm" icon="calendar" onClick={() => setMonth(current)}>{t('goals.budgets.thisMonth')}</Button>}
-      </div>
+      {/* O mesmo seletor de Transações: ‹ setembro · Outubro · novembro ›; fora do mês atual, o "×" volta a ele */}
+      <nav className="ft-month" aria-label={t('goals.budgets.monthNav')}>
+        <button type="button" className="ft-month__arrow" onClick={() => setMonth(prev)} aria-label={t('goals.budgets.prevMonth')}>
+          <Icon name="chevronLeft" size={16} />
+        </button>
+        <span className="ft-month__side" aria-hidden>{monthName(prev, current)}</span>
+        <span className="ft-month__pill">
+          <h2 className="ft-month__current ft-month__name" aria-live="polite">{monthName(month, current)}</h2>
+          {month !== current && (
+            <button type="button" className="ft-month__clear" aria-label={t('goals.budgets.thisMonth')} title={t('goals.budgets.thisMonth')} onClick={() => setMonth(current)}>
+              <Icon name="close" size={13} />
+            </button>
+          )}
+        </span>
+        <span className="ft-month__side" aria-hidden>{monthName(shiftMonth(month, 1), current)}</span>
+        <button type="button" className="ft-month__arrow" onClick={() => setMonth(shiftMonth(month, 1))} aria-label={t('goals.budgets.nextMonth')}>
+          <Icon name="chevronRight" size={16} />
+        </button>
+      </nav>
 
       {failed ? (
         <Card>

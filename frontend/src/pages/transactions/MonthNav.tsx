@@ -22,7 +22,7 @@ export function MonthNav({ filters, onChange }: { filters: Filters; onChange: (p
     const onDown = (e: MouseEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false) }
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      setOpen(false); wrap.current?.querySelector<HTMLButtonElement>('.tx-month__current')?.focus()
+      setOpen(false); wrap.current?.querySelector<HTMLButtonElement>('.ft-month__current')?.focus()
     }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
@@ -49,7 +49,6 @@ export function MonthNav({ filters, onChange }: { filters: Filters; onChange: (p
   }
   const reset = () => { onChange({ period: 'this_month', start_date: '', end_date: '' }); setCustom(false) }
 
-  const isCurrentMonth = filters.period === 'this_month'
   const ranged = !month   // período que não é um mês inteiro: sem setas, com "×"
   const { label } = periodText(filters, t)
   const showRange = custom || (filters.period === 'custom' && ranged)
@@ -62,29 +61,30 @@ export function MonthNav({ filters, onChange }: { filters: Filters; onChange: (p
   const future = !!next && next > now
 
   return (
-    <nav className={`tx-month${ranged ? ' is-ranged' : ''}`} aria-label={t('transactions.month.label')} ref={wrap}>
+    <nav className={`ft-month${ranged ? ' is-ranged' : ''}`} aria-label={t('transactions.month.label')} ref={wrap}>
       {prev && (
         <>
-          <button type="button" className="tx-month__arrow" onClick={() => go(-1)} aria-label={t('transactions.month.prev', { month: monthName(prev) })}>
+          <button type="button" className="ft-month__arrow" onClick={() => go(-1)} aria-label={t('transactions.month.prev', { month: monthName(prev) })}>
             <Icon name="chevronLeft" size={16} />
           </button>
-          <span className="tx-month__side" aria-hidden>{monthName(prev)}</span>
+          <span className="ft-month__side" aria-hidden>{monthName(prev)}</span>
         </>
       )}
-      <span className="tx-month__pill">
-        <button type="button" className="tx-month__current" aria-haspopup="dialog" aria-expanded={open}
+      <span className="ft-month__pill">
+        <button type="button" className="ft-month__current" aria-haspopup="dialog" aria-expanded={open}
           aria-label={t('transactions.month.choose', { period: label })} onClick={() => { setCustom(filters.period === 'custom' && ranged); setOpen(v => !v) }}>
-          <span aria-live="polite" className={month ? 'tx-month__name' : undefined}>{label}</span>
-          {!ranged && <Icon name="chevronDown" size={14} className="tx-month__chev" />}
+          <span aria-live="polite" className={month ? 'ft-month__name' : undefined}>{label}</span>
+          {!ranged && <Icon name="chevronDown" size={14} className="ft-month__chev" />}
         </button>
         {ranged && (
-          <button type="button" className="tx-month__clear" aria-label={t('transactions.month.reset')} onClick={reset}>
+          <button type="button" className="ft-month__clear" aria-label={t('transactions.month.reset')} onClick={reset}>
             <Icon name="close" size={13} />
           </button>
         )}
         {open && (
           <div className="tx-period" role="dialog" aria-label={t('transactions.filters.period')}>
-            {options.filter(o => o.period !== 'this_month' || !isCurrentMonth).map(o => (
+            {/* Lista fixa (com "Este mês" marcado quando ativo): o menu não muda de itens conforme o estado */}
+            {options.map(o => (
               <button key={o.key} type="button" className="tx-period__opt" aria-pressed={filters.period === o.period && !showRange} onClick={() => pick(o.period)}>
                 {t(`transactions.filters.${o.key}`)}
                 {filters.period === o.period && !showRange && <Icon name="check" size={14} />}
@@ -108,8 +108,8 @@ export function MonthNav({ filters, onChange }: { filters: Filters; onChange: (p
       {next && (
         <>
           {/* O mês seguinte aparece sempre (mesmo no futuro, esmaecido): o seletor fica simétrico */}
-          <span className={`tx-month__side${future ? ' is-future' : ''}`} aria-hidden>{monthName(next)}</span>
-          <button type="button" className="tx-month__arrow" onClick={() => go(1)} disabled={future} aria-label={t('transactions.month.next', { month: monthName(next) })}>
+          <span className={`ft-month__side${future ? ' is-future' : ''}`} aria-hidden>{monthName(next)}</span>
+          <button type="button" className="ft-month__arrow" onClick={() => go(1)} disabled={future} aria-label={t('transactions.month.next', { month: monthName(next) })}>
             <Icon name="chevronRight" size={16} />
           </button>
         </>

@@ -182,12 +182,17 @@
       "legendSpent": "Spent so far",
       "legendPace": "Expected pace",
       "howTitle": "How we calculate it",
-      "howText": "We add up your budgets and spread each limit across the days of the month; fixed bills (last month's recurring expenses) count on the day they're due. The dashed line is where spending should be today.",
+      "howText": "We add up your budgets and spread each limit across the days of the month; fixed bills (last month's recurring expenses) count on the day they're due. While the month runs, the chart shows the gap between what you spent and that pace: above the dashed line you spent more than expected; below it you have room to spare.",
       "a11y": "{{spent}} spent so far, against {{expected}} expected by the pace and {{limit}} budgeted this month.",
       "emptyTitle": "See your monthly pace",
       "emptyText": "Create budgets by category to know how much you can still spend until the end of the month.",
       "emptyAction": "Create budgets",
-      "margin": "Overall, {{value}} over, within margin"
+      "margin": "Overall, {{value}} over, within margin",
+      "onPace": "on pace",
+      "zoneAbove": "↑ over pace",
+      "zoneBelow": "↓ to spare",
+      "legendDiff": "Spent minus pace, day by day",
+      "legendZero": "On pace"
     }
   }
 }

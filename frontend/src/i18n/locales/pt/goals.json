@@ -58,7 +58,9 @@
       "title": "Nenhuma meta ainda",
       "text": "Crie um limite de gasto para uma categoria ou uma meta de economia. O progresso é calculado a partir das suas transações.",
       "limit": "Criar limite de gasto",
-      "savings": "Criar meta de economia"
+      "savings": "Criar meta de economia",
+      "sampleSavings": "Viagem de férias",
+      "sampleLimit": "Assinaturas no ano"
     },
     "loadError": "Não foi possível carregar as metas.",
     "retry": "Tentar de novo",
@@ -160,7 +162,7 @@
       "paceBelow": "{{value}} de folga",
       "paceAbove": "{{value}} acima do ritmo",
       "paceOver": "Orçamentos estourados",
-      "paceMargin": "{{value}} acima, dentro da margem",
+      "paceMargin": "No total, {{value}} acima, dentro da margem",
       "leftClosed": "Sobrou",
       "closedOk": "Dentro do orçado"
     },

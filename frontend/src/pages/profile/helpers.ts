@@ -1,9 +1,10 @@
 // ── Apoio do Perfil: paleta, contraste e leitura de valores ──
 
-// Paleta para contas e categorias: o vinho, as oito cores das categorias padrão (validadas para
-// daltonismo e contraste, ver tokens.css) e o cinza. Sem verde: verde é cor de estado.
+// Paleta para contas e categorias: as oito cores das categorias padrão (validadas para daltonismo e
+// contraste, ver tokens.css) e o cinza. Sem verde (cor de estado) e sem o vinho (cor da marca e dos
+// botões principais: uma categoria vinho parecia ação).
 export const PALETTE = [
-  '#9D2449', '#2a78d6', '#0f8fb3', '#4a3aa7', '#7a26d9', '#e34948',
+  '#2a78d6', '#0f8fb3', '#4a3aa7', '#7a26d9', '#e34948',
   '#eb6834', '#eda100', '#a86a1c', '#8e8e99',
 ]
 

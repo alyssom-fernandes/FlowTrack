@@ -90,8 +90,9 @@ export function Segmented<T extends string>({ value, onChange, options, label }:
 }
 
 // ── Paleta de cores ──
-export function ColorPicker({ value, onChange, colors, label, names }: {
-  value: string; onChange: (c: string) => void; colors: string[]; label: string; names?: Record<string, string>
+// used: cores já usadas por outra categoria (um ponto no canto avisa; o nome vai na dica)
+export function ColorPicker({ value, onChange, colors, label, names, used }: {
+  value: string; onChange: (c: string) => void; colors: string[]; label: string; names?: Record<string, string>; used?: Set<string>
 }) {
   const { t } = useTranslation()
   const refs = useRef<(HTMLButtonElement | null)[]>([])
@@ -114,6 +115,7 @@ export function ColorPicker({ value, onChange, colors, label, names }: {
               if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); move(i - 1) }
             }}>
             {on && <Icon name="check" size={15} strokeWidth={2.5} style={{ color: readableOn(c) }} />}
+            {used?.has(c.toLowerCase()) && <span className="prf-swatch__used" aria-hidden />}
           </button>
         )
       })}

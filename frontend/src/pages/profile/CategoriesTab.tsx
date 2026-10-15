@@ -5,7 +5,7 @@ import { Icon } from '../../components/icons'
 import { useToastStore } from '../../store'
 import { categoriesService } from '../../services'
 import { categoryLabel, currentLocale } from '../../utils'
-import { categoryColor } from '../../lib/categoryColor'
+import { categoryColor, categoryPrintHex } from '../../lib/categoryColor'
 import { CategoryIcon } from '../dashboard/CategoryIcon'
 import { GlyphPicker } from '../../components/glyphs'
 import type { Category } from '../../types'
@@ -136,12 +136,18 @@ function CategoryModal({ category, existing, onClose, onSaved, onDelete }: {
   const { t } = useTranslation()
   const isEdit = !!category
   const [name, setName] = useState(category?.name ?? '')
-  const [color, setColor] = useState(category?.color ?? DEFAULT_COLOR)
+  // Cores já usadas pelas outras categorias criadas pela pessoa: a nova começa na primeira livre. As padrão
+  // ocupam a paleta inteira (é a mesma paleta validada), então dividir cor com elas é inevitável; o glifo diferencia.
+  const usedBy = new Map(existing.filter(c => c.id !== category?.id && !c.is_default).map(c => [categoryPrintHex(c).toLowerCase(), categoryLabel(c)]))
+  const firstFree = PALETTE.find(c => !usedBy.has(c.toLowerCase())) ?? DEFAULT_COLOR
+  const [color, setColor] = useState(category?.color ?? firstFree)
   const [icon, setIcon] = useState(category?.icon ?? 'tag')
   const [errors, setErrors] = useState<{ name?: string; form?: string }>({})
   const [saving, setSaving] = useState(false)
 
   const colors = uniqueColors([...PALETTE, category?.color])
+  const names = Object.fromEntries(colors.filter(c => usedBy.has(c.toLowerCase()))
+    .map(c => [c.toLowerCase(), t('profile.colors.usedBy', { color: c.toUpperCase(), name: usedBy.get(c.toLowerCase()) })]))
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -184,7 +190,7 @@ function CategoryModal({ category, existing, onClose, onSaved, onDelete }: {
         </div>
         <div className="ft-field">
           <span className="ft-field__label">{t('profile.categories.color')}</span>
-          <ColorPicker label={t('profile.categories.color')} value={color} onChange={setColor} colors={colors} />
+          <ColorPicker label={t('profile.categories.color')} value={color} onChange={setColor} colors={colors} names={names} used={new Set(usedBy.keys())} />
         </div>
         <div className="ft-field">
           <span className="ft-field__label">{t('profile.categories.icon')}</span>

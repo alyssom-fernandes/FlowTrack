@@ -110,8 +110,20 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
   // Diferença de hoje em texto e ícone (nunca só a cor), no alto da régua de hoje
   const showTag = w > 0 && day > 0 && actual.length > 0
   const half = (tagW || 180) / 2
-  const tagLeft = Math.min(Math.max(todayX, half), w - half)
   const ceilingText = t('dashboard.pace.ceiling', { value: formatCurrency(limit) })
+
+  // Mês correndo: o gráfico mostra o desvio (gasto − ritmo esperado, dia a dia) em volta de uma linha
+  // "no ritmo". No acumulado, R$ 220 de diferença sobre R$ 3.600 viravam 5 px; aqui ocupam a altura.
+  // O eixo dos dias vai só até hoje (+2): o futuro não tem desvio para mostrar.
+  const devs = running ? actual.map((v, i) => v - ideal[i]) : []
+  const span = Math.max(...devs.map(Math.abs), limit * 0.02, 1) * 1.25
+  const lastX = running ? Math.min(dim, Math.max(day + 2, 7)) : dim
+  const xd = (d: number) => PAD.left + ((d - 0.5) / lastX) * (w - PAD.left - PAD.right)
+  const yd = (v: number) => PAD.top + (1 - (v + span) / (2 * span)) * (H - PAD.top - PAD.bottom)
+  const devLine = devs.map((v, i) => `${i ? 'L' : 'M'}${xd(i + 1).toFixed(1)},${yd(v).toFixed(1)}`).join(' ')
+  const devArea = devs.length > 1 ? `${devLine} L${xd(devs.length).toFixed(1)},${yd(0).toFixed(1)} L${xd(1).toFixed(1)},${yd(0).toFixed(1)} Z` : ''
+  const markX = running ? xd(day) : todayX
+  const tagLeft = Math.min(Math.max(markX, half), w - half)
 
   return (
     <Card className="ft-dash-pace">
@@ -124,7 +136,24 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
         </div>
       </div>
       <div ref={wrap} className="ft-pace__chart" data-chart="ritmo">
-        {w > 0 && (
+        {w > 0 && running && (
+          <svg width={w} height={H} role="img" aria-label={t('dashboard.pace.a11y', { spent: formatCurrency(spent), expected: formatCurrency(expected), limit: formatCurrency(limit) })}>
+            {/* Linha "no ritmo" no meio; acima dela gastou mais que o esperado, abaixo há folga */}
+            <line x1={PAD.left} x2={w - PAD.right} y1={yd(0)} y2={yd(0)} stroke="var(--text-hint)" strokeWidth={1.5} strokeDasharray="4 4" />
+            <text x={w - PAD.right} y={yd(0) - 6} textAnchor="end" className="ft-pace__label ft-pace__label--halo">{t('dashboard.pace.onPace')}</text>
+            <text x={PAD.left} y={PAD.top + 12} className="ft-pace__label ft-pace__label--halo">{t('dashboard.pace.zoneAbove')}</text>
+            <text x={PAD.left} y={H - PAD.bottom - 6} className="ft-pace__label ft-pace__label--halo">{t('dashboard.pace.zoneBelow')}</text>
+            {devArea && <path d={devArea} fill={color} opacity={0.15} />}
+            {devs.length > 0 && <path d={devLine} fill="none" stroke={color} strokeWidth={2.25} strokeLinejoin="round" strokeLinecap="round" pathLength={1} className="ft-pace__line" />}
+            <g className="ft-pace__today">
+              <line x1={markX} x2={markX} y1={PAD.top - 6} y2={H - PAD.bottom} stroke="var(--border-strong)" />
+              {devs.length > 0 && <circle cx={markX} cy={yd(devs[devs.length - 1])} r={4.5} fill={color} stroke="var(--bg-card)" strokeWidth={2} />}
+            </g>
+            {xd(day) - PAD.left > 34 && <text x={PAD.left} y={H - 4} className="ft-pace__label">1</text>}
+            <text x={Math.min(Math.max(markX, PAD.left + 14), w - PAD.right - 14)} y={H - 4} textAnchor="middle" className="ft-pace__label ft-pace__label--today">{t('dashboard.pace.today')}</text>
+          </svg>
+        )}
+        {w > 0 && !running && (
           <svg width={w} height={H} role="img" aria-label={t('dashboard.pace.a11y', { spent: formatCurrency(spent), expected: formatCurrency(expected), limit: formatCurrency(limit) })}>
             <defs><clipPath id={clip}><rect x={0} y={PAD.top} width={w} height={H - PAD.top - PAD.bottom} /></clipPath></defs>
             {/* Teto: soma dos orçamentos, só quando cabe na escala (no fim do mês). O rótulo fica à
@@ -166,8 +195,8 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
         )}
       </div>
       <div className="ft-pace__legend">
-        <span><i className="ft-pace__key" style={{ background: color }} />{t('dashboard.pace.legendSpent')}</span>
-        <span><i className="ft-pace__key ft-pace__key--dashed" />{t('dashboard.pace.legendPace')}</span>
+        <span><i className="ft-pace__key" style={{ background: color }} />{t(running ? 'dashboard.pace.legendDiff' : 'dashboard.pace.legendSpent')}</span>
+        <span><i className="ft-pace__key ft-pace__key--dashed" />{t(running ? 'dashboard.pace.legendZero' : 'dashboard.pace.legendPace')}</span>
       </div>
       <details className="ft-pace__how">
         <summary>{t('dashboard.pace.howTitle')}</summary>

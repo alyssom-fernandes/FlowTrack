@@ -58,7 +58,9 @@
       "title": "No goals yet",
       "text": "Set a spending limit for a category or a savings goal. Progress is calculated from your transactions.",
       "limit": "Create spending limit",
-      "savings": "Create savings goal"
+      "savings": "Create savings goal",
+      "sampleSavings": "Holiday trip",
+      "sampleLimit": "Subscriptions this year"
     },
     "loadError": "Couldn't load your goals.",
     "retry": "Try again",
@@ -160,7 +162,7 @@
       "paceBelow": "{{value}} to spare",
       "paceAbove": "{{value}} over pace",
       "paceOver": "Over budget",
-      "paceMargin": "{{value}} over, within margin",
+      "paceMargin": "Overall, {{value}} over, within margin",
       "leftClosed": "Left over",
       "closedOk": "Within budget"
     },

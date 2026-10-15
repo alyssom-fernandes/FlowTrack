@@ -193,7 +193,7 @@ export function GoalModal({ open, goal, presetType, categories, onClose, onSaved
               <GoalColorPicker value={form.color} onChange={c => set('color', c)} label={t('goals.form.colorLabel')} />
             </Field>
             <Field label={t('goals.form.iconLabel')}>
-              <GlyphPicker value={form.icon} onChange={n => set('icon', n)} color={goalColorVar(form.color)} label={t('goals.form.iconLabel')} />
+              <GlyphPicker set="goal" value={form.icon} onChange={n => set('icon', n)} color={goalColorVar(form.color)} label={t('goals.form.iconLabel')} />
             </Field>
           </div>
         )}

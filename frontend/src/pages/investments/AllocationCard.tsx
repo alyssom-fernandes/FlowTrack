@@ -32,7 +32,6 @@ export function AllocationCard({ slices }: { slices: Slice[] }) {
 
   const label = (s: Slice) => (s.key === 'outro' ? t('investments.otherFolded') : t(`investments.types.${s.key}`))
 
-  const maxShare = Math.max(0, ...slices.map(s => s.share))
   const rects = layoutBar(slices.map(s => s.value), width, GAP)
 
   const summary = slices.map(s => `${label(s)} ${formatPercent(s.share, 1, false)}`).join(', ')
@@ -67,14 +66,13 @@ export function AllocationCard({ slices }: { slices: Slice[] }) {
         )}
       </div>
 
-      {/* Lista em duas colunas (de cima para baixo): nome · mini barra · valor · %, como as categorias de Relatórios.
-          A mini barra é relativa ao maior tipo, para comparar comprimentos sem ler os números. */}
+      {/* Lista em duas colunas (de cima para baixo): cor · nome · valor · %, como as categorias de Relatórios.
+          Sem mini barra: a barra empilhada acima já mostra as proporções (as duas repetiam a mesma coisa). */}
       <ul className="inv-legend" aria-label={t('investments.allocation.legend')} style={{ '--inv-rows': Math.ceil(slices.length / 2) } as CSSProperties}>
         {slices.map((s, i) => (
           <li key={s.key} className={`inv-legend__item${active !== null && active !== i ? ' is-dim' : ''}${active === i ? ' is-active' : ''}`}
             onPointerEnter={e => { if (e.pointerType === 'mouse') setActive(i) }} onPointerLeave={e => { if (e.pointerType === 'mouse') setActive(null) }}>
-            <span className="inv-legend__name">{label(s)}</span>
-            <span className="inv-legend__bar" aria-hidden><span style={{ width: `${maxShare > 0 ? Math.max(4, (s.share / maxShare) * 100) : 0}%`, background: s.color }} /></span>
+            <span className="inv-legend__name"><span className="inv-swatch" style={{ background: s.color }} aria-hidden />{label(s)}</span>
             <Money value={s.value} className="inv-legend__value" />
             <span className="inv-legend__share ft-num">{formatPercent(s.share, 1, false)}</span>
           </li>

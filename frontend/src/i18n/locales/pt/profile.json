@@ -140,7 +140,8 @@
       "deleteError": "Não foi possível excluir a categoria."
     },
     "colors": {
-      "pick": "Cor {{color}}"
+      "pick": "Cor {{color}}",
+      "usedBy": "{{color}} · já usada por {{name}}"
     },
     "history": {
       "title": "Histórico de alterações",

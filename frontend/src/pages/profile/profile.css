@@ -262,3 +262,7 @@
 .prf-theme:hover .prf-theme__shot { box-shadow: 0 0 0 1px var(--border-strong); }
 .prf-theme[aria-checked='true']:hover .prf-theme__shot { box-shadow: 0 0 0 2px var(--accent); }
 @media (max-width: 599px) { .prf-themes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Cor já usada por outra categoria: um ponto no canto (o nome vai na dica) */
+.prf-swatch { position: relative; }
+.prf-swatch__used { position: absolute; right: -2px; bottom: -2px; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--text-muted); box-shadow: 0 0 0 2px var(--bg-elevated); }

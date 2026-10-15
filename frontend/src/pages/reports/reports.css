@@ -330,3 +330,4 @@
 @media (max-width: 420px) {
   .rp-sections .ft-tab { padding: 0 0.5rem; }
 }
+.rp-vs { display: inline-flex; align-items: baseline; gap: 0.375rem; }
