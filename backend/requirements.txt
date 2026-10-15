@@ -10,7 +10,7 @@ faker==40.19.1
 pytest==9.0.3
 pytest-asyncio==1.4.0
 python-dotenv==1.2.2
-pydantic-settings==2.7.0
+pydantic-settings==2.15.0
 anthropic==0.105.0
 pdfplumber==0.11.10
 slowapi==0.1.9
