@@ -184,7 +184,10 @@ input[type='number'].ft-input::-webkit-inner-spin-button, input[type='number'].f
   background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg); width: 100%; max-height: 90dvh; display: flex; flex-direction: column; overflow: hidden;
 }
-.ft-modal__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.125rem 1.25rem 0.875rem; }
+.ft-modal__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.125rem 1.25rem 0.875rem; transition: box-shadow var(--dur-1) ease; }
+.ft-modal__header > .ft-btn { flex-shrink: 0; }
+/* Com o corpo rolado, um fio separa o título do que passa por baixo dele */
+.ft-modal__header--scrolled { box-shadow: 0 1px 0 var(--border); position: relative; z-index: 1; }
 .ft-modal__title { font-size: var(--font-size-lg); font-weight: 600; color: var(--text-primary); line-height: 1.3; }
 .ft-modal__description { font-size: var(--font-size-sm); color: var(--text-muted); margin-top: 0.25rem; }
 .ft-modal__body { padding: 0.25rem 1.25rem 1.25rem; overflow-y: auto; flex: 1; }

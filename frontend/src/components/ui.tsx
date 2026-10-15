@@ -193,6 +193,7 @@ interface ModalProps {
 
 export function Modal({ open, onClose, title, description, children, footer, width = '28rem' }: ModalProps) {
   const ref = useRef<HTMLDivElement>(null)
+  const header = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const closeRef = useRef(onClose)
   useEffect(() => { closeRef.current = onClose }, [onClose])
@@ -231,7 +232,7 @@ export function Modal({ open, onClose, title, description, children, footer, wid
     <div className="ft-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div ref={ref} className="ft-modal" role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} tabIndex={-1} style={{ maxWidth: width }}>
         {title && (
-          <div className="ft-modal__header">
+          <div className="ft-modal__header" ref={header}>
             <div style={{ minWidth: 0 }}>
               <h2 id={titleId} className="ft-modal__title">{title}</h2>
               {description && <p className="ft-modal__description">{description}</p>}
@@ -239,7 +240,8 @@ export function Modal({ open, onClose, title, description, children, footer, wid
             <IconButton icon="close" label={t('common.close', 'Fechar')} onClick={onClose} style={{ marginRight: '-0.375rem', marginTop: '-0.25rem' }} />
           </div>
         )}
-        <div className="ft-modal__body">{children}</div>
+        {/* Classe direto no DOM: o cabeçalho nasce de novo a cada abertura, sem estado para zerar */}
+        <div className="ft-modal__body" onScroll={e => header.current?.classList.toggle('ft-modal__header--scrolled', e.currentTarget.scrollTop > 0)}>{children}</div>
         {footer && <div className="ft-modal__footer">{footer}</div>}
       </div>
     </div>
