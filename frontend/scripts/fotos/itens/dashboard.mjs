@@ -229,7 +229,7 @@ At this pace, the emergency fund is complete in about 4 months.` }
     acao: async page => {
       await mexerNaBase(page, (db) => { db.budgets = [] })
       const card = page.locator('.ft-dash-pace')
-      await card.getByText(/veja seu ritmo|see your pace/i).first().waitFor()
+      await card.locator('.ft-empty').first().waitFor()
       await centralizar(card)
     },
   },
