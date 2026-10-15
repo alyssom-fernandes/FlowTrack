@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # App
     app_env: str = "development"
-    app_version: str = "2.1.0"
+    app_version: str = "2.2.0"
     cors_origins: str = "http://localhost:5173"
 
     @field_validator(

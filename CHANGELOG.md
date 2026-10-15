@@ -2,6 +2,25 @@
 
 All notable changes to FlowTrack are documented here. Dates follow the commits where each set of changes landed.
 
+## [2.2.0] — 2026-10-15
+
+What the design review of 2.1.0 still pointed out.
+
+### Changed
+- **Pace chart** — while the month runs it shows the gap to the expected pace day by day around an "on pace" line, so a R$ 220 difference is visible instead of two overlapping lines; the cumulative view with the ceiling comes back at the end of the month
+- **One month picker** — Budgets uses the same month pill as Transactions, with an "×" back to the current month; the period menu always lists the same options
+- **Empty states** — Goals and Budgets show sample goals and budgets with names, amounts and colors instead of gray bars that looked like loading
+- **Colors** — custom categories no longer offer the brand wine; colors already used by another category are marked and a new category starts on a free one; a savings goal shows only its own color
+- **Goal icons** — goals pick from goal-like icons (piggy bank, trip, home, car…), and the trip icon is a real plane
+- **Phones** — the review banner uses the full width with an "×" to leave; editing a transaction keeps Save and Delete in the footer (the title "×" closes)
+- **Import review** — columns follow the transaction list (description, category, amount on the right edge)
+- **Investments** — the distribution list drops the small bars that repeated the stacked bar
+- **Reports tables on phones** — "Spending vs. May" shows the percentage with the same color rule as the desktop table
+- Sidebar group "Account" is now "You", so it does not read as a bank account; budget totals say "Overall, … within margin"
+
+### Docs
+- README screenshots, cover, link preview and PDF image redone from 2.2.0
+
 ## [2.1.0] — 2026-10-15
 
 The third pass of the visual review: less dashboard boilerplate, one clear subject per screen, and the review flow that learns.
