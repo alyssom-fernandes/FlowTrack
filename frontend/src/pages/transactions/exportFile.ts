@@ -5,6 +5,7 @@ import { buildXlsx, type XlsxColumn, type XlsxValue } from '../../lib/xlsx'
 import { categoryLabel, currentLocale, formatDate } from '../../utils'
 import type { Account, Category, Transaction } from '../../types'
 import { fetchAll, NO_CATEGORY, periodRange, sumFlows, type Filters } from './shared'
+import { shownCategoryId } from '../../lib/review'
 
 export type ExportFormat = 'csv' | 'xlsx'
 
@@ -49,7 +50,8 @@ export async function exportTransactions(format: ExportFormat, filters: Filters,
   ]
   const typeName = (t: Transaction) => tr(t.type === 'transfer' ? 'typeTransfer' : t.amount > 0 ? 'typeCredit' : 'typeDebit')
   const rows: XlsxValue[][] = txs.map(t => {
-    const cat = t.category_id ? catById.get(t.category_id) : undefined
+    // Mesma regra da lista: o "Outros" que a IA deu por falta de opção sai como sem categoria
+    const cat = catById.get(shownCategoryId(t, categories) ?? '')
     return [
       t.transaction_date,
       t.description,

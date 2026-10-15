@@ -73,7 +73,7 @@ function layout(nodes: Node[], height: number) {
 // No desenho do fluxo as categorias perdem um pouco de saturação (a cor delas continua nos rótulos):
 // o nó de Moradia, o maior, competia com o vinho da Sobra, que é o que o bloco quer mostrar.
 // A paleta validada (--cat-*) não muda.
-const bandColor = (n: Node) => (n.kind === 'category' ? `color-mix(in oklab, ${n.color} 58%, var(--chart-neutral))` : n.color)
+const bandColor = (n: Node) => (n.kind === 'category' ? `color-mix(in oklab, ${n.color} 45%, var(--chart-neutral))` : n.color)
 
 function ribbon(x0: number, a: { y: number; h: number }, x1: number, b: { y: number; h: number }) {
   const mid = (x0 + x1) / 2
@@ -306,7 +306,8 @@ export function FlowHero({ transactions, categories, balance, balanceDelta, acco
             </div>
           ))}
         </dl>
-        {prev && <p className="flow__ref">{t('dashboard.flow.compared', { range: sameDays })}</p>}
+        {/* A base das porcentagens do fluxo (o Resumo do mês fala em % dos gastos) */}
+        <p className="flow__ref">{prev && <>{t('dashboard.flow.compared', { range: sameDays })} · </>}{t('dashboard.flow.shareBase')}</p>
       </div>
 
       <FlowDiagram data={flow} minHeight={sideH} showSources plotLabel={t('dashboard.flow.plotLabel')} emptyText={t('dashboard.flow.empty')} />

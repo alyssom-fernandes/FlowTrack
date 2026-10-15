@@ -75,7 +75,8 @@
       "incomeTick": "Income (line)",
       "netAbove": "Left over, above the line",
       "current": "Current",
-      "previousGhost": "Previous"
+      "previousGhost": "Previous",
+      "previousIncome": "Previous income"
     },
     "insight": {
       "above": "spending {{pct}} above average",
@@ -114,7 +115,7 @@
       "byWeek": "By week",
       "prevGroup": "Previous period ({{range}})",
       "expenseChange": "Spending change",
-      "vsPrev": "vs. {{label}}"
+      "vsPrev": "Spending vs. {{label}}"
     },
     "categories": {
       "title": "Expenses by category",

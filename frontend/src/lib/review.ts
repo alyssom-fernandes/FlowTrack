@@ -24,3 +24,8 @@ export function shownCategory(t: Pick<Transaction, 'category_id' | 'categorized_
   const cat = t.category_id ? categories.find(c => c.id === t.category_id) : undefined
   return isAiFallback(t, cat) ? undefined : cat
 }
+
+/** O id que vale nos totais por categoria (Relatórios, fluxo, PDF, planilhas): a mesma regra da tela. */
+export function shownCategoryId(t: Pick<Transaction, 'category_id' | 'categorized_by'>, categories: Category[]): string | undefined {
+  return shownCategory(t, categories)?.id
+}

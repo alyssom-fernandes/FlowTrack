@@ -349,8 +349,8 @@
       "footHint_one": "Escolha a categoria de 1 transação para marcar todas.",
       "footHint_other": "Escolha a categoria de {{count}} transações para marcar todas.",
       "choose": "Escolher",
-      "parcels_one": "{{count}} parcela",
-      "parcels_other": "{{count}} parcelas",
+      "parcelsRange_one": "{{count}} parcela · {{range}}",
+      "parcelsRange_other": "{{count}} parcelas · {{range}}",
       "parcelsHint": "Parcelas {{list}} de {{total}} da mesma compra, {{amount}} cada. O ✓ confirma todas.",
       "confirmGroup": "Confirmar {{category}} nas {{count}} parcelas de {{name}}"
     },

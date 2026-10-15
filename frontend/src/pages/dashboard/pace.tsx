@@ -127,16 +127,13 @@ export function PaceCard({ transactions, previousMonth, budgets, monthKey, now }
         {w > 0 && (
           <svg width={w} height={H} role="img" aria-label={t('dashboard.pace.a11y', { spent: formatCurrency(spent), expected: formatCurrency(expected), limit: formatCurrency(limit) })}>
             <defs><clipPath id={clip}><rect x={0} y={PAD.top} width={w} height={H - PAD.top - PAD.bottom} /></clipPath></defs>
-            {/* Teto: soma dos orçamentos. Fora da escala, um tique no alto à direita */}
-            {ceilingIn ? (
+            {/* Teto: soma dos orçamentos, só quando cabe na escala (no fim do mês). O rótulo fica à
+                esquerda, onde o ritmo ainda está baixo (à direita a tracejada passava por cima dele);
+                fora da escala o subtítulo do card já diz o total */}
+            {ceilingIn && (
               <>
                 <line x1={PAD.left} x2={w - PAD.right} y1={y(limit)} y2={y(limit)} stroke="var(--border-strong)" strokeDasharray="2 4" />
-                <text x={w - PAD.right} y={y(limit) - 5} textAnchor="end" className="ft-pace__label ft-pace__label--halo">{ceilingText}</text>
-              </>
-            ) : (
-              <>
-                <line x1={w - PAD.right - 10} x2={w - PAD.right} y1={PAD.top} y2={PAD.top} stroke="var(--text-hint)" strokeWidth={1.5} />
-                <text x={w - PAD.right} y={PAD.top + 14} textAnchor="end" className="ft-pace__label ft-pace__label--halo">{ceilingText} ↑</text>
+                <text x={PAD.left} y={y(limit) - 5} textAnchor="start" className="ft-pace__label ft-pace__label--halo">{ceilingText}</text>
               </>
             )}
             <g clipPath={`url(#${clip})`}>

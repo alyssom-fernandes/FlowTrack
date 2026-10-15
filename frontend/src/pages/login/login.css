@@ -213,15 +213,14 @@
     height: 2rem; padding: 0 0.75rem 0 0.625rem; font-size: var(--font-size-sm); font-weight: 600;
     background: color-mix(in srgb, var(--c) 20%, var(--bg-elevated));
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 34%, transparent);
-    transform: translateY(-50%) rotate(var(--r, 0deg));
+    transform: translateY(-50%);
     animation: ent-chip-out var(--dur-3) var(--ease-out) both;
   }
-  .ent-prev__chip--0 { --r: -3deg; }
-  .ent-prev__chip--1 { --r: 2.5deg; right: -1.75rem; }
+  /* Retas e numa coluna só: inclinadas pareciam adesivos (crítica do lote 3) */
 }
 @keyframes ent-chip-out {
-  from { opacity: 0; transform: translate(-2.5rem, -50%) rotate(0deg); }
-  to { opacity: 1; transform: translateY(-50%) rotate(var(--r, 0deg)); }
+  from { opacity: 0; transform: translate(-2.5rem, -50%); }
+  to { opacity: 1; transform: translateY(-50%); }
 }
 
 /* ── Fluxo do mês: a encenação termina no resultado ── */

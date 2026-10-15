@@ -75,7 +75,8 @@
       "incomeTick": "Receitas (traço)",
       "netAbove": "Sobra, acima do traço",
       "current": "Atual",
-      "previousGhost": "Anterior"
+      "previousGhost": "Anterior",
+      "previousIncome": "Receitas anteriores"
     },
     "insight": {
       "above": "gasto {{pct}} acima da média",
@@ -114,7 +115,7 @@
       "byWeek": "Por semana",
       "prevGroup": "Período anterior ({{range}})",
       "expenseChange": "Variação do gasto",
-      "vsPrev": "vs. {{label}}"
+      "vsPrev": "Gasto vs. {{label}}"
     },
     "categories": {
       "title": "Gastos por categoria",

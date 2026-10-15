@@ -2,6 +2,7 @@
 import type { Category, Transaction } from '../../types'
 import { categoryColor, categoryRank } from '../../lib/categoryColor'
 import { categoryLabel } from '../../utils'
+import { shownCategoryId } from '../../lib/review'
 
 // ── Dados ─────────────────────────────────────────────────
 export type Node = { key: string; label: string; value: number; color: string; icon?: string; href?: string; kind: 'category' | 'none' | 'others' | 'left'; count?: number }
@@ -19,7 +20,12 @@ export function buildFlow(transactions: Transaction[], categories: Category[], t
   const flows = transactions.filter(tx => tx.type !== 'transfer')
   const income = flows.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0)
   const byCat = new Map<string, number>()
-  for (const tx of flows) if (tx.amount < 0) byCat.set(tx.category_id || 'none', (byCat.get(tx.category_id || 'none') || 0) - tx.amount)
+  // O "Outros" que a IA deu por falta de opção vai para "Sem categoria", como na lista de Transações
+  for (const tx of flows) {
+    if (tx.amount >= 0) continue
+    const key = shownCategoryId(tx, categories) || 'none'
+    byCat.set(key, (byCat.get(key) || 0) - tx.amount)
+  }
   const expense = [...byCat.values()].reduce((s, v) => s + v, 0)
 
   // Fontes de renda: as maiores pela descrição ("Salário", "Freelance…") e o resto em "Outras receitas"
@@ -35,7 +41,10 @@ export function buildFlow(transactions: Transaction[], categories: Category[], t
   const ranked = [...bySource.values()].sort((x, y) => y.value - x.value)
   const main = ranked.filter((x, i) => i < MAX_SOURCES - 1 && x.value >= income * 0.05)
   const restSources = ranked.slice(main.length)
-  const sources = restSources.length > 1 || (restSources.length === 1 && main.length === MAX_SOURCES - 1 && ranked.length > MAX_SOURCES)
+  // Uma fonte abaixo de 2% sozinha virava um nó de poucos pixels com o nome cortado: vai também para
+  // "Outras receitas" (Dashboard e Relatórios)
+  const tiny = restSources.some(x => x.value < income * 0.02)
+  const sources = restSources.length > 1 || (restSources.length === 1 && (tiny || (main.length === MAX_SOURCES - 1 && ranked.length > MAX_SOURCES)))
     ? [...main, { key: '__others__', label: t('dashboard.flow.otherIncome'), value: restSources.reduce((s, x) => s + x.value, 0) }]
     : [...main, ...restSources]
 

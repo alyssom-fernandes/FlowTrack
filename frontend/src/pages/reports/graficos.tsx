@@ -157,33 +157,33 @@ export function FlowBars({ buckets, prev, ariaLabel }: { buckets: Bucket[]; prev
   for (let i = 0; i < n; i++) {
     const b = buckets[i], p = prev?.[i]
     const x = m.left + i * band + (band - barW) / 2
-    // Período anterior: barra-sombra um pouco mais larga, atrás da atual (30%), e a receita
-    // anterior em traço pontilhado. Comparar fica na mesma posição, sem pares lado a lado.
+    const top = y(b.expense)
+    const current = b.key === thisMonth
+    const d = barPath(x, top, barW, m.top + plotH - top)
+    if (d) bars.push(<path key={`${i}-c`} d={d} fill="var(--chart-spend)"
+      stroke={current ? 'var(--accent-ink)' : undefined} strokeWidth={current ? 1.5 : undefined} />)
+    // Período anterior: contorno tracejado um pouco mais largo, por cima da barra atual (a sombra cinza
+    // atrás dela quase não se via), e a receita anterior em traço pontilhado. Mesma posição, sem pares.
     if (p) {
       const pTop = y(p.expense)
       const pd = barPath(x - ghostPad, pTop, barW + ghostPad * 2, m.top + plotH - pTop)
-      if (pd) bars.push(<path key={`${i}-p`} d={pd} fill="var(--chart-spend)" opacity={0.3} />)
+      if (pd) bars.push(<path key={`${i}-p`} d={pd} fill="none" stroke="var(--text-muted)" strokeWidth={1.5} strokeDasharray="4 3" />)
       if (p.income > 0) {
         const py = y(p.income)
         bars.push(<line key={`${i}-pr`} x1={x - ghostPad} x2={x + barW + ghostPad} y1={py} y2={py} stroke="var(--chart-income)" strokeWidth={2}
           strokeDasharray="2 3" opacity={0.85} />)
       }
     }
-    const top = y(b.expense)
-    const current = b.key === thisMonth
-    const d = barPath(x, top, barW, m.top + plotH - top)
-    if (d) bars.push(<path key={`${i}-c`} d={d} fill="var(--chart-spend)"
-      stroke={current ? 'var(--accent-ink)' : undefined} strokeWidth={current ? 1.5 : undefined} />)
     if (b.income > 0) {
       const ty = y(b.income)
       bars.push(<line key={`${i}-r`} x1={x - 3} x2={x + barW + 3} y1={ty} y2={ty} stroke="var(--chart-income)" strokeWidth={2.5} strokeLinecap="round" />)
     }
-    // Sobra do período, colada acima do traço de receita (ou do topo da barra, quando faltou).
-    // Na comparação não aparece (a pergunta ali é atual × anterior). Rótulo só onde cabe na
-    // coluna; no celular, só no período em leitura (os vizinhos se atropelavam), e nunca fora do gráfico.
-    const tipY = Math.min(b.income > 0 ? y(b.income) : top, top)
+    // Sobra do período, colada acima do traço de receita (ou do topo da barra, quando faltou), também
+    // na comparação. Rótulo só onde cabe na coluna; no celular, só no período em leitura (os vizinhos
+    // se atropelavam), e nunca fora do gráfico.
+    const tipY = Math.min(b.income > 0 ? y(b.income) : top, top, p ? y(Math.max(p.income, p.expense)) : Infinity)
     netY[i] = tipY
-    if (!prev && !b.future && (b.income > 0 || b.expense > 0)) {
+    if (!b.future && (b.income > 0 || b.expense > 0)) {
       const net = b.income - b.expense
       const label = axisMoney(net, true)
       const lw = label.length * 6.4

@@ -349,8 +349,8 @@
       "footHint_one": "Pick a category for 1 transaction to mark them all.",
       "footHint_other": "Pick a category for {{count}} transactions to mark them all.",
       "choose": "Choose",
-      "parcels_one": "{{count}} installment",
-      "parcels_other": "{{count}} installments",
+      "parcelsRange_one": "{{count}} installment · {{range}}",
+      "parcelsRange_other": "{{count}} installments · {{range}}",
       "parcelsHint": "Installments {{list}} of {{total}} from the same purchase, {{amount}} each. ✓ confirms them all.",
       "confirmGroup": "Confirm {{category}} for the {{count}} installments of {{name}}"
     },

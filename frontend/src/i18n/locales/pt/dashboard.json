@@ -165,7 +165,8 @@
       "ofDays_one": "de {{count}}",
       "ofDays_other": "de {{count}}",
       "otherIncome": "Outras receitas",
-      "sources": "De onde veio o dinheiro"
+      "sources": "De onde veio o dinheiro",
+      "shareBase": "% sobre o que entrou"
     },
     "pace": {
       "title": "Quanto ainda posso gastar",
@@ -186,7 +187,7 @@
       "emptyTitle": "Veja seu ritmo do mês",
       "emptyText": "Crie orçamentos por categoria para saber quanto ainda pode gastar até o fim do mês.",
       "emptyAction": "Criar orçamentos",
-      "margin": "{{value}} acima, dentro da margem"
+      "margin": "No total, {{value}} acima, dentro da margem"
     }
   }
 }

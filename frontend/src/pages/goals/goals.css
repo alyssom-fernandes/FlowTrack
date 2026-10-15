@@ -153,3 +153,9 @@
   .gl-preview__card:not(.gl-preview__card--savings) { display: none; }
 }
 .gl-bsum__foot-item:last-child { margin-left: auto; }
+
+/* Lápis e lixeira só no hover ou no foco do card, como no Perfil e em Investimentos; em toque, à vista */
+@media (hover: hover) and (min-width: 768px) {
+  .gl-card__actions { opacity: 0; transition: opacity var(--dur-1) ease; }
+  .gl-card:hover .gl-card__actions, .gl-card:focus-within .gl-card__actions { opacity: 1; }
+}

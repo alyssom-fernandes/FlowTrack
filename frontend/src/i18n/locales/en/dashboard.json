@@ -165,7 +165,8 @@
       "ofDays_one": "of {{count}}",
       "ofDays_other": "of {{count}}",
       "otherIncome": "Other income",
-      "sources": "Where the money came from"
+      "sources": "Where the money came from",
+      "shareBase": "% of what came in"
     },
     "pace": {
       "title": "Left to spend",
@@ -186,7 +187,7 @@
       "emptyTitle": "See your monthly pace",
       "emptyText": "Create budgets by category to know how much you can still spend until the end of the month.",
       "emptyAction": "Create budgets",
-      "margin": "{{value}} over, within margin"
+      "margin": "Overall, {{value}} over, within margin"
     }
   }
 }

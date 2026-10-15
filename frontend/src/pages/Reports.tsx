@@ -14,7 +14,7 @@ import {
 } from './reports/dados'
 import { CategoryDonut, Delta, FlowBars, Legend, ProjectionLines, ReportTable, TopList, type Column } from './reports/graficos'
 import { FlowDiagram } from './dashboard/flow'
-import { buildFlow, type FlowData } from './dashboard/flowData'
+import { buildFlow } from './dashboard/flowData'
 import './reports/reports.css'
 
 type View = 'chart' | 'table'
@@ -24,15 +24,6 @@ type Section = typeof SECTIONS[number]
 type ExportKind = 'pdf' | 'xlsx' | 'csv' | 'print'
 
 interface Loaded { range: Range; prevRange: Range; current: Transaction[]; previous: Transaction[] }
-
-// Fluxo: fontes de renda abaixo de 2% do que entrou vão para "Outras receitas" (como "Outras N" no
-// destino); sozinhas elas viravam um nó de poucos pixels com o rótulo colado no vizinho
-function groupSmallSources(flow: FlowData, othersLabel: string): FlowData {
-  const small = flow.sources.filter(x => x.key === '__others__' || x.value < flow.income * 0.02)
-  if (!small.length || small.length === flow.sources.length) return flow
-  const value = small.reduce((sum, x) => sum + x.value, 0)
-  return { ...flow, sources: [...flow.sources.filter(x => !small.includes(x)), { key: '__others__', label: othersLabel, value }] }
-}
 
 const cap = (s: string) => s.charAt(0).toLocaleUpperCase(currentLocale()) + s.slice(1)
 
@@ -214,7 +205,7 @@ export function Reports() {
       categories: categoriesRows,
       slices: toSlices(categoriesRows, n => t('reports.categories.others', { count: n })),
       top: topExpenses(data.current, categories, noCat, 5),
-      flow: groupSmallSources(buildFlow(data.current, categories, t, `period=custom&start_date=${data.range.start}&end_date=${data.range.end}`), t('dashboard.flow.otherIncome')),
+      flow: buildFlow(data.current, categories, t, `period=custom&start_date=${data.range.start}&end_date=${data.range.end}`),
       rangeText: formatRange(data.range),
       prevRangeText: formatRange(data.prevRange),
     }
@@ -421,11 +412,12 @@ export function Reports() {
                 tools={<ViewToggle value={views.flow} onChange={v => setViews(o => ({ ...o, flow: v }))} />} />
               {views.flow === 'chart' ? (
                 <>
-                  {/* Na comparação a legenda cabe numa linha: atual, anterior (sombra) e o traço da receita */}
+                  {/* Na comparação: atual, anterior (contorno tracejado) e as duas receitas */}
                   <Legend items={showPrev ? [
                     { label: t('reports.legend.current'), color: 'var(--chart-spend)' },
-                    { label: t('reports.legend.previousGhost'), color: 'var(--chart-spend)', faded: true },
+                    { label: t('reports.legend.previousGhost'), color: 'var(--text-muted)', line: 'dashed' },
                     { label: t('reports.legend.incomeTick'), color: 'var(--chart-income)', line: 'solid' },
+                    { label: t('reports.legend.previousIncome'), color: 'var(--chart-income)', line: 'dashed' },
                   ] : [
                     { label: t('reports.legend.expense'), color: 'var(--chart-spend)' },
                     { label: t('reports.legend.incomeTick'), color: 'var(--chart-income)', line: 'solid' },

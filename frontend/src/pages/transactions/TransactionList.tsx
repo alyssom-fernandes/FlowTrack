@@ -3,7 +3,7 @@ import { Fragment, useMemo, useState, type MouseEvent, type ReactNode } from 're
 import { useTranslation } from 'react-i18next'
 import { IconButton, Money, Skeleton, Spinner } from '../../components/ui'
 import { Icon } from '../../components/icons'
-import { categoryLabel, formatCurrency, formatPercent } from '../../utils'
+import { categoryLabel, currentLocale, formatCurrency, formatPercent } from '../../utils'
 import { REVIEW_CONFIDENCE, shownCategory } from '../../lib/review'
 import type { Account, Category, Transaction } from '../../types'
 import { CategoryGlyph } from './CategoryGlyph'
@@ -83,13 +83,16 @@ function RowMeta({ txn, parcels }: { txn: Transaction; parcels?: Transaction[] }
   const inst = txn.installment_current && txn.installment_total && txn.installment_total > 1
   const tags = txn.tags || []
   if (!inst && txn.type !== 'transfer' && !tags.length && !txn.notes) return null
-  // Parcelas agrupadas (modo revisão): "5 parcelas", e quais são no título
+  // Parcelas agrupadas (modo revisão): "5 parcelas · jun.–out.", e quais são no título
   const list = parcels?.map(p => p.installment_current ?? 0).sort((a, b) => a - b).join(', ')
+  const dates = parcels?.map(p => p.transaction_date).sort() ?? []
+  const month = (d: string) => new Intl.DateTimeFormat(currentLocale(), { month: 'short' }).format(new Date(`${d}T12:00:00`))
+  const range = dates.length ? `${month(dates[0])}–${month(dates[dates.length - 1])}` : ''
   return (
     <div className="tx-meta">
       {inst && parcels ? (
         <span className="tx-pill ft-num" title={t('transactions.review.parcelsHint', { list, total: txn.installment_total, amount: formatCurrency(Math.abs(txn.amount)) })}>
-          {t('transactions.review.parcels', { count: parcels.length })}
+          {t('transactions.review.parcelsRange', { count: parcels.length, range })}
         </span>
       ) : inst && <span className="tx-pill ft-num" title={t('transactions.row.installment', { current: txn.installment_current, total: txn.installment_total })}>{txn.installment_current}/{txn.installment_total}</span>}
       {txn.type === 'transfer' && <span className="tx-pill" title={t('transactions.row.transferHint')}><Icon name="transfer" size={11} />{t('transactions.row.transfer')}</span>}
@@ -99,9 +102,11 @@ function RowMeta({ txn, parcels }: { txn: Transaction; parcels?: Transaction[] }
   )
 }
 
-function Amount({ txn }: { txn: Transaction }) {
+// times: parcelas agrupadas na revisão ("5 × −R$ 389,90"), para o valor não parecer o total da compra
+function Amount({ txn, times }: { txn: Transaction; times?: number }) {
   if (!isFlow(txn)) return <Money value={txn.amount} signed className="tx-amount" style={{ color: 'var(--text-secondary)' }} />
-  return <Money value={txn.amount} signed className="tx-amount" style={{ color: txn.amount > 0 ? 'var(--green)' : 'var(--text-primary)' }} />
+  const money = <Money value={txn.amount} signed className="tx-amount" style={{ color: txn.amount > 0 ? 'var(--green)' : 'var(--text-primary)' }} />
+  return times && times > 1 ? <span className="tx-amount-times"><span className="ft-num">{times} ×</span>{money}</span> : money
 }
 
 function Description({ txn, onEdit }: { txn: Transaction; onEdit: () => void }) {
@@ -131,7 +136,7 @@ function DesktopRow({ txn, account, category, categories, parcels, confirmLabel,
       </div>
       <CategoryCell txn={txn} categories={categories} onChange={onCategory} onConfirm={onConfirm} confirmLabel={confirmLabel} />
       <span className="tx-acc" title={account?.bank_name}>{account?.name ?? '—'}</span>
-      <span className="tx-amount-cell"><Amount txn={txn} /></span>
+      <span className="tx-amount-cell"><Amount txn={txn} times={parcels?.length} /></span>
       <span className="tx-row__actions">
         <IconButton icon="edit" label={t('transactions.list.editAria', { name: txn.description })} onClick={onEdit} />
         <IconButton icon="trash" label={t('transactions.list.deleteAria', { name: txn.description })} onClick={onDelete} className="tx-del" />
@@ -147,7 +152,7 @@ function MobileCard({ txn, account, category, categories, parcels, confirmLabel,
       <div className="tx-card__body">
         <div className="tx-card__top">
           <Description txn={txn} onEdit={onEdit} />
-          <Amount txn={txn} />
+          <Amount txn={txn} times={parcels?.length} />
         </div>
         <div className="tx-card__sub">
           <CategoryCell txn={txn} categories={categories} onChange={onCategory} onConfirm={onConfirm} confirmLabel={confirmLabel} />

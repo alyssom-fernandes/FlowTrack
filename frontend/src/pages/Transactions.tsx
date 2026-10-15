@@ -274,7 +274,7 @@ export function Transactions() {
     if (filters.category_id === NO_CATEGORY && !term && others === 0) {
       // Nenhuma sem categoria é boa notícia (o "..": período que termina em abreviação, como "out.")
       return <EmptyState tone="done" title={t('transactions.list.allCategorizedTitle')} description={t('transactions.list.allCategorizedText', { period: period.phrase }).replace(/\.\.$/, '.')}
-        action={<Button variant="ghost" onClick={() => updateFilters({ category_id: '' })}>{t('transactions.list.seeAll')}</Button>} />
+        action={<Button variant="secondary" onClick={() => updateFilters({ category_id: '' })}>{t('transactions.list.seeAll')}</Button>} />
     }
     const wider = filters.period !== '' && (
       <Button variant="secondary" icon="search" onClick={() => updateFilters({ period: '', start_date: '', end_date: '' })}>

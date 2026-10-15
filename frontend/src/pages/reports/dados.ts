@@ -5,6 +5,7 @@ import { transactionsService } from '../../services'
 import { categoryLabel, currentLocale, formatMonth, toISODate } from '../../utils'
 import type { Category, Transaction } from '../../types'
 import { categoryColor, categoryPrintHex } from '../../lib/categoryColor'
+import { shownCategoryId } from '../../lib/review'
 
 export type PeriodKey = 'thisMonth' | 'lastMonth' | '3m' | '6m' | '12m' | 'year' | 'custom'
 export const PERIOD_KEYS: PeriodKey[] = ['thisMonth', 'lastMonth', '3m', '6m', '12m', 'year', 'custom']
@@ -201,7 +202,7 @@ export function byCategory(txs: Transaction[], prevTxs: Transaction[], categorie
     const m = new Map<string, { value: number; count: number }>()
     for (const t of list) {
       if (!isFlow(t) || t.amount >= 0) continue
-      const k = t.category_id && catMap.has(t.category_id) ? t.category_id : '__none__'
+      const k = shownCategoryId(t, categories) ?? '__none__'
       const cur = m.get(k) ?? { value: 0, count: 0 }
       cur.value += Math.abs(t.amount); cur.count++
       m.set(k, cur)
@@ -243,7 +244,7 @@ export function topExpenses(txs: Transaction[], categories: Category[], noCatego
     const g = groups.get(key) ?? { description: t.description.trim(), cats: new Map(), count: 0, value: 0, lastDate: '' }
     g.count++; g.value += v
     if (t.transaction_date > g.lastDate) { g.lastDate = t.transaction_date; g.description = t.description.trim() }
-    const c = t.category_id ?? ''
+    const c = shownCategoryId(t, categories) ?? ''
     g.cats.set(c, (g.cats.get(c) ?? 0) + 1)
     groups.set(key, g)
   }
@@ -267,9 +268,11 @@ export function spendOutlier(buckets: Bucket[], today = toISODate(), minPct = 5)
   if (closed.length < 3) return null
   const avg = closed.reduce((s, x) => s + x.b.expense, 0) / closed.length
   if (avg <= 0) return null
-  const best = closed.reduce((a, x) => (Math.abs(x.b.expense - avg) > Math.abs(a.b.expense - avg) ? x : a))
-  const pct = ((best.b.expense - avg) / avg) * 100
-  return Math.abs(pct) >= minPct ? { index: best.i, pct } : null
+  // O período fechado mais recente que foge da média (é o que ainda dá para agir); o maior desvio
+  // escolhia às vezes o mês mais antigo da janela
+  const pctOf = (x: { b: Bucket }) => ((x.b.expense - avg) / avg) * 100
+  const recent = [...closed].reverse().find(x => Math.abs(pctOf(x)) >= minPct)
+  return recent ? { index: recent.i, pct: pctOf(recent) } : null
 }
 
 // ── Eixos ─────────────────────────────────────────────────

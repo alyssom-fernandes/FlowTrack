@@ -76,7 +76,7 @@ export function HoldingsHero({ invested, current, top }: { invested: number; cur
           {top && (
             <div className="inv-hero__top">
               <dt>{t('investments.hero.top')}</dt>
-              <dd><span className="inv-hero__top-name" title={top.name}>{top.name}</span><span className="inv-hero__top-share ft-num">{formatPercent(top.share, 0, false)}</span></dd>
+              <dd><span className="inv-hero__top-name" title={top.name}>{top.name}</span><span className="inv-hero__top-share ft-num">{formatPercent(top.share, 1, false)}</span></dd>
             </div>
           )}
         </dl>

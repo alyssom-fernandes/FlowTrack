@@ -325,3 +325,8 @@
 
 .rp-donut { align-items: stretch !important; justify-content: flex-start !important; }
 .rp-donut > *, .rp-donut .rp-cat-list { width: 100%; max-width: none; }
+
+/* Abas de seção no celular estreito: em inglês "Forecast" saía cortada na borda */
+@media (max-width: 420px) {
+  .rp-sections .ft-tab { padding: 0 0.5rem; }
+}

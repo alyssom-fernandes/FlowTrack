@@ -7,6 +7,7 @@ import { buildCsv, downloadBlob, generatedAt as generatedAtFor } from '../../lib
 import { categoryLabel, currentLocale, formatCurrency, formatPercent } from '../../utils'
 import type { Account, Category, Transaction } from '../../types'
 import { variationTone } from '../../lib/variation'
+import { shownCategoryId } from '../../lib/review'
 import { axisMoney, changeText, niceTicks, type Bucket, type CategoryRow, type Granularity, type Range, type Summary, type TopRow } from './dados'
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`reports.${key}`, opts ?? {}) as string
@@ -343,7 +344,7 @@ function transactionRows(txs: Transaction[], categories: Category[], accounts: A
     .map(tx => [
       tx.transaction_date,
       tx.description,
-      tx.category_id && cat.has(tx.category_id) ? categoryLabel(cat.get(tx.category_id), noCat) : noCat,
+      categoryLabel(cat.get(shownCategoryId(tx, categories) ?? ''), noCat),
       acc.get(tx.account_id) ?? '',
       tx.type === 'transfer' ? t('table.typeTransfer') : tx.amount >= 0 ? t('table.typeIncome') : t('table.typeExpense'),
       tx.amount,

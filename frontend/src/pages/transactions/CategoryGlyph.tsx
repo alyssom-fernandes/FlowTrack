@@ -21,8 +21,9 @@ export function CategoryGlyph({ category, transfer, size = 36 }: { category?: Ca
       color: `color-mix(in srgb, ${color} 70%, var(--text-primary))`,
     }
   } else {
+    // Sem categoria: neutro e tracejado (o âmbar cheio parecia Transporte); a pílula "+ Escolher" já avisa
     content = <Icon name="tag" size={iconSize} />
-    style = { background: 'var(--amber-soft)', color: 'var(--amber)' }
+    style = { background: 'transparent', color: 'var(--text-muted)', border: '1px dashed var(--border-strong)' }
   }
   return <span className="tx-glyph" aria-hidden style={{ width: size, height: size, ...style }}>{content}</span>
 }

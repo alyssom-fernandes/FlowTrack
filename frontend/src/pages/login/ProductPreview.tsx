@@ -138,8 +138,10 @@ function MiniFlow({ shown }: { shown: boolean }) {
   const nx = Math.max(NODE_W * 2, width - NODE_W - LEAD)
   const name = (key: string) =>
     key === 'left' ? t('login.preview.leftOver') : key === 'others' ? t('login.preview.others') : categoryLabel({ name: key })
+  // Categorias atenuadas como no fluxo do Dashboard: o vinho da Sobra é a única cor forte
   const color = (key: string) =>
-    key === 'left' ? 'var(--accent)' : key === 'others' ? 'var(--cat-other)' : categoryColor({ name: key, color: '', is_default: true })
+    key === 'left' ? 'var(--accent)' : key === 'others' ? 'var(--cat-other)'
+      : `color-mix(in oklab, ${categoryColor({ name: key, color: '', is_default: true })} 45%, var(--chart-neutral))`
 
   return (
     <div className={`ent-flow${shown ? ' is-shown' : ''}`}>
