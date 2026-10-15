@@ -30,6 +30,21 @@ function InvestmentsSkeleton() {
   )
 }
 
+// Prévia esmaecida do cartão principal no estado vazio: "Valor atual R$ 0,00" e a linha da evolução
+function HeroPreview() {
+  const { t } = useTranslation()
+  return (
+    <div className="inv-empty-preview">
+      <span className="inv-kpi__label">{t('investments.kpi.current')}</span>
+      <Money value={0} size="hero" className="inv-empty-preview__value" />
+      <svg viewBox="0 0 600 64" preserveAspectRatio="none" className="inv-empty-preview__chart">
+        <path d="M0,56 L60,54 L120,50 L180,51 L240,45 L300,42 L360,36 L420,38 L480,28 L540,22 L600,14 L600,64 L0,64 Z" fill="var(--accent-ink)" fillOpacity={0.1} />
+        <path d="M0,56 L60,54 L120,50 L180,51 L240,45 L300,42 L360,36 L420,38 L480,28 L540,22 L600,14" fill="none" stroke="var(--accent-ink)" strokeOpacity={0.6} strokeWidth={2} vectorEffect="non-scaling-stroke" />
+      </svg>
+    </div>
+  )
+}
+
 export function Investments() {
   const { t } = useTranslation()
   const { toast } = useToastStore()
@@ -93,14 +108,16 @@ export function Investments() {
   } else if (items.length === 0) {
     body = (
       <Card>
-        <EmptyState title={t('investments.empty.title')} description={t('investments.empty.text')}
+        {/* Única ação da tela: o botão do topo some enquanto a lista está vazia */}
+        <EmptyState align="start" preview={<HeroPreview />} title={t('investments.empty.title')} description={t('investments.empty.text')}
           action={<Button icon="plus" onClick={() => setCreating(true)}>{t('investments.empty.action')}</Button>} />
       </Card>
     )
   } else {
     body = (
       <div className="inv">
-        <HoldingsHero invested={totals.invested} current={totals.current} positions={items.length} types={slices.length} />
+        <HoldingsHero invested={totals.invested} current={totals.current}
+          top={list[0] && totals.current > 0 ? { name: list[0].name, share: (list[0].current_value / totals.current) * 100 } : null} />
 
         <AllocationCard slices={slices} />
 
@@ -117,7 +134,7 @@ export function Investments() {
                   <th scope="col" className="inv-num">{t('investments.assets.invested')}</th>
                   <th scope="col" className="inv-num">{t('investments.assets.current')}</th>
                   <th scope="col" className="inv-num">{t('investments.assets.result')}</th>
-                  <th scope="col"><span className="inv-sr">{t('investments.assets.actions')}</span></th>
+                  <th scope="col" className="inv-col-actions"><span className="inv-sr">{t('investments.assets.actions')}</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -173,7 +190,7 @@ export function Investments() {
     <Page>
       <PageHeader title={t('investments.title')}
         subtitle={items && items.length ? t('investments.subtitle', { count: items.length }) : t('investments.subtitleEmpty')}
-        actions={<Button icon="plus" onClick={() => { setEditing(null); setCreating(true) }}>{t('investments.newInvestment')}</Button>} />
+        actions={items && items.length === 0 && !failed ? undefined : <Button icon="plus" onClick={() => { setEditing(null); setCreating(true) }}>{t('investments.newInvestment')}</Button>} />
       {body}
 
       <InvestmentModal open={creating || !!editing} investment={editing} onClose={close} onSaved={saved} />

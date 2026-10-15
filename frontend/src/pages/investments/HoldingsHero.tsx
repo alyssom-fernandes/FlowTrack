@@ -5,14 +5,16 @@ import { useTranslation } from 'react-i18next'
 import { Card, Money } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { netWorthService } from '../../services'
-import { currentLocale, formatCurrency, formatPercent, formatSignedCurrency } from '../../utils'
+import { formatCurrency, formatPercent, formatSignedCurrency } from '../../utils'
+import { monthShort } from '../dashboard/data'
 import type { NetWorthSnapshot } from '../../types'
 
 type Range = '3m' | '6m' | '1y' | 'all'
 const RANGES: Range[] = ['3m', '6m', '1y', 'all']
 const H = 96
 
-export function HoldingsHero({ invested, current, positions, types }: { invested: number; current: number; positions: number; types: number }) {
+// top: a maior posição pelo valor atual (nome e fatia da carteira, 0–100)
+export function HoldingsHero({ invested, current, top }: { invested: number; current: number; top: { name: string; share: number } | null }) {
   const { t } = useTranslation()
   const [snaps, setSnaps] = useState<NetWorthSnapshot[] | null>(null)
   const [range, setRange] = useState<Range>('1y')
@@ -55,7 +57,8 @@ export function HoldingsHero({ invested, current, positions, types }: { invested
     line = series.map((s, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(s.value).toFixed(1)}`).join(' ')
     area = `${line} L${w},${H} L0,${H} Z`
   }
-  const monthFmt = new Intl.DateTimeFormat(currentLocale(), { month: 'short', year: 'numeric' })
+  // Mesmo rótulo do eixo do Patrimônio no Dashboard: "Nov 2025 … Out 2026"
+  const monthOf = (iso: string) => `${monthShort(iso.slice(0, 7))} ${iso.slice(0, 4)}`
 
   return (
     <Card className="inv-hero ft-card--hero">
@@ -70,8 +73,12 @@ export function HoldingsHero({ invested, current, positions, types }: { invested
         </div>
         <dl className="inv-hero__facts">
           <div><dt>{t('investments.kpi.invested')}</dt><dd><Money value={invested} /></dd></div>
-          <div><dt>{t('investments.hero.positions')}</dt><dd className="ft-num">{positions}</dd></div>
-          <div><dt>{t('investments.hero.types')}</dt><dd className="ft-num">{types}</dd></div>
+          {top && (
+            <div className="inv-hero__top">
+              <dt>{t('investments.hero.top')}</dt>
+              <dd><span className="inv-hero__top-name" title={top.name}>{top.name}</span><span className="inv-hero__top-share ft-num">{formatPercent(top.share, 0, false)}</span></dd>
+            </div>
+          )}
         </dl>
       </div>
       {series.length > 1 && (
@@ -84,8 +91,12 @@ export function HoldingsHero({ invested, current, positions, types }: { invested
               </svg>
             )}
           </div>
+          <div className="inv-hero__axis ft-num" aria-hidden>
+            <span>{monthOf(series[0].date)}</span>
+            <span>{monthOf(series[series.length - 1].date)}</span>
+          </div>
+          {/* Frase do período à esquerda e chips à direita; no celular os chips vêm antes, em largura total */}
           <div className="inv-hero__foot">
-            <span className="inv-hero__axis ft-num">{monthFmt.format(new Date(series[0].date + 'T00:00:00'))}</span>
             {periodChange !== null && <span className="inv-hero__period ft-num">{t('investments.hero.inPeriod', { value: formatSignedCurrency(periodChange) })}</span>}
             <div className="inv-hero__ranges" role="group" aria-label={t('investments.hero.range')}>
               {RANGES.map(r => (

@@ -1,10 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardHeader, Money } from '../../components/ui'
 import { formatPercent } from '../../utils'
 import { layoutBar, type Slice } from './model'
 
-const BAR_H = 14
+const BAR_H = 10
 const GAP = 2
 
 // Barra empilhada (parte do todo) desenhada na largura real do contêiner
@@ -32,6 +32,7 @@ export function AllocationCard({ slices }: { slices: Slice[] }) {
 
   const label = (s: Slice) => (s.key === 'outro' ? t('investments.otherFolded') : t(`investments.types.${s.key}`))
 
+  const maxShare = Math.max(0, ...slices.map(s => s.share))
   const rects = layoutBar(slices.map(s => s.value), width, GAP)
 
   const summary = slices.map(s => `${label(s)} ${formatPercent(s.share, 1, false)}`).join(', ')
@@ -66,15 +67,16 @@ export function AllocationCard({ slices }: { slices: Slice[] }) {
         )}
       </div>
 
-      <ul className="inv-legend" aria-label={t('investments.allocation.legend')}>
+      {/* Lista em duas colunas (de cima para baixo): nome · mini barra · valor · %, como as categorias de Relatórios.
+          A mini barra é relativa ao maior tipo, para comparar comprimentos sem ler os números. */}
+      <ul className="inv-legend" aria-label={t('investments.allocation.legend')} style={{ '--inv-rows': Math.ceil(slices.length / 2) } as CSSProperties}>
         {slices.map((s, i) => (
-          <li key={s.key} className={`inv-legend__item${active !== null && active !== i ? ' is-dim' : ''}`}
+          <li key={s.key} className={`inv-legend__item${active !== null && active !== i ? ' is-dim' : ''}${active === i ? ' is-active' : ''}`}
             onPointerEnter={e => { if (e.pointerType === 'mouse') setActive(i) }} onPointerLeave={e => { if (e.pointerType === 'mouse') setActive(null) }}>
-            <span className="inv-legend__name"><span className="inv-swatch" style={{ background: s.color }} aria-hidden />{label(s)}</span>
-            <span className="inv-legend__figs ft-num">
-              <Money value={s.value} className="inv-legend__value" />
-              <span className="inv-legend__share">{formatPercent(s.share, 1, false)}</span>
-            </span>
+            <span className="inv-legend__name">{label(s)}</span>
+            <span className="inv-legend__bar" aria-hidden><span style={{ width: `${maxShare > 0 ? Math.max(4, (s.share / maxShare) * 100) : 0}%`, background: s.color }} /></span>
+            <Money value={s.value} className="inv-legend__value" />
+            <span className="inv-legend__share ft-num">{formatPercent(s.share, 1, false)}</span>
           </li>
         ))}
       </ul>

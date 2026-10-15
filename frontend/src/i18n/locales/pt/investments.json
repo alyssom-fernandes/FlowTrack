@@ -79,8 +79,7 @@
     "otherFolded": "Outros",
     "hero": {
       "result": "{{value}} ({{pct}}) de rendimento sobre o que você aplicou",
-      "positions": "Ativos",
-      "types": "Tipos",
+      "top": "Maior posição",
       "inPeriod": "{{value}} no período, somando aportes e rendimento",
       "range": "Período do gráfico",
       "a11y": "Evolução dos investimentos em {{count}} meses: de {{from}} para {{to}}.",

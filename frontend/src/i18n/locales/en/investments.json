@@ -79,8 +79,7 @@
     "otherFolded": "Other",
     "hero": {
       "result": "{{value}} ({{pct}}) return on what you put in",
-      "positions": "Holdings",
-      "types": "Types",
+      "top": "Largest holding",
       "inPeriod": "{{value}} in this period, deposits plus returns",
       "range": "Chart period",
       "a11y": "Investments over {{count}} months: from {{from}} to {{to}}.",
