@@ -5,7 +5,8 @@ import { authService, realAuthAvailable } from '../services'
 import { useAuthStore } from '../store'
 import { Button, Input } from '../components/ui'
 import { Icon } from '../components/icons'
-import { AuthLayout, Notice, PasswordInput, StatusIcon } from './login/AuthLayout'
+import { AuthLayout, Notice, PasswordInput, StatusHeading } from './login/AuthLayout'
+import { ProductPreview } from './login/ProductPreview'
 import { authFailure, focusField, isEmail, reachServer, withTimeout, type AuthFailure } from './login/helpers'
 
 type View = 'login' | 'forgot' | 'sent'
@@ -111,8 +112,7 @@ export function Login() {
     return (
       <AuthLayout compact>
         <div className="ent-stack">
-          <StatusIcon icon="mail" tone="accent" />
-          <h2 className="ent-heading" ref={headingRef} tabIndex={-1}>{t('login.sent.title')}</h2>
+          <StatusHeading icon="mail" ref={headingRef}>{t('login.sent.title')}</StatusHeading>
           <p className="ent-sub">
             <Trans i18nKey="login.sent.text" values={{ email: email.trim() }} components={{ b: <span className="ent-email" /> }} />
           </p>
@@ -136,6 +136,8 @@ export function Login() {
         <Button size="lg" block iconRight="arrowRight" className="ent-cta" loading={demoLoading} onClick={handleDemo}>{t('login.demo.cta')}</Button>
         <p className="ent-hint">{t('login.demo.hint')}</p>
         {demoError && <Notice tone="red" icon="alertCircle">{t('login.demo.error')}</Notice>}
+        {/* Celular: a prévia logo abaixo do botão, antes do formulário (no computador ela fica à esquerda) */}
+        <div className="ent-mpreview"><ProductPreview /></div>
 
         {realAuthAvailable ? (
           <>

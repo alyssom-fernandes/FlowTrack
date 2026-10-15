@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { authService, realAuthAvailable, supabase } from '../services'
 import { Button, Spinner } from '../components/ui'
-import { AuthLayout, Notice, PasswordInput, StatusIcon } from './login/AuthLayout'
+import { AuthLayout, Notice, PasswordInput, StatusHeading } from './login/AuthLayout'
 import { authFailure, focusField, reachServer, withTimeout, type AuthFailure } from './login/helpers'
 
 type Status = 'loading' | 'ready' | 'done' | 'invalid' | 'unavailable'
@@ -80,8 +80,7 @@ export function ResetPassword() {
 
       {status === 'unavailable' && (
         <div className="ent-stack">
-          <StatusIcon icon="lock" />
-          <h2 className="ent-heading">{t('login.reset.unavailableTitle')}</h2>
+          <StatusHeading icon="lock">{t('login.reset.unavailableTitle')}</StatusHeading>
           <p className="ent-sub">{t('login.reset.unavailableText')}</p>
           <div className="ent-actions">
             <Button size="lg" block iconRight="arrowRight" loading={demoLoading} onClick={openDemo}>{t('login.demo.cta')}</Button>
@@ -92,8 +91,7 @@ export function ResetPassword() {
 
       {status === 'invalid' && (
         <div className="ent-stack">
-          <StatusIcon icon="alertCircle" tone="red" />
-          <h2 className="ent-heading">{t('login.reset.invalidTitle')}</h2>
+          <StatusHeading icon="alertCircle" tone="amber">{t('login.reset.invalidTitle')}</StatusHeading>
           <p className="ent-sub">{t('login.reset.invalidText')}</p>
           <div className="ent-actions">
             <Button size="lg" block onClick={() => navigate('/login', { state: { view: 'forgot' } })}>{t('login.reset.requestNew')}</Button>
@@ -118,8 +116,7 @@ export function ResetPassword() {
 
       {status === 'done' && (
         <div className="ent-stack">
-          <StatusIcon icon="checkCircle" tone="green" />
-          <h2 className="ent-heading" ref={headingRef} tabIndex={-1}>{t('login.reset.doneTitle')}</h2>
+          <StatusHeading icon="checkCircle" tone="green" ref={headingRef}>{t('login.reset.doneTitle')}</StatusHeading>
           <p className="ent-sub">{t('login.reset.doneText')}</p>
           <div className="ent-actions">
             <Button size="lg" block iconRight="arrowRight" onClick={() => navigate('/dashboard', { replace: true })}>{t('login.reset.continue')}</Button>

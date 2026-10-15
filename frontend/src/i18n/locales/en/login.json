@@ -3,16 +3,18 @@
     "hero": {
       "title": "Statements in.",
       "titleMuted": "The month explained.",
-      "text": "Import a statement from Nubank, Sicredi, Mercado Pago or Will Bank (PDF, OFX or CSV). AI sorts every expense into a category; you just check it."
+      "text": "Import a statement from Nubank, Sicredi, Mercado Pago or Will Bank (PDF, OFX or CSV). AI sorts each expense by category; you just check."
     },
     "preview": {
       "title": "Statement imported",
       "source": "Nubank, {{n}} transactions",
       "categorizing": "Categorizing…",
       "ai": "AI · {{pct}}",
-      "budget": "{{category}} budget",
-      "spent": "{{spent}} of {{limit}}",
-      "aria": "FlowTrack preview: Nubank statement imported. {{first}} categorized as {{firstCat}} by AI with {{firstPct}} confidence; {{second}} as {{secondCat}} with {{secondPct}}. {{category}} budget at {{pct}}."
+      "aria": "FlowTrack preview: Nubank statement imported. {{first}} categorized as {{firstCat}} by AI with {{firstPct}} confidence; {{second}} as {{secondCat}} with {{secondPct}}. In the month's flow, income splits into housing, food, transport and other categories, and {{pct}} is left over.",
+      "flowTitle": "Where the month's money went",
+      "income": "Came in",
+      "others": "Others",
+      "leftOver": "Left over"
     },
     "demo": {
       "title": "Explore a sample account",

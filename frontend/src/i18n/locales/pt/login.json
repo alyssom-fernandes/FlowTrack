@@ -10,9 +10,11 @@
       "source": "Nubank, {{n}} transações",
       "categorizing": "Categorizando…",
       "ai": "IA · {{pct}}",
-      "budget": "Orçamento de {{category}}",
-      "spent": "{{spent}} de {{limit}}",
-      "aria": "Prévia do FlowTrack: extrato do Nubank importado. {{first}} categorizado como {{firstCat}} pela IA, com {{firstPct}} de confiança; {{second}} como {{secondCat}}, com {{secondPct}}. Orçamento de {{category}} em {{pct}}."
+      "aria": "Prévia do FlowTrack: extrato do Nubank importado. {{first}} categorizado como {{firstCat}} pela IA, com {{firstPct}} de confiança; {{second}} como {{secondCat}}, com {{secondPct}}. No fluxo do mês, o que entrou se divide entre moradia, alimentação, transporte e outras categorias, e sobraram {{pct}}.",
+      "flowTitle": "Para onde foi o dinheiro do mês",
+      "income": "Entrou",
+      "others": "Outras",
+      "leftOver": "Sobrou"
     },
     "demo": {
       "title": "Explore uma conta de exemplo",
