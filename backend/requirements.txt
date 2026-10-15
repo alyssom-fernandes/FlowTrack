@@ -7,7 +7,7 @@ python-multipart==0.0.32
 structlog==25.5.0
 sentry-sdk==2.61.0
 faker==40.19.1
-pytest==9.0.3
+pytest==9.1.1
 pytest-asyncio==1.4.0
 python-dotenv==1.2.2
 pydantic-settings==2.7.0
