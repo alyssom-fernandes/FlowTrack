@@ -13,11 +13,11 @@ from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.models import (
     TransactionCreate, TransactionUpdate, TransactionResponse, TransactionListResponse,
-    BulkTransactionCreate, TransferCreate,
+    BulkTransactionCreate, TransferCreate, CategoryRuleCreate,
 )
 from app.api.v1._helpers import (
     normalize_desc, dedup_hash, _adjust_account_balance, _write_audit, _serialize,
-    _first, _require_account, _require_category, NEEDS_REVIEW_FILTER,
+    _first, _require_account, _require_category, NEEDS_REVIEW_FILTER, rule_key,
 )
 
 router = APIRouter()
@@ -217,6 +217,49 @@ async def bulk_create_transactions(request: Request, payload: BulkTransactionCre
     if imported > 0:
         _adjust_account_balance(sb, user_id, payload.account_id, balance_delta)
     return {'imported': imported, 'skipped': skipped, 'total': len(payload.transactions)}
+
+
+@router.post("/category-rules", tags=["Transactions"])
+@limiter.limit("30/minute")
+async def create_category_rule(request: Request, body: CategoryRuleCreate, user_id: str = Depends(get_current_user_id)):
+    """"Aplicar sempre": a descrição normalizada passa a ir para esta categoria.
+
+    Grava (ou troca) a regra da pessoa no merchant_cache e aplica a categoria nas transações dela com a
+    mesma descrição que ainda não foram escolhidas à mão (parcelas, sem categoria, IA, regra fixa).
+    As próximas entram pela fila de categorização e pela prévia da importação.
+    """
+    sb = get_supabase()
+    _require_category(sb, user_id, body.category_id)
+    norm = normalize_desc(body.description)
+    if not norm:
+        raise HTTPException(422, "Descrição sem letras nem números.")
+    key = rule_key(body.description)
+    try:
+        rule = {"category_id": body.category_id, "confidence": 1.0, "source": "manual"}
+        existing = _first(sb.table("merchant_cache").select("id").eq("normalized_description", key)
+                          .eq("user_id", user_id).limit(1).execute().data)
+        if existing:
+            sb.table("merchant_cache").update(rule).eq("id", existing["id"]).eq("user_id", user_id).execute()
+        else:
+            sb.table("merchant_cache").insert({**rule, "normalized_description": key, "user_id": user_id}).execute()
+
+        rows = (sb.table("transactions").select("id,category_id,categorized_by,confidence_score")
+                .eq("user_id", user_id).eq("description_normalized", norm).neq("type", "transfer").execute().data) or []
+        # A escolha feita à mão em outra transação com a mesma descrição continua valendo
+        changed = [r for r in rows if r.get("categorized_by") != "manual"]
+        ids = [r["id"] for r in changed]
+        if ids:
+            new = {"category_id": body.category_id, "categorized_by": "rule", "confidence_score": 1.0}
+            sb.table("transactions").update(new).in_("id", ids).eq("user_id", user_id).execute()
+            # Cada transação mudada entra no Histórico, como na demonstração (e pode ser desfeita lá)
+            for r in changed:
+                _write_audit(sb, user_id, "transaction", r["id"], "update",
+                    {k: _serialize(r.get(k)) for k in new}, new)
+        return {"normalized_description": key, "category_id": body.category_id, "updated": len(ids)}
+    except HTTPException: raise
+    except Exception as e:
+        logger.error("create_category_rule failed", error=str(e))
+        raise HTTPException(500, "Failed to save category rule")
 
 
 @router.get("/export/transactions", tags=["Export"])

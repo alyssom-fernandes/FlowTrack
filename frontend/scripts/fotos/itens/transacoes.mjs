@@ -62,6 +62,20 @@ export default [
   { id: 'transacoes-sem-categoria', rota: '/transactions?category_id=none' },
   // Modo "A revisar": sem categoria ou IA com pouca confiança, de todos os meses
   { id: 'transacoes-revisar', rota: '/transactions?review=1' },
+  // Revisão: trocar a categoria das parcelas agrupadas oferece "Aplicar sempre" logo abaixo da linha
+  {
+    // Só a tela visível: na foto da página inteira o rodapé fixo cobriria a oferta
+    id: 'transacoes-revisar-regra', rota: '/transactions?review=1', inteira: false,
+    acao: async page => {
+      const sel = page.getByLabel(/^(categoria de notebook dell|category of dell laptop)$/i).first()
+      const label = await sel.locator('option').filter({ hasText: /^(Educação|Education)$/ }).first().textContent()
+      await sel.selectOption({ label })
+      await page.locator('.tx-offer').waitFor()
+      await page.locator('.tx-offer').evaluate(el => el.scrollIntoView({ block: 'center' }))
+      // O aviso "Categoria atualizada" some em 3 s; sem ele, a oferta fica inteira na foto do celular
+      await page.waitForTimeout(3300)
+    },
+  },
   {
     id: 'transacoes-filtros-celular', rota: '/transactions', somente: 'mobile', inteira: false,
     acao: async page => {

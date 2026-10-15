@@ -1,14 +1,14 @@
 // Lista agrupada por dia: linhas com colunas no computador, cartões no celular
-import { useMemo, useState, type MouseEvent } from 'react'
+import { Fragment, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconButton, Money, Skeleton, Spinner } from '../../components/ui'
 import { Icon } from '../../components/icons'
-import { categoryLabel, formatPercent } from '../../utils'
-import { REVIEW_CONFIDENCE } from '../../lib/review'
+import { categoryLabel, formatCurrency, formatPercent } from '../../utils'
+import { REVIEW_CONFIDENCE, shownCategory } from '../../lib/review'
 import type { Account, Category, Transaction } from '../../types'
 import { CategoryGlyph } from './CategoryGlyph'
 import { categoryColor } from '../../lib/categoryColor'
-import { dayHeading, groupByDay, isFlow, PAGE_SIZE, transferPeer, useIsMobile } from './shared'
+import { dayHeading, groupByDay, groupInstallments, isFlow, PAGE_SIZE, transferPeer, useIsMobile } from './shared'
 
 interface ListProps {
   items: Transaction[]
@@ -19,21 +19,24 @@ interface ListProps {
   totalPages: number
   total: number
   busy: boolean
-  onConfirm?: (txn: Transaction) => Promise<void>   // modo revisão: confirma a categoria sugerida
+  // Modo revisão: confirma a categoria sugerida. Em parcelas agrupadas, group traz todas as parcelas da linha
+  onConfirm?: (txn: Transaction, group?: Transaction[]) => Promise<void>
   onPage: (p: number) => void
   onEdit: (t: Transaction) => void
   onDelete: (t: Transaction) => void
-  onCategory: (t: Transaction, categoryId: string) => Promise<void>
+  onCategory: (t: Transaction, categoryId: string, group?: Transaction[]) => Promise<void>
+  offer?: { id: string; content: ReactNode }   // oferta "Aplicar sempre", logo abaixo da linha que mudou
 }
 
 // Cliques em controles dentro da linha não abrem a edição
 const fromControl = (e: MouseEvent) => !!(e.target as HTMLElement).closest('button, select, a, input')
 
 // ── Categoria: chip com seletor nativo por cima (abre direto no clique) ──
-function CategoryCell({ txn, categories, onChange, onConfirm }: { txn: Transaction; categories: Category[]; onChange: (id: string) => Promise<void>; onConfirm?: () => Promise<void> }) {
+function CategoryCell({ txn, categories, onChange, onConfirm, confirmLabel }: { txn: Transaction; categories: Category[]; onChange: (id: string) => Promise<void>; onConfirm?: () => Promise<void>; confirmLabel?: string }) {
   const { t } = useTranslation()
   const [saving, setSaving] = useState(false)
-  const cat = categories.find(c => c.id === txn.category_id)
+  // "Outros" dado pela IA conta como sem categoria (não é sugestão)
+  const cat = shownCategory(txn, categories)
   const sorted = useMemo(() => [...categories].sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b))), [categories])
   const conf = txn.confidence_score ?? 0
   const pct = formatPercent(conf * 100, 0, false)
@@ -45,7 +48,7 @@ function CategoryCell({ txn, categories, onChange, onConfirm }: { txn: Transacti
     : t(`transactions.row.by.${txn.categorized_by === 'cache' || txn.categorized_by === 'rule' ? txn.categorized_by : 'manual'}`)
 
   const change = async (id: string) => {
-    if (!id || id === txn.category_id) return
+    if (!id || id === cat?.id) return
     setSaving(true)
     try { await onChange(id) } finally { setSaving(false) }
   }
@@ -54,9 +57,10 @@ function CategoryCell({ txn, categories, onChange, onConfirm }: { txn: Transacti
     <span className="tx-cat">
       <span className={`tx-cat__chip${cat ? '' : ' tx-cat__chip--none'}${onConfirm && low ? ' tx-cat__chip--suggested' : ''}`} style={cat ? { '--c': categoryColor(cat) } as React.CSSProperties : undefined}>
         {saving ? <Spinner size={10} /> : cat ? <span className="tx-cat__dot" /> : <Icon name="plus" size={12} />}
-        <span className="tx-cat__name">{cat ? categoryLabel(cat) : t('transactions.row.uncategorized')}</span>
+        {/* No modo revisão, a sem categoria pede a escolha: "+ Escolher" */}
+        <span className="tx-cat__name">{cat ? categoryLabel(cat) : t(onConfirm ? 'transactions.review.choose' : 'transactions.row.uncategorized')}</span>
         <Icon name="chevronDown" size={12} className="tx-cat__chev" />
-        <select className="tx-cat__select" value={txn.category_id || ''} disabled={saving}
+        <select className="tx-cat__select" value={cat?.id || ''} disabled={saving}
           aria-label={t('transactions.row.categoryAria', { name: txn.description })} title={`${why} ${t('transactions.row.change')}`}
           onChange={e => change(e.target.value)}>
           {!cat && <option value="" disabled>{t('transactions.row.chooseCategory')}</option>}
@@ -64,8 +68,9 @@ function CategoryCell({ txn, categories, onChange, onConfirm }: { txn: Transacti
         </select>
       </span>
       {isAi && <span className={`tx-ai${low ? ' tx-ai--low' : ''}`} title={why}>{t('transactions.row.aiBadge', { pct })}</span>}
-      {onConfirm && cat && (
-        <IconButton icon="check" variant="secondary" className="tx-confirm" label={t('transactions.review.confirmOne', { name: txn.description, category: categoryLabel(cat) })}
+      {/* Escolhida à mão nesta revisão: já está conferida, sem ✓ */}
+      {onConfirm && cat && txn.categorized_by !== 'manual' && (
+        <IconButton icon="check" variant="secondary" className="tx-confirm" label={confirmLabel ?? t('transactions.review.confirmOne', { name: txn.description, category: categoryLabel(cat) })}
           loading={saving} onClick={async () => { setSaving(true); try { await onConfirm() } finally { setSaving(false) } }} />
       )}
     </span>
@@ -73,14 +78,20 @@ function CategoryCell({ txn, categories, onChange, onConfirm }: { txn: Transacti
 }
 
 // Selos da linha: parcela, transferência, tags e notas
-function RowMeta({ txn }: { txn: Transaction }) {
+function RowMeta({ txn, parcels }: { txn: Transaction; parcels?: Transaction[] }) {
   const { t } = useTranslation()
   const inst = txn.installment_current && txn.installment_total && txn.installment_total > 1
   const tags = txn.tags || []
   if (!inst && txn.type !== 'transfer' && !tags.length && !txn.notes) return null
+  // Parcelas agrupadas (modo revisão): "5 parcelas", e quais são no título
+  const list = parcels?.map(p => p.installment_current ?? 0).sort((a, b) => a - b).join(', ')
   return (
     <div className="tx-meta">
-      {inst && <span className="tx-pill ft-num" title={t('transactions.row.installment', { current: txn.installment_current, total: txn.installment_total })}>{txn.installment_current}/{txn.installment_total}</span>}
+      {inst && parcels ? (
+        <span className="tx-pill ft-num" title={t('transactions.review.parcelsHint', { list, total: txn.installment_total, amount: formatCurrency(Math.abs(txn.amount)) })}>
+          {t('transactions.review.parcels', { count: parcels.length })}
+        </span>
+      ) : inst && <span className="tx-pill ft-num" title={t('transactions.row.installment', { current: txn.installment_current, total: txn.installment_total })}>{txn.installment_current}/{txn.installment_total}</span>}
       {txn.type === 'transfer' && <span className="tx-pill" title={t('transactions.row.transferHint')}><Icon name="transfer" size={11} />{t('transactions.row.transfer')}</span>}
       {tags.map(tag => <span key={tag} className="tx-tag">#{tag}</span>)}
       {txn.notes && <span className="tx-note" title={txn.notes}>{txn.notes}</span>}
@@ -103,10 +114,12 @@ function Description({ txn, onEdit }: { txn: Transaction; onEdit: () => void }) 
   )
 }
 
-function DesktopRow({ txn, account, category, categories, onEdit, onDelete, onCategory, onConfirm }: {
-  txn: Transaction; account?: Account; category?: Category; categories: Category[]
-  onEdit: () => void; onDelete: () => void; onCategory: (id: string) => Promise<void>; onConfirm?: () => Promise<void>
-}) {
+interface RowProps {
+  txn: Transaction; account?: Account; category?: Category; categories: Category[]; parcels?: Transaction[]; confirmLabel?: string
+  onEdit: () => void; onCategory: (id: string) => Promise<void>; onConfirm?: () => Promise<void>
+}
+
+function DesktopRow({ txn, account, category, categories, parcels, confirmLabel, onEdit, onDelete, onCategory, onConfirm }: RowProps & { onDelete: () => void }) {
   const { t } = useTranslation()
   return (
     <li className="tx-row tx-cols" onClick={e => { if (!fromControl(e)) onEdit() }}>
@@ -114,9 +127,9 @@ function DesktopRow({ txn, account, category, categories, onEdit, onDelete, onCa
       {/* Descrição e selos numa linha só: toda linha tem a mesma altura (56px) */}
       <div className="tx-row__main">
         <Description txn={txn} onEdit={onEdit} />
-        <RowMeta txn={txn} />
+        <RowMeta txn={txn} parcels={parcels} />
       </div>
-      <CategoryCell txn={txn} categories={categories} onChange={onCategory} onConfirm={onConfirm} />
+      <CategoryCell txn={txn} categories={categories} onChange={onCategory} onConfirm={onConfirm} confirmLabel={confirmLabel} />
       <span className="tx-acc" title={account?.bank_name}>{account?.name ?? '—'}</span>
       <span className="tx-amount-cell"><Amount txn={txn} /></span>
       <span className="tx-row__actions">
@@ -127,10 +140,7 @@ function DesktopRow({ txn, account, category, categories, onEdit, onDelete, onCa
   )
 }
 
-function MobileCard({ txn, account, category, categories, onEdit, onCategory, onConfirm }: {
-  txn: Transaction; account?: Account; category?: Category; categories: Category[]
-  onEdit: () => void; onCategory: (id: string) => Promise<void>; onConfirm?: () => Promise<void>
-}) {
+function MobileCard({ txn, account, category, categories, parcels, confirmLabel, onEdit, onCategory, onConfirm }: RowProps) {
   return (
     <li className="tx-card" onClick={e => { if (!fromControl(e)) onEdit() }}>
       <CategoryGlyph category={category} transfer={txn.type === 'transfer'} size={38} />
@@ -140,10 +150,10 @@ function MobileCard({ txn, account, category, categories, onEdit, onCategory, on
           <Amount txn={txn} />
         </div>
         <div className="tx-card__sub">
-          <CategoryCell txn={txn} categories={categories} onChange={onCategory} onConfirm={onConfirm} />
+          <CategoryCell txn={txn} categories={categories} onChange={onCategory} onConfirm={onConfirm} confirmLabel={confirmLabel} />
           {account && <span className="tx-acc">{account.name}</span>}
         </div>
-        <RowMeta txn={txn} />
+        <RowMeta txn={txn} parcels={parcels} />
       </div>
     </li>
   )
@@ -211,10 +221,17 @@ export function ListSkeleton({ rows = 8 }: { rows?: number }) {
   )
 }
 
-export function TransactionList({ items, dayTotalsFrom, accounts, categories, page, totalPages, total, busy, onPage, onEdit, onDelete, onCategory, onConfirm }: ListProps) {
+export function TransactionList({ items, dayTotalsFrom, accounts, categories, page, totalPages, total, busy, onPage, onEdit, onDelete, onCategory, onConfirm, offer }: ListProps) {
   const { t } = useTranslation()
   const mobile = useIsMobile()
-  const groups = useMemo(() => groupByDay(items), [items])
+  // Modo revisão: as parcelas da mesma compra viram uma linha só, na data da mais recente
+  const reviewing = !!onConfirm
+  const { rows, parcels } = useMemo(() => {
+    if (!reviewing) return { rows: items, parcels: new Map<string, Transaction[]>() }
+    const g = groupInstallments(items)
+    return { rows: g.items, parcels: g.parcels }
+  }, [items, reviewing])
+  const groups = useMemo(() => groupByDay(rows), [rows])
   // Resultado do dia com todas as transações do filtro (o dia pode cruzar páginas)
   const dayNet = useMemo(() => {
     const map = new Map<string, number>()
@@ -222,7 +239,6 @@ export function TransactionList({ items, dayTotalsFrom, accounts, categories, pa
     return map
   }, [dayTotalsFrom, items])
   const accById = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts])
-  const catById = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories])
   const labels = { today: t('transactions.list.today'), yesterday: t('transactions.list.yesterday') }
   const from = (page - 1) * PAGE_SIZE + 1
   const to = Math.min(page * PAGE_SIZE, total)
@@ -256,14 +272,20 @@ export function TransactionList({ items, dayTotalsFrom, accounts, categories, pa
                   return <TransferRow key={txn.id} out={txn} from={accById.get(txn.account_id)} to={accById.get(peer.account_id)} mobile={mobile}
                     onEdit={() => onEdit(txn)} onDelete={() => onDelete(txn)} />
                 }
+                const group = parcels.get(txn.id)
+                const category = shownCategory(txn, categories)
                 const common = {
-                  txn, account: accById.get(txn.account_id), category: txn.category_id ? catById.get(txn.category_id) : undefined, categories,
-                  onEdit: () => onEdit(txn), onCategory: (id: string) => onCategory(txn, id),
-                  onConfirm: onConfirm ? () => onConfirm(txn) : undefined,
+                  txn, account: accById.get(txn.account_id), category, categories, parcels: group,
+                  confirmLabel: group && category ? t('transactions.review.confirmGroup', { count: group.length, name: txn.description, category: categoryLabel(category) }) : undefined,
+                  onEdit: () => onEdit(txn), onCategory: (id: string) => onCategory(txn, id, group),
+                  onConfirm: onConfirm ? () => onConfirm(txn, group) : undefined,
                 }
-                return mobile
-                  ? <MobileCard key={txn.id} {...common} />
-                  : <DesktopRow key={txn.id} {...common} onDelete={() => onDelete(txn)} />
+                return (
+                  <Fragment key={txn.id}>
+                    {mobile ? <MobileCard {...common} /> : <DesktopRow {...common} onDelete={() => onDelete(txn)} />}
+                    {offer?.id === txn.id && <li className="tx-offer">{offer.content}</li>}
+                  </Fragment>
+                )
               })}
             </ul>
           </section>

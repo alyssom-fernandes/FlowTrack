@@ -265,7 +265,7 @@
       "toReview_one": "{{count}} sem categoria",
       "toReview_other": "{{count}} sem categoria",
       "rowCategory": "Categoria da linha {{n}}",
-      "suggested": "regra · {{pct}}",
+      "suggested": "Regra · {{pct}}",
       "suggestedHint": "Sugerida pelas regras de categorização (sem IA). Troque se não for essa."
     },
     "export": {
@@ -317,8 +317,24 @@
       "confirmed_other": "{{count}} transações marcadas como revisadas",
       "confirmAll_one": "Marcar {{count}} como revisada",
       "confirmAll_other": "Marcar {{count}} como revisadas",
-      "footHint_one": "Escolha a categoria da transação sem categoria para marcar todas.",
-      "footHint_other": "Escolha a categoria das {{count}} transações sem categoria para marcar todas."
+      "footHint_one": "Escolha a categoria de 1 transação para marcar todas.",
+      "footHint_other": "Escolha a categoria de {{count}} transações para marcar todas.",
+      "choose": "Escolher",
+      "parcels_one": "{{count}} parcela",
+      "parcels_other": "{{count}} parcelas",
+      "parcelsHint": "Parcelas {{list}} de {{total}} da mesma compra, {{amount}} cada. O ✓ confirma todas.",
+      "confirmGroup": "Confirmar {{category}} nas {{count}} parcelas de {{name}}"
+    },
+    "rule": {
+      "offer": "Usar {{category}} sempre que aparecer “{{name}}”?",
+      "offerInstallments": "Usar {{category}} em todas as parcelas e nas próximas compras de “{{name}}”?",
+      "offerHint": "Vale para as transações com esta descrição que você não mudou à mão e para as próximas, inclusive na importação.",
+      "accept": "Aplicar sempre",
+      "dismiss": "Agora não",
+      "saved_one": "Regra salva: mais {{count}} transação foi para {{category}}.",
+      "saved_other": "Regra salva: mais {{count}} transações foram para {{category}}.",
+      "savedFuture": "Regra salva: as próximas “{{name}}” vão para {{category}}.",
+      "error": "Não foi possível salvar a regra."
     }
   }
 }

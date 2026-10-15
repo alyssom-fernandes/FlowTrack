@@ -158,16 +158,40 @@ REVIEW_CONFIDENCE = 0.85
 NEEDS_REVIEW_FILTER = f"category_id.is.null,and(categorized_by.eq.ai,confidence_score.lt.{REVIEW_CONFIDENCE})"
 
 
-def suggest_categories(sb, transactions: list[dict]) -> list[dict]:
-    """Sugestão de categoria para a prévia da importação: só as regras fixas (custo zero, sem IA).
+# ── Regras da pessoa ("Aplicar sempre") ───────────────────────
+# Ficam no merchant_cache com source = 'manual': descrição normalizada → categoria, por usuário.
+# Valem antes das regras fixas e da IA (na fila de categorização e na prévia da importação).
+RULE_KEY_LEN = 80   # o worker já compara o cache pelos 80 primeiros caracteres
+
+
+def rule_key(description: str) -> str:
+    return normalize_desc(description)[:RULE_KEY_LEN]
+
+
+def user_rules(sb, user_id: str) -> dict[str, str]:
+    """Regras que a própria pessoa criou: {descrição normalizada: category_id}."""
+    rows = (sb.table("merchant_cache").select("normalized_description,category_id")
+            .eq("user_id", user_id).eq("source", "manual").execute().data) or []
+    return {r["normalized_description"]: r["category_id"] for r in rows}
+
+
+def suggest_categories(sb, transactions: list[dict], user_id: str | None = None) -> list[dict]:
+    """Sugestão de categoria para a prévia da importação: regras da pessoa e regras fixas (custo zero, sem IA).
 
     Acrescenta suggested_category_id e suggested_confidence nos gastos que casarem com uma regra.
     """
     from app.integrations.rules import match_rule
     defaults = sb.table("categories").select("id,name").eq("is_default", True).is_("user_id", "null").execute().data or []
     by_name = {c["name"]: c["id"] for c in defaults}
+    mine = user_rules(sb, user_id) if user_id else {}
     for t in transactions:
         if (t.get("amount") or 0) >= 0:
+            continue
+        own = mine.get(rule_key(t.get("description") or ""))
+        if own:
+            # Regra criada pela pessoa: certeza total
+            t["suggested_category_id"] = own
+            t["suggested_confidence"] = 1.0
             continue
         rule = match_rule(t.get("description") or "")
         if rule and rule[0] in by_name:

@@ -32,13 +32,13 @@ async def parse_pdf_preview(request: Request, file: UploadFile = File(...), user
     if not transactions:
         label = BANK_LABELS.get(bank, bank)
         raise HTTPException(422, f"O PDF foi identificado como {label}, mas nenhuma transação pôde ser extraída. Tente exportar novamente pelo app do banco.")
-    return {'bank': BANK_LABELS.get(bank, bank), 'transactions': _with_suggestions(transactions)}
+    return {'bank': BANK_LABELS.get(bank, bank), 'transactions': _with_suggestions(transactions, user_id)}
 
 
-def _with_suggestions(transactions: list[dict]) -> list[dict]:
+def _with_suggestions(transactions: list[dict], user_id: str) -> list[dict]:
     """Categoria sugerida na prévia; se falhar, a prévia segue sem sugestão."""
     try:
-        return suggest_categories(get_supabase(), transactions)
+        return suggest_categories(get_supabase(), transactions, user_id)
     except Exception as e:
         logger.warning("suggest_categories_failed", error=str(e))
         return transactions
@@ -107,4 +107,4 @@ async def parse_ofx_preview(request: Request, file: UploadFile = File(...), user
     transactions = _parse_ofx(content)
     if not transactions:
         raise HTTPException(422, "Nenhuma transação encontrada no arquivo OFX. Verifique o arquivo e tente novamente.")
-    return {"transactions": _with_suggestions(transactions), "total": len(transactions)}
+    return {"transactions": _with_suggestions(transactions, user_id), "total": len(transactions)}

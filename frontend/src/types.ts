@@ -211,6 +211,13 @@ export interface ParsedTransaction {
   confidence_score?: number
 }
 
+// Regra "Aplicar sempre": quantas transações já existentes mudaram de categoria
+export interface CategoryRuleResult {
+  normalized_description: string
+  category_id: string
+  updated: number
+}
+
 // ── Alert ─────────────────────────────────────────────────
 export interface Alert {
   type: 'danger' | 'warning' | 'info'

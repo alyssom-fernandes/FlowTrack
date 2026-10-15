@@ -1,7 +1,8 @@
 // ── Transações: filtros, períodos, valores e agrupamento ──
 import { useSyncExternalStore } from 'react'
-import { transactionsService } from '../../services'
-import type { Transaction, TransactionFilters } from '../../types'
+import { categoriesService, transactionsService } from '../../services'
+import type { Category, Transaction, TransactionFilters } from '../../types'
+import { shownCategory } from '../../lib/review'
 import { currentLocale, formatNumber, toISODate } from '../../utils'
 
 export type Period = '' | 'this_month' | 'last_month' | 'last_3' | 'this_year' | 'custom'
@@ -74,7 +75,10 @@ export async function fetchAll(f: Filters): Promise<Transaction[]> {
     out.push(...(res.transactions || []))
     if (page >= res.total_pages) break
   }
-  return f.category_id === NO_CATEGORY ? out.filter(t => !t.category_id) : out
+  if (f.category_id !== NO_CATEGORY) return out
+  // "Sem categoria" inclui o "Outros" que a IA deu por falta de opção (na lista ele aparece sem categoria)
+  const categories = (await categoriesService.list()).categories || []
+  return out.filter(t => !shownCategory(t, categories))
 }
 
 // Receitas e gastos ignoram transferências entre contas próprias
@@ -93,10 +97,38 @@ export function sumFlows(txs: Transaction[]) {
 
 export const AUTO_SOURCES = ['ai', 'cache', 'rule']
 
-export function autoStats(txs: Transaction[]) {
-  const auto = txs.filter(t => t.category_id && t.categorized_by && AUTO_SOURCES.includes(t.categorized_by)).length
-  const pending = txs.filter(t => !t.category_id).length
+// Com as categorias, o "Outros" dado pela IA conta como sem categoria (como na lista)
+export function autoStats(txs: Transaction[], categories?: Category[]) {
+  const hasCategory = (t: Transaction) => !!t.category_id && (!categories || !!shownCategory(t, categories))
+  const auto = txs.filter(t => hasCategory(t) && t.categorized_by && AUTO_SOURCES.includes(t.categorized_by)).length
+  const pending = txs.filter(t => !hasCategory(t)).length
   return { auto, pending, pct: txs.length ? (auto / txs.length) * 100 : 0 }
+}
+
+// ── Parcelas da mesma compra (modo revisão: uma linha e um ✓ para todas) ──
+// Mesma conta, mesma descrição, mesmo valor e mesmo total de parcelas
+export function installmentKey(t: Transaction): string | null {
+  if (!t.installment_current || !t.installment_total || t.installment_total < 2 || t.type === 'transfer') return null
+  return [t.account_id, (t.description_normalized || t.description).toUpperCase().trim(), t.amount, t.installment_total].join('|')
+}
+
+/** Junta as parcelas de cada compra na mais recente (a lista vem da mais nova para a mais velha).
+ *  Devolve a lista sem as outras parcelas e, para cada linha que ficou, as parcelas que ela representa. */
+export function groupInstallments(txs: Transaction[]): { items: Transaction[]; parcels: Map<string, Transaction[]> } {
+  const byKey = new Map<string, Transaction[]>()
+  for (const t of txs) {
+    const key = installmentKey(t)
+    if (key) byKey.set(key, [...(byKey.get(key) ?? []), t])
+  }
+  const parcels = new Map<string, Transaction[]>()
+  const items = txs.filter(t => {
+    const group = byKey.get(installmentKey(t) ?? '')
+    if (!group || group.length < 2) return true
+    if (group[0].id !== t.id) return false
+    parcels.set(t.id, group)
+    return true
+  })
+  return { items, parcels }
 }
 
 export interface DayGroup { date: string; items: Transaction[] }

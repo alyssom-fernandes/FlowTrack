@@ -265,7 +265,7 @@
       "toReview_one": "{{count}} uncategorized",
       "toReview_other": "{{count}} uncategorized",
       "rowCategory": "Category for row {{n}}",
-      "suggested": "rule · {{pct}}",
+      "suggested": "Rule · {{pct}}",
       "suggestedHint": "Suggested by the categorization rules (no AI). Change it if it's wrong."
     },
     "export": {
@@ -317,8 +317,24 @@
       "confirmed_other": "{{count}} transactions marked as reviewed",
       "confirmAll_one": "Mark {{count}} as reviewed",
       "confirmAll_other": "Mark {{count}} as reviewed",
-      "footHint_one": "Pick a category for the uncategorized transaction to mark them all.",
-      "footHint_other": "Pick a category for the {{count}} uncategorized transactions to mark them all."
+      "footHint_one": "Pick a category for 1 transaction to mark them all.",
+      "footHint_other": "Pick a category for {{count}} transactions to mark them all.",
+      "choose": "Choose",
+      "parcels_one": "{{count}} installment",
+      "parcels_other": "{{count}} installments",
+      "parcelsHint": "Installments {{list}} of {{total}} from the same purchase, {{amount}} each. ✓ confirms them all.",
+      "confirmGroup": "Confirm {{category}} for the {{count}} installments of {{name}}"
+    },
+    "rule": {
+      "offer": "Use {{category}} whenever “{{name}}” shows up?",
+      "offerInstallments": "Use {{category}} for every installment and future purchases of “{{name}}”?",
+      "offerHint": "Applies to transactions with this description that you haven't changed by hand, and to new ones, imports included.",
+      "accept": "Always apply",
+      "dismiss": "Not now",
+      "saved_one": "Rule saved: {{count}} more transaction moved to {{category}}.",
+      "saved_other": "Rule saved: {{count}} more transactions moved to {{category}}.",
+      "savedFuture": "Rule saved: future “{{name}}” go to {{category}}.",
+      "error": "Couldn't save the rule."
     }
   }
 }

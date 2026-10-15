@@ -46,6 +46,8 @@ export interface DemoDB {
   snapshots: NetWorthSnapshot[]
   audit: AuditLogEntry[]
   insight_cache: Record<string, { text: string; ts: string; income?: number; expense?: number }>
+  // "Aplicar sempre": descrição normalizada → categoria (no backend real, merchant_cache com source = 'manual')
+  category_rules?: Record<string, string>
 }
 
 // ── Helpers de data ───────────────────────────────────────

@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { createClient, type Session } from '@supabase/supabase-js'
 import { demo, demoAdapter } from './demo'
-import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, Goal, GoalCreate, Investment, InvestmentCreate, ParsedTransaction, Category, CategoryCreate, CategoryUpdate, Alert, Budget, BudgetCreate, InsightResponse, CashflowProjection, NetWorth, ProjectionData, AuditLogEntry } from './types'
+import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, CategoryRuleResult, Goal, GoalCreate, Investment, InvestmentCreate, ParsedTransaction, Category, CategoryCreate, CategoryUpdate, Alert, Budget, BudgetCreate, InsightResponse, CashflowProjection, NetWorth, ProjectionData, AuditLogEntry } from './types'
 
 // ── Supabase (opcional: sem as variáveis o app roda só em demonstração) ──
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -187,6 +187,11 @@ export const transactionsService = {
     const { data } = await api.post('/api/v1/import/ofx/parse', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
+    return data
+  },
+  // "Aplicar sempre": a descrição passa a ir para esta categoria (nas transações sem escolha manual e nas próximas)
+  async createRule(description: string, categoryId: string): Promise<CategoryRuleResult> {
+    const { data } = await api.post('/api/v1/category-rules', { description, category_id: categoryId })
     return data
   },
   async bulkCreate(accountId: string, transactions: ParsedTransaction[]): Promise<{ imported: number; skipped: number; total: number }> {

@@ -181,6 +181,14 @@ const AUTO_RULES: [RegExp, string, number][] = [
   [/renner|riachuelo|zara|c&a|roupa/i, 'Vestuário', 0.9],
 ]
 
+// Regra criada pela pessoa ("Aplicar sempre"): vale antes das regras por palavra-chave
+const ruleKey = (desc: string) => normalizeDesc(desc).slice(0, 80)
+function ownRule(desc: string): string | null {
+  const d = loadDb()
+  const id = d.category_rules?.[ruleKey(desc)]
+  return id && d.categories.some(c => c.id === id) ? id : null
+}
+
 function autoCategorize(desc: string): { category_id: string; confidence: number } | null {
   const d = loadDb()
   for (const [re, catName, confidence] of AUTO_RULES) {
@@ -212,6 +220,10 @@ function insertTransaction(b: Record<string, unknown>, opts: { audit: boolean })
     sync_status: 'synced', notes: (b.notes as string) || undefined,
     tags: Array.isArray(b.tags) && b.tags.length ? (b.tags as string[]) : undefined,
     created_at: nowIso(), updated_at: nowIso(),
+  }
+  if (!tx.category_id && tx.type !== 'transfer') {
+    const own = ownRule(desc)
+    if (own) Object.assign(tx, { category_id: own, categorized_by: 'rule', confidence_score: 1 })
   }
   if (!tx.category_id && tx.type !== 'transfer') {
     const guess = autoCategorize(desc)
@@ -268,6 +280,25 @@ route('POST', '/transactions/bulk', ({ body }) => {
   return { imported, skipped, total: (b.transactions || []).length }
 })
 
+// "Aplicar sempre": grava a regra e aplica nas transações com a mesma descrição que não foram escolhidas à mão
+route('POST', '/category-rules', ({ body }) => {
+  const b = body as { description?: string; category_id?: string }
+  const d = loadDb()
+  if (!b.category_id || !d.categories.some(c => c.id === b.category_id)) throw new DemoHttpError(404, 'Categoria não encontrada.')
+  const key = ruleKey(String(b.description || ''))
+  if (!key.trim()) throw new DemoHttpError(422, 'Descrição sem letras nem números.')
+  d.category_rules = { ...d.category_rules, [key]: b.category_id }
+  let updated = 0
+  for (const tx of d.transactions) {
+    if (tx.type === 'transfer' || tx.categorized_by === 'manual' || ruleKey(tx.description) !== key) continue
+    const old = clone(tx)
+    Object.assign(tx, { category_id: b.category_id, categorized_by: 'rule', confidence_score: 1, updated_at: nowIso() })
+    writeAudit(tx.id, 'update', old as unknown as Record<string, unknown>, { category_id: b.category_id, categorized_by: 'rule' })
+    updated++
+  }
+  return { normalized_description: key, category_id: b.category_id, updated }
+})
+
 route('POST', '/transfers', ({ body }) => {
   const b = body as { from_account_id: string; to_account_id: string; amount: number; description?: string; transaction_date: string; notes?: string }
   const d = loadDb()
@@ -300,6 +331,8 @@ route('GET', '/export/transactions', ({ params }) => {
 // Prévia com a categoria sugerida pelas regras (a API faz o mesmo com app/integrations/rules.py)
 function withSuggestions<T extends { description: string; amount: number }>(list: T[]) {
   return list.map(t => {
+    const own = t.amount < 0 ? ownRule(t.description) : null
+    if (own) return { ...t, suggested_category_id: own, suggested_confidence: 1 }
     const guess = t.amount < 0 ? autoCategorize(t.description) : null
     return guess ? { ...t, suggested_category_id: guess.category_id, suggested_confidence: guess.confidence } : t
   })
@@ -413,7 +446,9 @@ route('GET', '/alerts', () => {
   }
   for (const a of d.accounts.filter(x => x.is_active && x.balance < 0)) alerts.push({ type: 'danger', message: isEn() ? `Negative balance: ${a.name}` : `Saldo negativo: ${a.name}`, category: 'account', amount: a.balance })
 
-  const uncategorized = txs.filter(t => !t.category_id && t.amount < 0)
+  // Conta também o "Outros" que a IA deu por falta de opção, que a tela mostra como sem categoria (lib/review.ts)
+  const fallback = d.categories.find(c => c.is_default && c.name === 'Outros')?.id
+  const uncategorized = txs.filter(t => t.amount < 0 && (!t.category_id || (t.categorized_by === 'ai' && t.category_id === fallback)))
   if (uncategorized.length >= 3) alerts.push({ type: 'info', message: isEn() ? `${uncategorized.length} uncategorized transactions this month` : `${uncategorized.length} transações sem categoria este mês`, category: 'uncategorized' })
 
   const prev = monthBounds(now.getFullYear(), now.getMonth() - 1)

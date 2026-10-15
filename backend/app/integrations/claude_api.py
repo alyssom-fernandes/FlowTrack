@@ -6,6 +6,9 @@ from app.integrations.rules import match_rule
 
 logger = get_logger(__name__)
 
+# Categoria padrão de sobra: quando a IA responde só isso, não ajuda (frontend: lib/review.ts)
+FALLBACK_CATEGORY = "Outros"
+
 
 def _build_system_prompt(category_names: list[str]) -> str:
     return (
@@ -86,6 +89,23 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
             description = txn.get("description") or ""
             desc_norm = (txn.get("description_normalized") or description)[:80]
 
+            # 0. Regra criada pela pessoa ("Aplicar sempre"): vale antes de tudo
+            own_res = (
+                sb.table("merchant_cache")
+                .select("category_id")
+                .eq("normalized_description", desc_norm)
+                .eq("user_id", user_id)
+                .eq("source", "manual")
+                .limit(1)
+                .execute()
+            )
+            own = own_res.data[0]["category_id"] if own_res.data else None
+            if own in allowed_ids:
+                apply(own, "rule", 1.0)
+                _mark_queue(sb, queue_id, "done")
+                processed += 1
+                continue
+
             # 1. Regras fixas
             rule = match_rule(description)
             if rule and rule[0] in default_by_name:
@@ -129,6 +149,10 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
 
             cat_name = response.content[0].text.strip()
             cat = allowed.get(cat_name.lower())
+            # "Outros" não é sugestão: a transação fica sem categoria e a pessoa escolhe na revisão
+            fallback = bool(cat and cat.get("is_default") and cat["name"].lower() == FALLBACK_CATEGORY.lower())
+            if fallback:
+                cat = None
 
             if cat:
                 apply(cat["id"], "ai", 0.85)
@@ -139,7 +163,7 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
                     "confidence": 0.85,
                     "source": "ai",
                 }, on_conflict="normalized_description,user_id").execute()
-            else:
+            elif not fallback:
                 logger.warning("Claude returned unknown category", cat_name=cat_name, txn_id=txn_id)
 
             _mark_queue(sb, queue_id, "done")

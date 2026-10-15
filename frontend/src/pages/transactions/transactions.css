@@ -403,6 +403,8 @@ section + section .tx-day__head { border-top: 1px solid var(--border-subtle); }
   backdrop-filter: blur(8px); border-radius: 0 0 var(--radius-card) var(--radius-card);
 }
 .tx-review-foot__hint { font-size: var(--font-size-sm); color: var(--text-muted); }
+/* Sem aviso, o botão continua à direita */
+.tx-review-foot > .ft-btn { margin-left: auto; }
 @media (max-width: 767px) {
   .tx-review-foot { bottom: calc(var(--navbar-height) + env(safe-area-inset-bottom)); padding: 0.625rem 0.75rem; }
   .tx-review-foot__hint { display: none; }
@@ -425,3 +427,21 @@ section + section .tx-day__head { border-top: 1px solid var(--border-subtle); }
 }
 
 @media (max-width: 767px) { .tx-review-chip { min-height: 2.5rem; } }
+
+/* "Aplicar sempre": oferta da regra logo abaixo da linha que mudou de categoria (modo revisão) */
+.tx-offer {
+  display: flex; align-items: center; gap: 0.625rem; padding: 0.625rem 1.25rem 0.625rem 4.5rem;
+  border-bottom: 1px solid var(--border-subtle); background: var(--accent-soft);
+  font-size: var(--font-size-sm); color: var(--text-secondary);
+}
+.tx-offer__icon { color: var(--accent-text); flex-shrink: 0; }
+.tx-offer__text { flex: 1; min-width: 0; line-height: 1.4; }
+.tx-offer__actions { display: flex; align-items: center; gap: 0.375rem; flex-shrink: 0; }
+@media (max-width: 767px) {
+  .tx-offer { flex-wrap: wrap; padding: 0.75rem 1rem 0.75rem 4.125rem; position: relative; }
+  .tx-offer__icon { position: absolute; left: 2.5rem; top: 0.9375rem; }
+  .tx-offer__text { flex-basis: 100%; }
+  .tx-offer__actions { width: 100%; justify-content: flex-end; }
+  .tx-offer__actions .ft-btn { min-height: 2.5rem; }
+}
+@media print { .tx-offer { display: none; } }

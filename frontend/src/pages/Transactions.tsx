@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Card, ConfirmDialog, EmptyState, Page, PageHeader, Skeleton } from '../components/ui'
 import { accountsService, categoriesService, tagsService, transactionsService } from '../services'
 import { useToastStore } from '../store'
-import { formatCurrency, formatDate } from '../utils'
+import { categoryLabel, formatCurrency, formatDate } from '../utils'
 import type { Account, Category, Transaction } from '../types'
 import { FilterBar } from './transactions/FilterBar'
 import { SummaryStrip } from './transactions/SummaryStrip'
@@ -15,7 +15,7 @@ import { ImportModal } from './transactions/ImportModal'
 import { ExportMenu } from './transactions/ExportMenu'
 import { describeFilters, exportTransactions, type ExportFormat } from './transactions/exportFile'
 import { DEFAULT_FILTERS, fetchAll, filtersFromParams, filtersToParams, hasAnyFilter, NO_CATEGORY, PAGE_SIZE, toQuery, transferPeer, type Filters } from './transactions/shared'
-import { needsReview } from '../lib/review'
+import { needsReview, shownCategory } from '../lib/review'
 import { Icon } from '../components/icons'
 import './transactions/transactions.css'
 
@@ -124,14 +124,17 @@ export function Transactions() {
   // ── A revisar: sem categoria ou IA com pouca confiança ──
   const reviewing = filters.review === '1'
   const reviewCount = all ? (reviewing ? all.length : all.filter(needsReview).length) : null
-  const confirmable = reviewing && all ? all.filter(tx => tx.category_id) : []
+  // Confirmáveis: as que têm categoria de verdade ("Outros" dado pela IA conta como sem categoria)
+  const confirmable = reviewing && all ? all.filter(tx => shownCategory(tx, categories)) : []
   const uncategorized = reviewing && all ? all.length - confirmable.length : 0
   const [confirmingAll, setConfirmingAll] = useState(false)
-  // Confirmar = a pessoa conferiu: a categoria passa a valer como escolha dela
-  const confirmOne = async (txn: Transaction) => {
+  // Confirmar = a pessoa conferiu: a categoria passa a valer como escolha dela.
+  // Parcelas agrupadas: o ✓ da linha confirma todas
+  const confirmOne = async (txn: Transaction, group?: Transaction[]) => {
+    const targets = group ?? [txn]
     try {
-      await transactionsService.update(txn.id, { category_id: txn.category_id, categorized_by: 'manual' })
-      toast({ message: t('transactions.review.confirmed', { count: 1 }) })
+      await Promise.all(targets.map(x => transactionsService.update(x.id, { category_id: x.category_id, categorized_by: 'manual' })))
+      toast({ message: t('transactions.review.confirmed', { count: targets.length }) })
       setReload(n => n + 1)
     } catch {
       toast({ message: t('transactions.row.categoryError'), variant: 'error' })
@@ -151,14 +154,56 @@ export function Transactions() {
     }
   }
 
-  const changeCategory = async (txn: Transaction, categoryId: string) => {
+  // ── "Aplicar sempre": ao trocar a categoria na revisão, oferece a regra para a mesma descrição ──
+  const [ruleOffer, setRuleOffer] = useState<{ txn: Transaction; categoryId: string; installments: boolean } | null>(null)
+  const [ruleBusy, setRuleBusy] = useState(false)
+  useEffect(() => { if (!reviewing) setRuleOffer(null) }, [reviewing])
+
+  const changeCategory = async (txn: Transaction, categoryId: string, group?: Transaction[]) => {
+    const targets = group ?? [txn]
     try {
-      patch(await transactionsService.update(txn.id, { category_id: categoryId, categorized_by: 'manual' }))
+      const saved = await Promise.all(targets.map(x => transactionsService.update(x.id, { category_id: categoryId, categorized_by: 'manual' })))
+      saved.forEach(patch)
       toast({ message: t('transactions.row.categorySaved') })
+      if (reviewing) setRuleOffer({ txn, categoryId, installments: !!txn.installment_total && txn.installment_total > 1 })
     } catch {
       toast({ message: t('transactions.row.categoryError'), variant: 'error' })
     }
   }
+
+  const ruleName = (txn: Transaction) => txn.description_normalized || txn.description.toUpperCase()
+  const ruleCategory = ruleOffer ? categories.find(c => c.id === ruleOffer.categoryId) : undefined
+  const acceptRule = async () => {
+    if (!ruleOffer) return
+    setRuleBusy(true)
+    const name = ruleName(ruleOffer.txn)
+    const category = ruleCategory ? categoryLabel(ruleCategory) : ''
+    try {
+      const r = await transactionsService.createRule(ruleOffer.txn.description, ruleOffer.categoryId)
+      toast({ message: r.updated ? t('transactions.rule.saved', { count: r.updated, category }) : t('transactions.rule.savedFuture', { name, category }) })
+      setRuleOffer(null)
+      setReload(n => n + 1)
+    } catch {
+      toast({ message: t('transactions.rule.error'), variant: 'error' })
+    } finally {
+      setRuleBusy(false)
+    }
+  }
+  const offer = reviewing && ruleOffer && ruleCategory ? {
+    id: ruleOffer.txn.id,
+    content: (
+      <>
+        <Icon name="sparkle" size={14} className="tx-offer__icon" />
+        <span className="tx-offer__text" title={t('transactions.rule.offerHint')}>
+          {t(ruleOffer.installments ? 'transactions.rule.offerInstallments' : 'transactions.rule.offer', { category: categoryLabel(ruleCategory), name: ruleName(ruleOffer.txn) })}
+        </span>
+        <span className="tx-offer__actions">
+          <Button size="sm" variant="ghost" onClick={() => setRuleOffer(null)} disabled={ruleBusy}>{t('transactions.rule.dismiss')}</Button>
+          <Button size="sm" loading={ruleBusy} onClick={acceptRule}>{t('transactions.rule.accept')}</Button>
+        </span>
+      </>
+    ),
+  } : undefined
 
   const onSaved = (kind: SavedKind, count?: number) => {
     const msg: Record<SavedKind, string> = {
@@ -277,7 +322,7 @@ export function Transactions() {
             ) : (
               <TransactionList items={list.items} dayTotalsFrom={all} accounts={accounts} categories={categories}
                 page={Math.min(page, list.pages)} totalPages={list.pages} total={list.total} busy={busy}
-                onPage={goToPage} onEdit={setEditing} onDelete={setDeleting} onCategory={changeCategory} onConfirm={reviewing ? confirmOne : undefined} />
+                onPage={goToPage} onEdit={setEditing} onDelete={setDeleting} onCategory={changeCategory} onConfirm={reviewing ? confirmOne : undefined} offer={offer} />
             )}
             {/* Rodapé fixo do modo revisão: confirma de uma vez as que já têm categoria */}
             {reviewing && confirmable.length > 0 && (

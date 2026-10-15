@@ -181,6 +181,13 @@ class BulkTransactionCreate(BaseModel):
     transactions: list[ParsedTransactionItem] = Field(..., max_length=2000)
 
 
+# ── Regra de categoria ("Aplicar sempre") ─────────────────
+class CategoryRuleCreate(BaseModel):
+    # A descrição como aparece no extrato; a regra vale para a forma normalizada dela
+    description: str = Field(..., min_length=1, max_length=300)
+    category_id: str
+
+
 # ── Budget ────────────────────────────────────────────────
 class BudgetCreate(BaseModel):
     category_id: str
