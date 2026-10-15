@@ -108,7 +108,23 @@ function BudgetsSkeleton() {
   )
 }
 
-export function BudgetsTab({ creating, onCreatingChange }: { creating: boolean; onCreatingChange: (v: boolean) => void }) {
+// Prévia do vazio: linhas de orçamento desenhadas, sem números
+function BudgetsPreview() {
+  return (
+    <div className="gl-preview gl-preview--rows">
+      {[72, 48, 88, 30].map((w, i) => (
+        <div key={i} className="gl-preview__row">
+          <span className="gl-preview__line" style={{ width: `${40 + (i % 2) * 15}%` }} />
+          <span className="gl-preview__bar"><span style={{ width: `${w}%` }} /></span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function BudgetsTab({ creating, onCreatingChange, onEmptyChange }: {
+  creating: boolean; onCreatingChange: (v: boolean) => void; onEmptyChange?: (empty: boolean) => void
+}) {
   const { t } = useTranslation()
   const { toast } = useToastStore()
   const [params, setParams] = useSearchParams()
@@ -160,6 +176,12 @@ export function BudgetsTab({ creating, onCreatingChange }: { creating: boolean; 
     load(month, () => alive)
     return () => { alive = false }
   }, [month, load])
+
+  // Mês sem orçamento: o cabeçalho esconde o "Novo orçamento" e o vazio fica com um só botão principal
+  const empty = budgets !== null && !failed && budgets.length === 0
+  // Enquanto carrega outro mês, o botão fica como estava (sem piscar)
+  const settled = budgets !== null || failed
+  useEffect(() => { if (settled) onEmptyChange?.(empty) }, [settled, empty, onEmptyChange])
 
   const close = () => { onCreatingChange(false); setEditing(null) }
   const saved = (created: boolean) => {
@@ -227,7 +249,7 @@ export function BudgetsTab({ creating, onCreatingChange }: { creating: boolean; 
         <BudgetsSkeleton />
       ) : budgets.length === 0 ? (
         <Card>
-          <EmptyState title={t('goals.budgets.empty.title', { month: monthName(month, current) })}
+          <EmptyState preview={<BudgetsPreview />} title={t('goals.budgets.empty.title', { month: monthName(month, current) })}
             description={month < current && !prevBudgets.length ? t('goals.budgets.empty.textPast') : t('goals.budgets.empty.text')}
             action={prevBudgets.length > 0 ? <>
               <Button icon="repeat" loading={busy} onClick={copyPrevious}>{t('goals.budgets.empty.copy', { month: monthName(prev, month) })}</Button>

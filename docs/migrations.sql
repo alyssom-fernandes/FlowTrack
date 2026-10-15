@@ -89,3 +89,6 @@ revoke insert, update, delete on all tables in schema public from authenticated;
 -- Linhas antigas forjadas: "padrão" com dono deixam de ser padrão
 update categories set is_default = false where is_default = true and user_id is not null;
 
+-- v2.2 — identidade das metas de economia (cor da paleta e glifo, ambos opcionais)
+alter table goals add column if not exists color text;
+alter table goals add column if not exists icon text;

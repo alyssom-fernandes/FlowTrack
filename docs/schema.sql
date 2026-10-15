@@ -177,6 +177,8 @@ create table goals (
   start_date      date not null default current_date,
   end_date        date,
   is_active       boolean not null default true,
+  color           text,  -- meta de economia: token da paleta (accent, cat-1...)
+  icon            text,  -- meta de economia: nome do glifo (padrão lucide)
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );

@@ -67,6 +67,22 @@ export default [
   },
   { id: 'metas-editar', rota: '/goals', inteira: false, acao: async page => { await page.getByRole('button', { name: editar }).first().click(); await dialogo(page) } },
   { id: 'metas-excluir', rota: '/goals', inteira: false, acao: async page => { await page.getByRole('button', { name: excluir }).first().click(); await dialogo(page) } },
+  // Formulário da meta de economia já criada: cor e glifo escolhidos (a reserva do seed)
+  { id: 'metas-editar-economia', rota: '/goals', inteira: false, acao: async page => { await page.locator('.gl-card--savings').first().getByRole('button', { name: editar }).click(); await dialogo(page) } },
+  {
+    // Identidade trocada pela pessoa: violeta e avião, salvo e de volta ao cartão
+    id: 'metas-identidade', rota: '/goals',
+    acao: async page => {
+      await page.locator('.gl-card--savings').first().getByRole('button', { name: editar }).click()
+      await dialogo(page)
+      await page.getByRole('radio', { name: /^(violeta|violet)$/i }).click()
+      await page.getByRole('radio', { name: /^(viagem|travel)$/i }).click()
+      await page.getByRole('button', { name: /^(salvar alterações|save changes)$/i }).click()
+      await page.getByRole('dialog').waitFor({ state: 'hidden' })
+      await page.locator('.ft-toast').last().waitFor({ state: 'hidden', timeout: 8000 }).catch(() => {})
+      await page.evaluate(() => window.scrollTo(0, 0))
+    },
+  },
   {
     id: 'metas-vazio-economia', rota: '/goals', vazio: true, inteira: false,
     acao: async page => { await page.getByRole('button', { name: /^(criar meta de economia|create savings goal)$/i }).click(); await dialogo(page) },

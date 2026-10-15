@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Literal, Optional
+from pydantic import BaseModel, Field, StringConstraints
+from typing import Annotated, Literal, Optional
 from datetime import date, datetime
 from enum import Enum
 
@@ -81,17 +81,26 @@ class TransactionListResponse(BaseModel):
 
 
 # ── Goal ──────────────────────────────────────────────────
+# Identidade da meta de economia: a cor é o nome de um token da paleta validada (o tema
+# decide o tom), e o ícone é um nome de glifo no padrão lucide (components/glyphs.tsx)
+GoalColor = Literal["accent", "cat-1", "cat-2", "cat-3", "cat-5", "cat-6", "cat-7"]
+GoalIcon = Annotated[str, StringConstraints(max_length=40, pattern=r"^[a-z][a-z-]*$")]
+
 class GoalCreate(BaseModel):
     category_id: Optional[str] = None
     name: str = Field(..., min_length=1, max_length=100)
     type: GoalTypeEnum; target_amount: float = Field(..., gt=0)
     currency: str = "BRL"; period: str = "monthly"
     start_date: date; end_date: Optional[date] = None
+    color: Optional[GoalColor] = None
+    icon: Optional[GoalIcon] = None
 
 class GoalUpdate(BaseModel):
     name: Optional[str] = None; target_amount: Optional[float] = None
     period: Optional[str] = None
     end_date: Optional[date] = None; is_active: Optional[bool] = None
+    color: Optional[GoalColor] = None
+    icon: Optional[GoalIcon] = None
 
 class GoalResponse(BaseModel):
     id: str; user_id: str; category_id: Optional[str] = None
@@ -99,6 +108,8 @@ class GoalResponse(BaseModel):
     current_amount: float; currency: str; period: str
     start_date: date; end_date: Optional[date] = None
     is_active: bool; progress_percent: float = 0.0
+    # Linhas antigas guardam o que o banco tiver; só a entrada é validada
+    color: Optional[str] = None; icon: Optional[str] = None
     created_at: datetime; updated_at: datetime
 
 class GoalListResponse(BaseModel):

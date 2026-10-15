@@ -1,7 +1,7 @@
 // Contas de metas e orçamentos (sem React): períodos, situação e valores digitados
 import { currentLocale, formatDate, formatMonth, formatNumber, toISODate } from '../../utils'
 import { goalLimitState } from '../../lib/pace'
-import type { Category, Goal } from '../../types'
+import type { Category, Goal, GoalColor, Transaction } from '../../types'
 
 const DAY = 86_400_000
 
@@ -84,6 +84,38 @@ function periodText(goal: Pick<Goal, 'period' | 'start_date' | 'end_date'>, toda
   const a = sameYear ? formatDate(goal.start_date, { day: 'numeric', month: 'short' }) : from
   const b = formatDate(goal.end_date, { day: 'numeric', month: 'short', year: 'numeric' })
   return `${a} – ${b}`
+}
+
+// ── Meta de economia: identidade e previsão ──────────────
+// Cores oferecidas: o vinho e as --cat-* que não lembram estado (sem verde, âmbar e vermelho)
+export const GOAL_COLORS: GoalColor[] = ['accent', 'cat-1', 'cat-3', 'cat-5', 'cat-7', 'cat-2', 'cat-6']
+export const goalColorVar = (c: GoalColor) => `var(--${c})`
+
+// Meses fechados que contam para o ritmo: do mês de início até o mês passado
+export function closedMonths(goal: Pick<Goal, 'start_date'>, today: Date): { from: string; to: string; count: number } | null {
+  const start = parseISO(goal.start_date)
+  const count = (today.getFullYear() - start.getFullYear()) * 12 + today.getMonth() - start.getMonth()
+  if (count <= 0) return null
+  return { from: goal.start_date.slice(0, 10), to: toISODate(new Date(today.getFullYear(), today.getMonth(), 0)), count }
+}
+
+// Quando a meta chega lá no ritmo real dos meses já fechados (média do que entrou por mês).
+// Menos de 2 meses fechados ou nada guardado neles: sem previsão (a tela diz só quanto falta).
+export const MIN_FORECAST_MONTHS = 2
+export function savingsForecast(goal: Goal, closedTxs: Transaction[], today: Date): Date | null {
+  const remaining = goal.target_amount - goal.current_amount
+  const months = closedMonths(goal, today)
+  if (remaining <= 0 || !months || months.count < MIN_FORECAST_MONTHS) return null
+  const saved = closedTxs.reduce((s, t) => (t.amount > 0 ? s + t.amount : s), 0)
+  const perMonth = saved / months.count
+  if (!(perMonth > 0)) return null
+  // O mês corrente já está no "guardado até agora": a conta começa no próximo
+  return new Date(today.getFullYear(), today.getMonth() + Math.ceil(remaining / perMonth), 1)
+}
+
+// "fev. de 2027" / "Feb 2027"
+export function forecastText(d: Date): string {
+  return new Intl.DateTimeFormat(currentLocale(), { month: 'short', year: 'numeric' }).format(d)
 }
 
 // ── Meses (orçamentos) ─────────────────────────────────────

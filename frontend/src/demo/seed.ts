@@ -5,7 +5,7 @@ import type { Account, AuditLogEntry, Category, Investment, NetWorthSnapshot, Tr
 
 export const DEMO_EMAIL = 'demo@flowtrack.app'
 export const DEMO_USER_ID = 'demo-user'
-export const DB_VERSION = 4
+export const DB_VERSION = 5
 
 export interface GoalRow {
   id: string
@@ -20,6 +20,8 @@ export interface GoalRow {
   start_date: string
   end_date?: string
   is_active: boolean
+  color?: string
+  icon?: string
   created_at: string
   updated_at: string
 }
@@ -245,7 +247,7 @@ export function buildSeed(now = new Date()): DemoDB {
   const monthStart = iso(new Date(now.getFullYear(), now.getMonth(), 1))
   // Metas: uma de economia (a reserva) e limites anuais; os limites do mês ficam nos orçamentos
   const goals: GoalRow[] = [
-    { id: 'goal-2', user_id: DEMO_USER_ID, category_id: cat('Investimentos'), name: tr('Reserva de emergência'), type: 'savings_target', target_amount: 15000, current_amount: 0, currency: 'BRL', period: 'custom', start_date: `${now.getFullYear()}-01-01`, end_date: `${now.getFullYear()}-12-31`, is_active: true, created_at: createdAt, updated_at: createdAt },
+    { id: 'goal-2', user_id: DEMO_USER_ID, category_id: cat('Investimentos'), name: tr('Reserva de emergência'), type: 'savings_target', target_amount: 15000, current_amount: 0, currency: 'BRL', period: 'custom', start_date: `${now.getFullYear()}-01-01`, end_date: `${now.getFullYear()}-12-31`, is_active: true, color: 'cat-1', icon: 'shield', created_at: createdAt, updated_at: createdAt },
     { id: 'goal-4', user_id: DEMO_USER_ID, category_id: cat('Assinaturas'), name: tr('Assinaturas no ano'), type: 'spending_limit', target_amount: 2400, current_amount: 0, currency: 'BRL', period: 'yearly', start_date: `${now.getFullYear()}-01-01`, is_active: true, created_at: createdAt, updated_at: createdAt },
     { id: 'goal-5', user_id: DEMO_USER_ID, category_id: cat('Lazer'), name: tr('Lazer no ano'), type: 'spending_limit', target_amount: 4800, current_amount: 0, currency: 'BRL', period: 'yearly', start_date: `${now.getFullYear()}-01-01`, is_active: true, created_at: createdAt, updated_at: createdAt },
   ]

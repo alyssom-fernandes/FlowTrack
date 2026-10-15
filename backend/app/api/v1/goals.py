@@ -30,6 +30,9 @@ async def create_goal(body: GoalCreate, user_id: str = Depends(get_current_user_
         sb = get_supabase()
         _require_category(sb, user_id, body.category_id)
         data = body.model_dump(); data["user_id"] = user_id
+        # Cor e ícone são opcionais: sem escolha, nem vão ao banco (a tela usa a cor da categoria)
+        for k in ("color", "icon"):
+            if data.get(k) is None: data.pop(k, None)
         data["start_date"] = str(body.start_date)
         if body.end_date: data["end_date"] = str(body.end_date)
         result = sb.table("goals").insert(data).execute()

@@ -147,9 +147,14 @@ export interface Goal {
   end_date?: string
   is_active: boolean
   progress_percent: number
+  color?: GoalColor | null
+  icon?: string | null
   created_at: string
   updated_at: string
 }
+
+// Cor da meta de economia: token da paleta validada (sem verde, âmbar e vermelho, que são estado)
+export type GoalColor = 'accent' | 'cat-1' | 'cat-2' | 'cat-3' | 'cat-5' | 'cat-6' | 'cat-7'
 
 export interface GoalCreate {
   category_id?: string
@@ -160,6 +165,8 @@ export interface GoalCreate {
   period?: string
   start_date: string
   end_date?: string
+  color?: GoalColor
+  icon?: string
 }
 
 // ── Investment ────────────────────────────────────────────

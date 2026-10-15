@@ -711,7 +711,7 @@ route('GET', '/goals', () => {
 })
 route('POST', '/goals', ({ body }) => {
   const b = body as Record<string, unknown>
-  const g: GoalRow = { id: newId('goal'), user_id: DEMO_USER_ID, category_id: (b.category_id as string) || undefined, name: String(b.name || 'Meta'), type: (b.type as GoalRow['type']) || 'spending_limit', target_amount: Number(b.target_amount || 0), current_amount: 0, currency: 'BRL', period: (b.period as GoalRow['period']) || 'monthly', start_date: String(b.start_date || iso(new Date())), end_date: (b.end_date as string) || undefined, is_active: true, created_at: nowIso(), updated_at: nowIso() }
+  const g: GoalRow = { id: newId('goal'), user_id: DEMO_USER_ID, category_id: (b.category_id as string) || undefined, name: String(b.name || 'Meta'), type: (b.type as GoalRow['type']) || 'spending_limit', target_amount: Number(b.target_amount || 0), current_amount: 0, currency: 'BRL', period: (b.period as GoalRow['period']) || 'monthly', start_date: String(b.start_date || iso(new Date())), end_date: (b.end_date as string) || undefined, color: (b.color as string) || undefined, icon: (b.icon as string) || undefined, is_active: true, created_at: nowIso(), updated_at: nowIso() }
   loadDb().goals.push(g)
   return clone(goalOut(g))
 })
