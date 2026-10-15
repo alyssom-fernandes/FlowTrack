@@ -223,4 +223,26 @@ At this pace, the emergency fund is complete in about 4 months.` }
       await page.getByRole('button', { name: /tentar de novo|try again/i }).waitFor()
     },
   },
+  {
+    // Mês sem orçamento: o card do ritmo vira um convite para criar orçamentos
+    id: 'dashboard-ritmo-sem-orcamento', rota: '/dashboard', inteira: false,
+    acao: async page => {
+      await mexerNaBase(page, (db) => { db.budgets = [] })
+      const card = page.locator('.ft-dash-pace')
+      await card.getByText(/veja seu ritmo|see your pace/i).first().waitFor()
+      await centralizar(card)
+    },
+  },
+  {
+    // Último dia do mês: a escala volta a incluir o teto dos orçamentos
+    id: 'dashboard-ritmo-fim-do-mes', rota: '/dashboard', inteira: false,
+    acao: async page => {
+      const h = new Date()
+      await page.clock.setFixedTime(new Date(h.getFullYear(), h.getMonth() + 1, 0, 10, 0))
+      await page.evaluate(() => sessionStorage.removeItem('ft-demo-db'))
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.locator('.ft-dash-pace [data-chart="ritmo"] > svg').waitFor()
+      await centralizar(page.locator('.ft-dash-pace'))
+    },
+  },
 ]

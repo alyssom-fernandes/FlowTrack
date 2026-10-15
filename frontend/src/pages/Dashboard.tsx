@@ -5,10 +5,10 @@ import { Icon } from '../components/icons'
 import { Button, Card, EmptyState, Page, PageHeader } from '../components/ui'
 import { useAlertsStore, useToastStore } from '../store'
 import { transactionsService, accountsService, categoriesService, summaryService, insightsService, cashflowService, budgetsService, netWorthService } from '../services'
-import { formatMonth, formatPercent, getCurrentMonthRange, toISODate } from '../utils'
+import { formatMonth, getCurrentMonthRange, toISODate } from '../utils'
 import type { Transaction, Account, Category, CashflowProjection, Budget, NetWorth, InsightResponse } from '../types'
-import { AlertsCard, BudgetsCard, CashflowCard, DashboardSkeleton, InsightCard, NetWorthCard, Onboarding, RecentCard, type Delta } from './dashboard/cards'
-import { dailyProjection, monthKey, pctChange, type MonthTotals } from './dashboard/data'
+import { AlertsCard, BudgetsCard, CashflowCard, DashboardSkeleton, InsightCard, NetWorthCard, Onboarding, RecentCard } from './dashboard/cards'
+import { dailyProjection, makeDelta, monthKey, type MonthTotals } from './dashboard/data'
 import { FlowHero } from './dashboard/flow'
 import { PaceCard } from './dashboard/pace'
 import './dashboard/dashboard.css'
@@ -114,18 +114,9 @@ export function Dashboard() {
   // ── Métricas do mês ─────────────────────────────────────
   const balance = accounts.reduce((s, a) => s + a.balance, 0)
   const prevShort = formatMonth(prevMonth, 'short')
-  const vsPrev = t('dashboard.kpi.vsMonth', { month: prevShort })
-
-  const delta = (cur: number, before: number | undefined, upIsGood: boolean, ref = vsPrev): Delta | null => {
-    if (before === undefined) return null
-    const pct = pctChange(cur, before)
-    if (pct === null) return null
-    const dir = Math.abs(pct) < 0.05 ? 'flat' : pct > 0 ? 'up' : 'down'
-    const tone = dir === 'flat' ? 'neutral' : (dir === 'up') === upIsGood ? 'good' : 'bad'
-    return { text: formatPercent(pct, 1), dir, tone, ref }
-  }
   const prevSnap = netWorth ? netWorth.snapshots.find(s => s.date.startsWith(prevMonth)) : undefined
-  const balanceDelta = prevSnap ? delta(balance, prevSnap.total_accounts, true, t('dashboard.kpi.sinceMonthEnd', { month: prevShort })) : null
+  // Saldo contra o fim do mês passado, com o valor junto e a cor só a partir de ±5% (makeDelta)
+  const balanceDelta = prevSnap ? makeDelta(balance, prevSnap.total_accounts, true, t('dashboard.kpi.sinceMonthEnd', { month: prevShort })) : null
 
   const recent = [...transactions]
     .sort((a, b) => b.transaction_date.localeCompare(a.transaction_date) || b.created_at.localeCompare(a.created_at))

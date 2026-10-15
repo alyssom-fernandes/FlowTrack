@@ -206,15 +206,24 @@
   .ft-step__action { height: 2rem; }
 }
 
-/* O que aparece no painel (conta nova) */
-.ft-preview { margin-top: 1.5rem; }
-.ft-preview__title { font-size: var(--font-size-sm); font-weight: 600; color: var(--text-muted); margin-bottom: 0.75rem; }
-.ft-preview__grid { list-style: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
-.ft-preview__item { display: flex; gap: 0.75rem; align-items: flex-start; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-subtle); }
-.ft-preview__icon { width: 2rem; height: 2rem; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); }
+/* O que aparece no painel (conta nova): silhueta do fluxo esmaecida e uma lista curta, sem cartões nem ícones */
+.ft-preview { margin-top: 2rem; }
+.ft-preview__title { font-size: var(--font-size-sm); font-weight: 600; color: var(--text-muted); margin-bottom: 1rem; }
+.ft-preview__body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+.ft-preview__sil { display: block; width: 100%; height: 7.5rem; }
+.ft-preview__sil-band { fill: var(--text-primary); opacity: 0.06; }
+.ft-preview__sil-node { fill: var(--text-primary); opacity: 0.16; }
+.ft-preview__list { list-style: none; margin: 0; padding: 0; }
+.ft-preview__item { padding: 0.875rem 0; border-top: 1px solid var(--border-subtle); }
+.ft-preview__item:first-child { border-top: none; padding-top: 0; }
+.ft-preview__item:last-child { padding-bottom: 0; }
 .ft-preview__name { font-size: var(--font-size-base); font-weight: 600; color: var(--text-secondary); }
 .ft-preview__text { font-size: var(--font-size-sm); color: var(--text-muted); line-height: 1.5; margin-top: 0.125rem; }
-@container dash (min-width: 760px) { .ft-preview__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } }
+@container dash (min-width: 760px) {
+  .ft-preview__body { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 3rem; align-items: center; padding: 0 2rem; }
+  .ft-preview__title { padding: 0 2rem; }
+  .ft-preview__sil { height: 10rem; }
+}
 
 /* Celular: alvos de toque maiores e textos secundários recolhidos */
 @container dash (max-width: 639px) {
@@ -241,7 +250,7 @@
 .ft-pace__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .ft-pace__value { font-size: var(--font-size-3xl); font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; color: var(--text-primary); }
 .ft-pace__until { display: block; font-size: var(--font-size-sm); color: var(--text-muted); margin-top: 0.125rem; }
-.ft-pace__chart { position: relative; width: 100%; min-height: 172px; }
+.ft-pace__chart { position: relative; width: 100%; min-height: 180px; }
 .ft-pace__tag { position: absolute; transform: translateX(-50%); box-shadow: 0 0 0 3px var(--bg-card); }
 @media (prefers-reduced-motion: no-preference) {
   .ft-pace__tag { animation: ft-fade-in 0.16s var(--ease-out) calc(var(--dur-4) + 120ms) both; }
@@ -249,6 +258,8 @@
 @keyframes ft-fade-in { from { opacity: 0; } }
 .ft-pace__label { font-size: 11px; fill: var(--text-hint); font-family: var(--font); font-variant-numeric: tabular-nums; }
 .ft-pace__label--today { fill: var(--text-secondary); font-weight: 600; }
+/* Rótulo do teto por cima das linhas: contorno na cor do cartão */
+.ft-pace__label--halo { stroke: var(--bg-card); stroke-width: 4px; stroke-linejoin: round; paint-order: stroke; }
 @media (prefers-reduced-motion: no-preference) {
   .ft-pace__line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: ft-draw var(--dur-4) var(--ease-out) 120ms forwards; }
   .ft-pace__today { animation: ft-pop 0.16s var(--ease-out) calc(var(--dur-4) + 120ms) both; transform-box: fill-box; transform-origin: center; }

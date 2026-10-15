@@ -119,17 +119,17 @@
       },
       "preview": "What shows up here later",
       "previews": {
-        "monthly": {
-          "title": "Monthly trend",
-          "text": "Income and expenses over the last six months, month by month."
+        "flow": {
+          "title": "Where the money went",
+          "text": "What came in this month, split between spending categories and what was left."
+        },
+        "pace": {
+          "title": "How much I can still spend",
+          "text": "This month's spending against the pace of your budgets, day by day."
         },
         "cashflow": {
-          "title": "Balance forecast",
-          "text": "The expected balance for the next 30 days, including recurring payments and installments."
-        },
-        "summary": {
-          "title": "Monthly summary",
-          "text": "A short AI-generated paragraph on the figures that mattered most this month."
+          "title": "30-day forecast",
+          "text": "Your expected balance for the next month, including recurring payments and installments."
         }
       }
     },

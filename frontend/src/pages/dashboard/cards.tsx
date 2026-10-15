@@ -9,31 +9,43 @@ import type { Account, Alert, Budget, Category, CashflowProjection, InsightRespo
 import { CashflowChart, Sparkline } from './charts'
 import { CategoryIcon } from './CategoryIcon'
 import { categoryColor } from '../../lib/categoryColor'
+import { shownCategory } from '../../lib/review'
 import { billsByCategory, budgetState, budgetStatusText, monthDays, BUDGET_COLOR, type BudgetStatus } from '../../lib/pace'
-import { dayMonth, insightBlocks, splitHighlights, type ProjectionPoint } from './data'
+import { DELTA_COLOR, dayMonth, insightBlocks, splitHighlights, type Delta, type ProjectionPoint } from './data'
+import { variationDir, variationTone, type VariationDir, type VariationTone } from '../../lib/variation'
 
 // Link de texto do cabeçalho dos cartões ("Ver todas", "Gerenciar")
 export function CardLink({ to, children }: { to: string; children: ReactNode }) {
   return <Link to={to} className="ft-dash-link">{children}</Link>
 }
 
-// ── Métrica do topo ───────────────────────────────────────
-export type Delta = { text: string; dir: 'up' | 'down' | 'flat'; tone: 'good' | 'bad' | 'neutral'; ref: string }
+// ── Variação contra o período anterior (makeDelta em data.ts) ──
+// Seta e porcentagem com o valor em dinheiro junto ("+R$ 78 (+2,0%)").
+export type { Delta }
+const DELTA_ICON: Record<VariationDir, IconName> = { up: 'arrowUpRight', down: 'arrowDownRight', flat: 'minus' }
+
+// Valor arredondado ao real: na variação os centavos só pesam
+const wholeSigned = (v: number) => new Intl.NumberFormat(currentLocale(), { style: 'currency', currency: 'BRL', signDisplay: 'exceptZero', maximumFractionDigits: 0 }).format(Math.round(v))
+
+export function DeltaChip({ d, className = 'ft-delta' }: { d: Delta; className?: string }) {
+  return (
+    <span className={`${className} ${className}--${d.tone}`} style={{ color: DELTA_COLOR[d.tone] }}>
+      <Icon name={DELTA_ICON[d.dir]} size={12} strokeWidth={2.25} />
+      {d.amount !== undefined && Math.round(d.amount) !== 0
+        ? <><span className="ft-hideable">{wholeSigned(d.amount)}</span> <span>({d.text})</span></>
+        : d.text}
+    </span>
+  )
+}
 
 // `foot` aparece quando não há comparação; `extra` aparece sempre, no fim da linha
 export function KpiTile({ label, value, delta, foot, extra, negative }: { label: string; value: string; delta?: Delta | null; foot?: ReactNode; extra?: ReactNode; negative?: boolean }) {
-  const color = delta?.tone === 'good' ? 'var(--green)' : delta?.tone === 'bad' ? 'var(--red)' : 'var(--text-muted)'
-  const icon: IconName = delta?.dir === 'up' ? 'arrowUpRight' : delta?.dir === 'down' ? 'arrowDownRight' : 'minus'
   return (
     <Card className="ft-kpi">
       <span className="ft-kpi__label">{label}</span>
       <span className="ft-kpi__value" style={negative ? { color: 'var(--red)' } : undefined}>{value}</span>
       <span className="ft-kpi__foot">
-        {delta && (
-          <span className="ft-kpi__delta ft-num" style={{ color }}>
-            <Icon name={icon} size={13} strokeWidth={2} />{delta.text}
-          </span>
-        )}
+        {delta && <DeltaChip d={delta} className="ft-kpi__delta ft-num" />}
         {delta && <span className="ft-kpi__ref">{delta.ref}</span>}
         {!delta && foot}
         {extra && <span className="ft-kpi__extra">{extra}</span>}
@@ -113,6 +125,8 @@ export function CashflowCard({ cashflow, points }: { cashflow: CashflowProjectio
   const low = points.reduce<ProjectionPoint | null>((m, p) => (!m || p.balance < m.balance ? p : m), null)
   const lowWhen = !low || low === points[0] ? t('dashboard.cashflow.todayLower') : dayMonth(low.date)
   const tone = (v: number) => (v < 0 ? { color: 'var(--red)' } : undefined)
+  // Mudança em 30 dias: verde ou vermelho só a partir de ±5% do saldo de hoje; saldo final negativo é sempre vermelho
+  const changeTone: VariationTone = end < 0 ? 'bad' : start !== 0 ? variationTone((change / Math.abs(start)) * 100, true) : 'neutral'
 
   return (
     <Card className="ft-dash-cashflow">
@@ -134,7 +148,7 @@ export function CashflowCard({ cashflow, points }: { cashflow: CashflowProjectio
           <dt>{t('dashboard.cashflow.in30')}</dt>
           <dd>
             <Money value={end} className="ft-cash-stat__value" style={tone(end)} />
-            {change !== 0 && <Money value={change} signed className="ft-cash-stat__sub" style={{ color: change < 0 ? 'var(--red)' : 'var(--green)' }} />}
+            {change !== 0 && <Money value={change} signed className="ft-cash-stat__sub" style={{ color: DELTA_COLOR[changeTone] }} />}
           </dd>
         </div>
       </dl>}
@@ -183,6 +197,10 @@ export function NetWorthCard({ nw }: { nw: NetWorth | null }) {
   const snaps = nw.snapshots
   const first = snaps[0]
   const change = first ? nw.net_worth - first.net_worth : 0
+  // Mesma regra das variações do hero: cor de estado só a partir de ±5%
+  const nwPct = first && first.net_worth !== 0 ? (change / Math.abs(first.net_worth)) * 100 : 0
+  const nwTone: VariationTone = nw.net_worth < 0 ? 'bad' : variationTone(nwPct, true)
+  const nwDir = first && first.net_worth !== 0 ? variationDir(nwPct) : change > 0 ? 'up' : change < 0 ? 'down' : 'flat'
   const total = Math.max(0, nw.total_accounts) + Math.max(0, nw.total_investments)
   const accPct = total ? (Math.max(0, nw.total_accounts) / total) * 100 : 0
   const invPct = total ? 100 - accPct : 0
@@ -199,10 +217,10 @@ export function NetWorthCard({ nw }: { nw: NetWorth | null }) {
         <div className="ft-nw__summary">
           <Money value={nw.net_worth} size="kpi" className="ft-nw__value" style={{ color: nw.net_worth < 0 ? 'var(--red)' : undefined }} />
           {first && snaps.length > 1 && (
-            <div className="ft-nw__change ft-num" style={{ color: change < 0 ? 'var(--red)' : 'var(--green)' }}>
-              <Icon name={change < 0 ? 'arrowDownRight' : 'arrowUpRight'} size={13} strokeWidth={2} />
+            <div className="ft-nw__change ft-num" style={{ color: DELTA_COLOR[nwTone] }}>
+              <Icon name={nwDir === 'up' ? 'arrowUpRight' : nwDir === 'down' ? 'arrowDownRight' : 'minus'} size={13} strokeWidth={2} />
               <Money value={change} signed />
-              {first.net_worth > 0 && <span> ({formatPercent((change / first.net_worth) * 100, 1)})</span>}
+              {first.net_worth > 0 && <span> ({formatPercent(nwPct, 1)})</span>}
               <span className="ft-nw__since">{t('dashboard.netWorth.since', { count: snaps.length })}</span>
             </div>
           )}
@@ -393,7 +411,6 @@ export function BudgetsCard({ budgets, categories, loading, previousMonth, month
 // ── Últimas transações ────────────────────────────────────
 export function RecentCard({ transactions, categories, accounts }: { transactions: Transaction[]; categories: Category[]; accounts: Account[] }) {
   const { t } = useTranslation()
-  const catById = new Map(categories.map(c => [c.id, c]))
   const accById = new Map(accounts.map(a => [a.id, a]))
   return (
     <Card className="ft-dash-recent">
@@ -404,7 +421,8 @@ export function RecentCard({ transactions, categories, accounts }: { transaction
       ) : (
         <ul className="ft-recent-list">
           {transactions.map(tx => {
-            const cat = tx.category_id ? catById.get(tx.category_id) : undefined
+            // Como na lista de Transações: o "Outros" que a IA deu por falta de opção aparece sem categoria
+            const cat = shownCategory(tx, categories)
             const transfer = tx.type === 'transfer'
             const label = transfer ? t('dashboard.recent.transfer') : categoryLabel(cat, t('dashboard.recent.uncategorized'))
             const acc = accById.get(tx.account_id)
@@ -440,6 +458,42 @@ export function RecentCard({ transactions, categories, accounts }: { transaction
 }
 
 // ── Começo guiado (conta nova) ────────────────────────────
+// Silhueta do fluxo do hero, esmaecida: antecipa o primeiro bloco do painel sem inventar números
+const SIL = { W: 320, H: 160, GAP: 7, NX: 312 }
+const SIL_BANDS = (() => {
+  const nodes = [46, 22, 14, 10, 34]
+  const total = nodes.reduce((s, v) => s + v, 0)
+  const usable = SIL.H - SIL.GAP * (nodes.length - 1)
+  const out: { ly: number; lh: number; ry: number; h: number }[] = []
+  // À esquerda a barra do que entrou fica mais curta e centrada: as faixas se abrem em leque, como no hero
+  const LEFT_H = SIL.H * 0.62
+  let ry = 0, ly = (SIL.H - LEFT_H) / 2
+  for (const v of nodes) {
+    const h = (v / total) * usable, lh = (v / total) * LEFT_H
+    out.push({ ly, lh, ry, h })
+    ry += h + SIL.GAP; ly += lh
+  }
+  return out
+})()
+const silRibbon = ({ ly, lh, ry, h }: typeof SIL_BANDS[number]) => {
+  const mid = (6 + SIL.NX) / 2
+  return `M6,${ly} C${mid},${ly} ${mid},${ry} ${SIL.NX},${ry} L${SIL.NX},${ry + h} C${mid},${ry + h} ${mid},${ly + lh} 6,${ly + lh} Z`
+}
+function FlowSilhouette() {
+  const { W, H, NX } = SIL
+  return (
+    <svg className="ft-preview__sil" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
+      <rect x={0} y={H * 0.19} width={6} height={H * 0.62} rx={3} className="ft-preview__sil-node" />
+      {SIL_BANDS.map((b, i) => (
+        <g key={i}>
+          <path d={silRibbon(b)} className="ft-preview__sil-band" />
+          <rect x={NX} y={b.ry} width={6} height={b.h} rx={3} className="ft-preview__sil-node" />
+        </g>
+      ))}
+    </svg>
+  )
+}
+
 export function Onboarding({ hasAccount, hasTransactions, hasBudget }: { hasAccount: boolean; hasTransactions: boolean; hasBudget: boolean }) {
   const { t } = useTranslation()
   const steps = [
@@ -449,11 +503,8 @@ export function Onboarding({ hasAccount, hasTransactions, hasBudget }: { hasAcco
   ]
   const doneCount = steps.filter(s => s.done).length
   const next = steps.findIndex(s => !s.done)
-  const previews: { key: string; icon: IconName }[] = [
-    { key: 'monthly', icon: 'chart' },
-    { key: 'cashflow', icon: 'calendar' },
-    { key: 'summary', icon: 'fileText' },
-  ]
+  // O que o painel preenchido mostra, na ordem da tela (sem ícones: a silhueta do fluxo já ilustra)
+  const previews = ['flow', 'pace', 'cashflow']
   return (
     <>
       <Card padding="lg" className="ft-onboarding">
@@ -486,17 +537,17 @@ export function Onboarding({ hasAccount, hasTransactions, hasBudget }: { hasAcco
       </Card>
       <section className="ft-preview" aria-labelledby="ft-preview-title">
         <h2 id="ft-preview-title" className="ft-preview__title">{t('dashboard.onboarding.preview')}</h2>
-        <ul className="ft-preview__grid">
-          {previews.map(p => (
-            <li key={p.key} className="ft-preview__item">
-              <span className="ft-preview__icon"><Icon name={p.icon} size={16} /></span>
-              <div>
-                <div className="ft-preview__name">{t(`dashboard.onboarding.previews.${p.key}.title`)}</div>
-                <p className="ft-preview__text">{t(`dashboard.onboarding.previews.${p.key}.text`)}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="ft-preview__body">
+          <FlowSilhouette />
+          <ul className="ft-preview__list">
+            {previews.map(key => (
+              <li key={key} className="ft-preview__item">
+                <div className="ft-preview__name">{t(`dashboard.onboarding.previews.${key}.title`)}</div>
+                <p className="ft-preview__text">{t(`dashboard.onboarding.previews.${key}.text`)}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
     </>
   )
@@ -531,7 +582,7 @@ export function DashboardSkeleton() {
         <Skeleton height={300} radius="var(--radius-md)" />
       </section>
       <div className="ft-dash-col ft-dash-col--main">
-        <SkeletonCard className="ft-dash-pace" chart={172} />
+        <SkeletonCard className="ft-dash-pace" chart={180} />
         <SkeletonCard className="ft-dash-recent" lines={5} />
       </div>
       <div className="ft-dash-col ft-dash-col--side">

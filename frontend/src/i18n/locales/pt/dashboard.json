@@ -119,17 +119,17 @@
       },
       "preview": "O que aparece aqui depois",
       "previews": {
-        "monthly": {
-          "title": "Evolução mensal",
-          "text": "Receitas e gastos dos últimos seis meses, mês a mês."
+        "flow": {
+          "title": "Para onde foi o dinheiro",
+          "text": "O que entrou no mês, dividido entre as categorias de gasto e o que sobrou."
+        },
+        "pace": {
+          "title": "Quanto ainda posso gastar",
+          "text": "O gasto do mês contra o ritmo dos seus orçamentos, dia a dia."
         },
         "cashflow": {
-          "title": "Projeção de saldo",
-          "text": "O saldo previsto para os próximos 30 dias, com recorrentes e parcelas."
-        },
-        "summary": {
-          "title": "Resumo do mês",
-          "text": "Um parágrafo gerado por IA com os números que mais pesaram no mês."
+          "title": "Projeção de 30 dias",
+          "text": "O saldo previsto para o próximo mês, com recorrentes e parcelas."
         }
       }
     },

@@ -78,7 +78,8 @@ export function CashflowChart({ points }: { points: ProjectionPoint[] }) {
   const minIndex = balances.indexOf(minB)
   const showMin = minIndex > 0 && minB < balances[0]
   const negative = minB < 0
-  const lineColor = 'var(--chart-1)'
+  // Cinza claro: o azul era a cor de Moradia e fazia a linha parecer ligada a ela. O vermelho fica só no trecho negativo.
+  const lineColor = 'var(--text-muted)'
 
   const pick = (clientX: number, el: HTMLElement) => {
     if (!n || plotW <= 0) return
@@ -112,9 +113,9 @@ export function CashflowChart({ points }: { points: ProjectionPoint[] }) {
               <clipPath id={`${clip}-pos`}><rect x={0} y={0} width={width} height={zeroY} /></clipPath>
               <clipPath id={`${clip}-neg`}><rect x={0} y={zeroY} width={width} height={Math.max(0, plotH - zeroY + 4)} /></clipPath>
             </defs>
-            {[{ c: lineColor, id: 'pos' }, { c: 'var(--red)', id: 'neg' }].map(part => (
+            {[{ c: lineColor, area: 'var(--text-primary)', op: 0.06, id: 'pos' }, { c: 'var(--red)', area: 'var(--red)', op: 0.09, id: 'neg' }].map(part => (
               <g key={part.id} clipPath={`url(#${clip}-${part.id})`}>
-                <path d={area} fill={part.c} fillOpacity={0.09} />
+                <path d={area} fill={part.area} fillOpacity={part.op} />
                 <path d={line} fill="none" stroke={part.c} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
               </g>
             ))}
@@ -187,7 +188,8 @@ export function Sparkline({ values, dates, label }: { values: number[]; dates: s
             <path d={area} fill="var(--chart-neutral)" fillOpacity={0.1} />
             <path d={line} fill="none" stroke="var(--chart-neutral)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
             {active !== null && <line x1={x(active)} x2={x(active)} y1={0} y2={H} stroke="var(--border-strong)" strokeWidth={1} shapeRendering="crispEdges" />}
-            <circle cx={x(active ?? n)} cy={y(values[active ?? n])} r={4} fill="var(--chart-1)" stroke="var(--bg-card)" strokeWidth={2} />
+            {/* Ponto de hoje em vinho, como a barra de Investimentos (o azul não queria dizer nada aqui) */}
+            <circle cx={x(active ?? n)} cy={y(values[active ?? n])} r={4} fill="var(--accent)" stroke="var(--bg-card)" strokeWidth={2} />
           </svg>
         )}
         {active !== null && (

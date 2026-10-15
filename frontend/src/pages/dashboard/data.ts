@@ -1,6 +1,7 @@
 // Cálculos e formatos usados só pelo painel
-import { currentLocale, formatDate, formatMonth } from '../../utils'
+import { currentLocale, formatDate, formatMonth, formatPercent } from '../../utils'
 import type { CashflowEvent, CashflowProjection } from '../../types'
+import { variationDir, variationTone, type VariationDir, type VariationTone } from '../../lib/variation'
 
 export type MonthTotals = { month: string; income: number; expense: number }
 
@@ -110,3 +111,17 @@ export function splitHighlights(text: string): { text: string; strong: boolean }
   if (last < text.length) parts.push({ text: text.slice(last), strong: false })
   return parts
 }
+
+// ── Variação contra o período anterior ────────────────────
+// A cor de estado só aparece a partir de ±5% (lib/variation.ts); abaixo disso a variação fica em --text-muted.
+// `amount` é a diferença em dinheiro, que vai junto da porcentagem ("+R$ 78 (+2,0%)").
+export type Delta = { text: string; dir: VariationDir; tone: VariationTone; ref: string; amount?: number }
+
+export function makeDelta(cur: number, before: number | undefined | null, upIsGood: boolean, ref = ''): Delta | null {
+  if (before === undefined || before === null || before === 0) return null
+  const pct = ((cur - before) / Math.abs(before)) * 100
+  if (!Number.isFinite(pct)) return null
+  return { text: formatPercent(pct, 1), dir: variationDir(pct), tone: variationTone(pct, upIsGood), ref, amount: cur - before }
+}
+
+export const DELTA_COLOR: Record<VariationTone, string> = { good: 'var(--green)', bad: 'var(--red)', neutral: 'var(--text-muted)' }

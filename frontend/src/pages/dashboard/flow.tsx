@@ -4,7 +4,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Icon, type IconName } from '../../components/icons'
+import { Icon } from '../../components/icons'
 import { Money } from '../../components/ui'
 import type { Category, Transaction } from '../../types'
 import { currentLocale, formatCurrency, formatPercent } from '../../utils'
@@ -13,7 +13,8 @@ const HIDE_KEY = 'ft-hide-values'
 import { CategoryIcon } from './CategoryIcon'
 import type { FlowData, Node } from './flowData'
 import { buildFlow } from './flowData'
-import type { Delta } from './cards'
+import { DeltaChip } from './cards'
+import { makeDelta, type Delta } from './data'
 import './flow.css'
 
 const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -68,6 +69,11 @@ function layout(nodes: Node[], height: number) {
   }
   return { left, right, labels: labels.map(l => Math.max(0, l)) }
 }
+
+// No desenho do fluxo as categorias perdem um pouco de saturação (a cor delas continua nos rótulos):
+// o nó de Moradia, o maior, competia com o vinho da Sobra, que é o que o bloco quer mostrar.
+// A paleta validada (--cat-*) não muda.
+const bandColor = (n: Node) => (n.kind === 'category' ? `color-mix(in oklab, ${n.color} 58%, var(--chart-neutral))` : n.color)
 
 function ribbon(x0: number, a: { y: number; h: number }, x1: number, b: { y: number; h: number }) {
   const mid = (x0 + x1) / 2
@@ -126,7 +132,8 @@ export function FlowDiagram({ data, minHeight = 0, plotLabel, emptyText, showSou
     return [...acc, { ...src, y: prev ? prev.y + prev.h : top, h, shade: 0.88 - i * 0.22 }]
   }, [])
   // Rótulos das fontes no centro de cada pedaço, afastados para não se encostarem
-  const SRC_LABEL_H = 40
+  // Nome e valor em duas linhas (~40 px) + 12 px de folga entre uma origem e a seguinte
+  const SRC_LABEL_H = 52
   const srcLabelY = srcGeo.reduce<number[]>((acc, src) => [...acc, Math.max(src.y + src.h / 2, (acc[acc.length - 1] ?? -Infinity) + SRC_LABEL_H)], [])
   const srcOverflow = (srcLabelY[srcLabelY.length - 1] ?? 0) + SRC_LABEL_H / 2 - height
   if (srcOverflow > 0) for (let i = srcLabelY.length - 1; i >= 0; i--) srcLabelY[i] = Math.min(srcLabelY[i] - (i === srcLabelY.length - 1 ? srcOverflow : 0), i < srcLabelY.length - 1 ? srcLabelY[i + 1] - SRC_LABEL_H : Infinity)
@@ -140,7 +147,7 @@ export function FlowDiagram({ data, minHeight = 0, plotLabel, emptyText, showSou
           <div className="flow__bar" role="img" aria-label={plotLabel}>
             {nodes.map((n, i) => (
               <span key={n.key} className={`flow__seg${n.kind === 'none' ? ' flow__seg--none' : ''}`}
-                style={{ flexGrow: n.value, background: n.color, '--i': i } as CSSProperties} />
+                style={{ flexGrow: n.value, background: bandColor(n), '--i': i } as CSSProperties} />
             ))}
           </div>
           <ol className="flow__list">
@@ -180,13 +187,13 @@ export function FlowDiagram({ data, minHeight = 0, plotLabel, emptyText, showSou
               const href = n.href
               const nx = plotW - NODE_W - LEAD_W
               const cy = geo.right[i].y + geo.right[i].h / 2
-              const fill = n.kind === 'none' ? 'url(#flow-hatch)' : n.color
+              const fill = n.kind === 'none' ? 'url(#flow-hatch)' : bandColor(n)
               return (
                 <g key={n.key} className="flow__link" style={{ opacity: dim ? 0.16 : 1, cursor: href ? 'pointer' : 'default' }}
                   onMouseEnter={() => setActive(n.key)} onClick={() => href && navigate(href)}>
-                  <path d={ribbon(NODE_W, geo.left[i], nx, geo.right[i])} fill={fill} className="flow__ribbon"
-                    style={{ opacity: active === n.key ? 0.85 : n.kind === 'left' ? 0.72 : 'var(--flow-band-opacity)' }} />
-                  <rect x={nx} y={geo.right[i].y} width={NODE_W} height={geo.right[i].h} rx={Math.min(3, geo.right[i].h / 2)} fill={fill} />
+                  <path d={ribbon(NODE_W, geo.left[i], nx, geo.right[i])} className="flow__ribbon"
+                    style={{ fill, opacity: active === n.key ? 0.85 : n.kind === 'left' ? 0.72 : 'var(--flow-band-opacity)' }} />
+                  <rect x={nx} y={geo.right[i].y} width={NODE_W} height={geo.right[i].h} rx={Math.min(3, geo.right[i].h / 2)} style={{ fill }} />
                   {/* Fio do nó até o rótulo (o rótulo pode ter sido empurrado para não encostar no vizinho) */}
                   <path d={`M${nx + NODE_W + 3},${cy} C${plotW - 8},${cy} ${plotW - 10},${geo.labels[i] + LABEL_H / 2} ${plotW - 2},${geo.labels[i] + LABEL_H / 2}`}
                     fill="none" stroke="var(--border-strong)" strokeWidth={1} />
@@ -257,24 +264,13 @@ export function FlowHero({ transactions, categories, balance, balanceDelta, acco
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
   const sameDays = t('dashboard.flow.vsSameDays', { day, month: prevName, count: day })
 
-  const delta = (cur: number, before: number | undefined, upIsGood: boolean) => {
-    if (!before) return null
-    const pct = ((cur - before) / Math.abs(before)) * 100
-    const dir = Math.abs(pct) < 0.05 ? 'flat' : pct > 0 ? 'up' : 'down'
-    const tone = dir === 'flat' ? 'neutral' : (dir === 'up') === upIsGood ? 'good' : 'bad'
-    return { text: formatPercent(pct, 1), dir, tone } as const
-  }
   const stats = [
-    { key: 'in', label: t('dashboard.flow.in'), value: income, d: delta(income, prev?.income, true) },
-    { key: 'out', label: t('dashboard.flow.out'), value: expense, d: delta(expense, prev?.expense, false) },
-    { key: 'net', label: net >= 0 ? t('dashboard.flow.left') : t('dashboard.flow.short'), value: Math.abs(net), d: delta(net, prev ? prev.income - prev.expense : undefined, true), accent: false },
+    { key: 'in', label: t('dashboard.flow.in'), value: income, d: makeDelta(income, prev?.income, true) },
+    { key: 'out', label: t('dashboard.flow.out'), value: expense, d: makeDelta(expense, prev?.expense, false) },
+    { key: 'net', label: net >= 0 ? t('dashboard.flow.left') : t('dashboard.flow.short'), value: Math.abs(net), d: makeDelta(net, prev ? prev.income - prev.expense : undefined, true), accent: false },
   ]
 
-  const deltaChip = (d: { text: string; dir: string; tone: string } | null) => d && (
-    <span className={`flow-delta flow-delta--${d.tone}`}>
-      <Icon name={(d.dir === 'up' ? 'arrowUpRight' : d.dir === 'down' ? 'arrowDownRight' : 'minus') as IconName} size={12} strokeWidth={2.25} />{d.text}
-    </span>
-  )
+  const deltaChip = (d: Delta | null) => d && <DeltaChip d={d} className="flow-delta" />
 
   return (
     <section className="flow" aria-labelledby="flow-title" ref={section}>
