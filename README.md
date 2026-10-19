@@ -22,6 +22,8 @@ FlowTrack is a personal finance app. It reads bank statements (PDF, OFX or CSV),
 4. In **Reports**, pick a period and follow the money in the **Flow** section, then **Export** as a PDF, an Excel workbook or a CSV.
 5. In **Profile**, switch the language to Portuguese or the theme to light.
 
+In the demo the AI is simulated: categories come from local rules with example confidences, and the monthly summary is built from a template (the screen says so). The real worker, which asks Claude Haiku for a category and a confidence, is in [`backend/app/integrations/claude_api.py`](backend/app/integrations/claude_api.py).
+
 ## Screens
 
 Captured from the demo, in English.
@@ -132,17 +134,24 @@ Requirements: Node.js 20+, Python 3.11+ and a [Supabase](https://supabase.com) p
 | `INTERNAL_API_TOKEN` | Secret for the `/internal/*` worker endpoints |
 | `CORS_ORIGINS`, `APP_ENV` | Allowed origins and environment |
 
+### Deploying the full stack
+
+The root `vercel.json` sets the web app's security headers. Its Content-Security-Policy has `connect-src 'self'`, which is enough for the public demo (it never calls another host) but makes the browser block the real API and Supabase. Before deploying with `VITE_API_URL` and the Supabase variables, add both exact hosts to `connect-src`, for example `connect-src 'self' https://your-api.up.railway.app https://your-project.supabase.co`. Without that, every request fails as a network error (see [SECURITY.md](SECURITY.md)).
+
 ### Tests
 
 ```bash
-# Backend: 185 tests (pytest)
+# Backend: 250 tests (pytest)
 cd backend && .venv\Scripts\python -m pytest tests -q
+
+# Frontend: 8 unit tests (node --test, no extra dependency): CSV export and the offline queue
+cd frontend && npm test
 
 # End to end: 20 scenarios on a desktop and a phone viewport (Playwright, against a local build of the demo)
 npm install && npx playwright install chromium && npm run e2e
 ```
 
-Both run on GitHub Actions on every push to `main` and on pull requests. There is also a screenshot script, `frontend/scripts/fotos/rodar.mjs`, that captures every screen, modal and empty state at 1366 and 375 pixels in both themes, and fails if the browser logged any error; and `frontend/scripts/checar-contraste.mjs` measures every pill and badge in the browser and fails below 4.5:1 contrast or 12 px.
+All of them run on GitHub Actions on every push to `main` and on pull requests. `frontend/scripts/checar-contraste.mjs` measures every pill and badge in the browser and fails below 4.5:1 contrast or 12 px; it runs after the E2E tests. There is also a screenshot script, `frontend/scripts/fotos/rodar.mjs`, that captures every screen, modal and empty state at 1366 and 375 pixels in both themes, and fails if the browser logged any error.
 
 ---
 
@@ -153,7 +162,7 @@ Both run on GitHub Actions on every push to `main` and on pull requests. There i
 | Frontend | React 19, TypeScript, Vite, React Router, Zustand, Axios, Dexie (IndexedDB), i18next, jsPDF |
 | Backend | FastAPI, Python 3.11, Supabase (PostgreSQL + Auth), slowapi, structlog, Sentry |
 | AI | Claude Haiku, behind rules and a merchant cache |
-| Testing | pytest, Playwright |
+| Testing | pytest, node --test, Playwright |
 | Hosting | Vercel (frontend and the in-browser demo). The API and the database are set up for Railway and Supabase; the public site runs only the demo. |
 
 ## Project structure

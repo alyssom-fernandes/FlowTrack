@@ -35,6 +35,13 @@ jobs:
       - name: Run E2E tests
         run: npm run e2e
 
+      # Contraste e tamanho de pílulas e selos (frontend/scripts/checar-contraste.mjs), no build que o E2E gerou
+      - name: Contrast check
+        run: |
+          npm --prefix frontend run preview -- --port 4174 --strictPort &
+          for i in $(seq 1 30); do curl -sf http://localhost:4174/login > /dev/null && break; sleep 1; done
+          node frontend/scripts/checar-contraste.mjs --base http://localhost:4174
+
       - name: Upload report
         uses: actions/upload-artifact@v4
         if: always()

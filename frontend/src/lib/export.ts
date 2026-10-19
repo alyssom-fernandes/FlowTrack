@@ -15,6 +15,13 @@ export function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+// Planilhas executam como fórmula a célula que começa com = + - @ tab ou CR (injeção de fórmula).
+// Só texto recebe o apóstrofo: números e datas são formatados aqui e nunca passam por esta função.
+const FORMULA_START = /^[=+\-@\t\r]/
+export function csvSafe(text: string): string {
+  return FORMULA_START.test(text) ? `'${text}` : text
+}
+
 export function buildCsv(columns: XlsxColumn[], rows: XlsxValue[][], locale: string): Blob {
   const pt = !locale.startsWith('en')
   const sep = pt ? ';' : ','
@@ -30,9 +37,9 @@ export function buildCsv(columns: XlsxColumn[], rows: XlsxValue[][], locale: str
       return pt ? `${dd}/${mm}/${d.getFullYear()}` : `${d.getFullYear()}-${mm}-${dd}`
     }
     if (typeof v === 'number') return type === 'integer' ? String(Math.round(v)) : num(v, 2)
-    return String(v)
+    return csvSafe(String(v))
   }
-  const quote = (s: string) => (s.includes(sep) || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s)
+  const quote = (s: string) => (s.includes(sep) || s.includes('"') || s.includes('\n') || s.includes('\r') ? `"${s.replace(/"/g, '""')}"` : s)
   const lines = [columns.map(c => quote(c.header)).join(sep), ...rows.map(r => columns.map((c, i) => quote(fmt(r[i], c.type))).join(sep))]
   return new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
 }

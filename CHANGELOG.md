@@ -2,6 +2,33 @@
 
 All notable changes to FlowTrack are documented here. Dates follow the commits where each set of changes landed.
 
+## [Unreleased]
+
+Fixes from a review of the AI pipeline, the demo and the repository.
+
+### Changed
+- **AI confidence comes from the model** — the categorization worker asks Claude Haiku for structured output (a forced `categorize` tool call with the category and a 0–1 confidence) and validates it: a category outside the user's list leaves the transaction uncategorized, and a missing or out-of-range confidence is stored as 0. Before, every AI category was stored with a fixed 0.85, so none of them reached **To review**; now anything below 0.85 does, and only answers at or above 0.85 enter the merchant cache
+- **Monthly summary in the interface language** — the app sends `language` (`pt` or `en`) and the API writes the summary, and its plain-numbers fallback, in that language, with one cache entry per language. The response says whether the text came from Claude or from the fallback (`source`), and the card says so
+- **The demo says the AI is simulated** — the summary card reads "Sample summary — in the full version, written by Claude Haiku", the demo banner mentions the simulated AI, and the AI badge's tooltip says the demo uses local rules with example confidences
+- **Phones** — a signed variation such as "-R$ 1,800" no longer breaks with the "-" alone on a line; the percentage moves to the next line as a whole
+
+### Fixed
+- **Offline queue** — a failed retry no longer adds a copy of the item to the queue (the flush sends directly with `createDirect`); each item stores its `user_id`, only the signed-in user's items are sent, and signing out clears the queue
+- **CSV injection** — CSV exports from the API and from the browser prefix with an apostrophe any text cell that starts with `=`, `+`, `-`, `@`, tab or carriage return
+
+### Tests and CI
+- PDF readers: `detect_bank`, each of the seven readers and the Mercado Pago font fix, with synthetic statement text (`backend/tests/parsers/test_pdf_parser.py`)
+- Backend: 250 tests (185 before); frontend: 8 unit tests with `node --test`, without new dependencies (`npm test` in `frontend/`)
+- Lighthouse assertions now fail the build: performance ≥ 0.85, accessibility and best practices ≥ 0.95, SEO ≥ 0.6. The last three Lighthouse runs on `main` (2026-10-15) scored 0.91–0.92, 1, 1 and 0.66 (in those runs the SEO score is held down by the "is-crawlable" audit)
+- The duplicated `compileall` job is gone (pytest already covers the app; `demo_seed.py` keeps a syntax check); the contrast script runs after the E2E tests
+- Dependabot groups minor and patch updates per ecosystem and skips major versions
+
+### Docs
+- README: a note that the demo's AI is simulated, with a link to the real worker, and a deployment section on adding the API and Supabase hosts to the CSP `connect-src`
+- ADR 0004 and `docs/architecture.md` describe the structured output and no longer claim the prompt cache works: the prompt is probably below the model's minimum cacheable length, and the worker now logs the cache tokens of each call so it can be measured
+- ADR 0003 records the queue ownership and the clearing on sign-out
+- Removed the duplicated `supabase_migrations.sql` (migrations are in `docs/migrations.sql`), `frontend/vercel.json` (the root `vercel.json` is the one the deploy from GitHub and `vite preview` use) and the unused `VITE_DEMO_PASSWORD` from `frontend/.env.example`
+
 ## [2.2.0] — 2026-10-15
 
 What the design review of 2.1.0 still pointed out.

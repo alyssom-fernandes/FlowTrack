@@ -33,7 +33,7 @@ graph TB
     end
 
     subgraph AI["Anthropic"]
-        HAIKU[Claude Haiku\nPrompt Caching]
+        HAIKU[Claude Haiku\ntool use]
     end
 
     CRON[cron-job.org\nevery 5 min] -->|X-Internal-Secret| CQ
@@ -67,7 +67,7 @@ graph TB
 | Backend | FastAPI (Python 3.11) | Modern, typed, auto Swagger |
 | Database | Supabase (PostgreSQL) | Auth + DB + RLS in one service |
 | Auth | Supabase Auth + JWKS | No custom JWT implementation |
-| AI | Claude Haiku + Prompt Caching | Cost-efficient categorization |
+| AI | Claude Haiku (structured output via tool use) | Category and confidence for what the rules and the cache miss |
 | Rate limiting | slowapi | Protects import and AI endpoints |
 | Frontend hosting | Vercel | Native React support, auto-deploy |
 | Backend hosting | Railway | No aggressive cold starts |
@@ -83,7 +83,7 @@ Transactions go through three layers before hitting the Claude API:
 
 1. **Deterministic rules** — pattern matching for known payees (zero API cost)
 2. **`merchant_cache` lookup** — normalized description → category, per-user + global rules
-3. **Claude Haiku with Prompt Caching** — only for unresolved cases; system prompt cached via `cache_control: ephemeral`
+3. **Claude Haiku** — only for unresolved cases; a forced tool call returns the category and a 0–1 confidence, and below 0.85 the transaction goes to **To review**. The system prompt carries `cache_control: ephemeral`, but it is probably shorter than the model's minimum cacheable length; the worker logs the cache tokens of each call so this can be checked (not measured yet)
 
 Layers 1 and 2 cost nothing, so the model is only called for merchants it has not seen. The number of calls saved was not measured. The merchant cache is filled from AI decisions, so it grows with use.
 

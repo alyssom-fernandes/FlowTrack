@@ -57,6 +57,18 @@ def dedup_hash(account_id: str, transaction_date, amount: float, desc_norm: str)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
+# Planilhas tratam como fórmula a célula que começa com um destes caracteres (injeção de fórmula em CSV)
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def csv_safe(value):
+    """Texto que o Excel/LibreOffice executaria como fórmula ganha um apóstrofo na frente.
+    Números ficam como estão: o valor negativo de um gasto não é texto."""
+    if isinstance(value, str) and value.startswith(_FORMULA_START):
+        return "'" + value
+    return value
+
+
 def is_transfer(txn: dict) -> bool:
     """Transferência entre contas próprias: não é receita nem gasto."""
     return txn.get("type") == "transfer"

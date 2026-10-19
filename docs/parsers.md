@@ -12,6 +12,10 @@
 reader. The detected variants are `nubank_extrato`, `nubank_fatura`, `sicredi_extrato`, `sicredi_fatura`,
 `mercadopago_extrato`, `mercadopago_fatura` and `will_fatura`. Every import is shown as a preview before it is saved.
 
+`backend/tests/parsers/test_pdf_parser.py` covers `detect_bank`, each reader and the AYALFN+ font fix with synthetic
+statement text (invented names and amounts; no real statement is stored in the repository). The tests replace
+`pdfplumber` with a fake that returns that text, so they check the parsing rules, not the text extraction itself.
+
 ## Field Mapping
 
 ### Sicredi — Checking Account

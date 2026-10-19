@@ -270,14 +270,17 @@ class TestLimits:
 
 # ── Worker de categorização (achados da revisão adversarial) ──
 class _FakeClaude:
-    """Cliente Anthropic falso: responde sempre o mesmo nome e guarda os prompts."""
-    def __init__(self, answer):
-        self.answer, self.prompts = answer, []
+    """Cliente Anthropic falso: responde sempre a mesma categoria pelo tool use e guarda os prompts."""
+    def __init__(self, answer, confidence=0.93):
+        self.answer, self.confidence, self.prompts, self.calls = answer, confidence, [], []
         self.messages = self
 
     def create(self, **kw):
         self.prompts.append(kw["system"][0]["text"])
-        return SimpleNamespace(content=[SimpleNamespace(text=self.answer)])
+        self.calls.append(kw)
+        block = SimpleNamespace(type="tool_use", name="categorize", id="toolu_teste",
+                                input={"category": self.answer, "confidence": self.confidence})
+        return SimpleNamespace(content=[block], usage=None)
 
 
 def _worker_db():

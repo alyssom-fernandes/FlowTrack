@@ -17,7 +17,7 @@ from app.models import (
 )
 from app.api.v1._helpers import (
     normalize_desc, dedup_hash, _adjust_account_balance, _write_audit, _serialize,
-    _first, _require_account, _require_category, NEEDS_REVIEW_FILTER, rule_key,
+    _first, _require_account, _require_category, NEEDS_REVIEW_FILTER, rule_key, csv_safe,
 )
 
 router = APIRouter()
@@ -277,7 +277,7 @@ async def export_transactions(
         fields = ["id", "transaction_date", "description", "amount", "currency", "type", "category_id", "account_id", "categorized_by", "confidence_score", "is_recurring", "notes", "created_at"]
         writer = csv.DictWriter(output, fieldnames=fields)
         writer.writeheader()
-        for t in (result.data or []): writer.writerow({k: t.get(k, "") for k in fields})
+        for t in (result.data or []): writer.writerow({k: csv_safe(t.get(k, "")) for k in fields})
         output.seek(0)
         return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=flowtrack_{date.today()}.csv"})
     except Exception as e:

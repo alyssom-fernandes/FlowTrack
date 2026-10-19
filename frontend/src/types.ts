@@ -261,6 +261,8 @@ export interface InsightResponse {
   cached: boolean
   income?: number | null   // receitas e gastos que o resumo usou
   expense?: number | null
+  // ai: escrito pelo Claude · template: texto pronto da API sem chave da Anthropic · sample: exemplo da demonstração
+  source?: 'ai' | 'template' | 'sample'
 }
 
 // ── Cashflow ──────────────────────────────────────────────
@@ -337,6 +339,7 @@ export interface SyncQueueItem {
   action: SyncAction
   entity: 'transaction' | 'account' | 'goal' | 'investment'
   data: Record<string, unknown>
+  user_id: string   // quem criou o item: só essa pessoa o reenvia
   retry_count: number
   max_retries: number
   next_retry_at: Date

@@ -9,6 +9,7 @@ import type { Account, Alert, Budget, Category, CashflowProjection, InsightRespo
 import { CashflowChart, Sparkline } from './charts'
 import { CategoryIcon } from './CategoryIcon'
 import { categoryColor } from '../../lib/categoryColor'
+import { useAuthStore } from '../../store'
 import { shownCategory } from '../../lib/review'
 import { billsByCategory, budgetState, budgetStatusText, monthDays, BUDGET_COLOR, type BudgetStatus } from '../../lib/pace'
 import { DELTA_COLOR, dayMonth, insightBlocks, splitHighlights, type Delta, type ProjectionPoint } from './data'
@@ -27,13 +28,17 @@ const DELTA_ICON: Record<VariationDir, IconName> = { up: 'arrowUpRight', down: '
 // Valor arredondado ao real: na variação os centavos só pesam
 const wholeSigned = (v: number) => new Intl.NumberFormat(currentLocale(), { style: 'currency', currency: 'BRL', signDisplay: 'exceptZero', maximumFractionDigits: 0 }).format(Math.round(v))
 
+// O valor com sinal e a porcentagem não quebram por dentro ("-" sozinho numa linha, no celular);
+// quando falta espaço, a porcentagem desce inteira para a linha seguinte
+const NOWRAP = { whiteSpace: 'nowrap' } as const
+
 export function DeltaChip({ d, className = 'ft-delta' }: { d: Delta; className?: string }) {
   return (
-    <span className={`${className} ${className}--${d.tone}`} style={{ color: DELTA_COLOR[d.tone] }}>
+    <span className={`${className} ${className}--${d.tone}`} style={{ color: DELTA_COLOR[d.tone], flexWrap: 'wrap' }}>
       <Icon name={DELTA_ICON[d.dir]} size={12} strokeWidth={2.25} />
       {d.amount !== undefined && Math.round(d.amount) !== 0
-        ? <><span className="ft-hideable">{wholeSigned(d.amount)}</span> <span>({d.text})</span></>
-        : d.text}
+        ? <><span className="ft-hideable" style={NOWRAP}>{wholeSigned(d.amount)}</span> <span style={NOWRAP}>({d.text})</span></>
+        : <span style={NOWRAP}>{d.text}</span>}
     </span>
   )
 }
@@ -65,6 +70,12 @@ export function InsightCard({ insight, loading, error, onRefresh, stale }: { ins
     else groups.push({ kind: b.kind === 'li' ? 'ul' : b.kind, texts: [b.text] })
   }
   const render = (text: string) => splitHighlights(text).map((p, i) => p.strong ? <strong key={i} className="ft-num">{p.text}</strong> : <span key={i}>{p.text}</span>)
+  // Quem escreveu o texto: na demonstração é um exemplo montado no navegador; sem chave da Anthropic,
+  // a API devolve um texto pronto ("template"); só o "ai" é do Claude
+  const isDemo = useAuthStore(s => s.isDemo)
+  const meta = isDemo || insight?.source === 'sample' ? t('dashboard.insight.sample')
+    : !insight || loading ? t('dashboard.insight.byAi')
+    : t(insight.source === 'template' ? 'dashboard.insight.template' : 'dashboard.insight.generated', { when: formatRelative(insight.generated_at) })
 
   return (
     <Card className="ft-dash-insight" aria-busy={loading || undefined}>
@@ -72,7 +83,7 @@ export function InsightCard({ insight, loading, error, onRefresh, stale }: { ins
         title={t('dashboard.insight.title')}
         subtitle={
           <span className="ft-insight__meta">
-            {insight && !loading ? t('dashboard.insight.generated', { when: formatRelative(insight.generated_at) }) : t('dashboard.insight.byAi')}
+            {meta}
           </span>
         }
         action={<IconButton icon="refresh" label={t('dashboard.insight.refresh')} onClick={onRefresh} loading={loading} />}
