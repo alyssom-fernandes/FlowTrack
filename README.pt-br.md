@@ -134,6 +134,10 @@ Requisitos: Node.js 20+, Python 3.11+ e um projeto no [Supabase](https://supabas
 | `INTERNAL_API_TOKEN` | Segredo das rotas internas `/internal/*` |
 | `CORS_ORIGINS`, `APP_ENV` | Origens permitidas e ambiente |
 
+### Publicar com backend
+
+O `vercel.json` da raiz define os headers de segurança do site. A Content-Security-Policy dele tem `connect-src 'self'`, o que basta para a demonstração pública (ela não chama nenhum outro endereço), mas faz o navegador bloquear a API real e o Supabase. Antes de publicar com `VITE_API_URL` e as variáveis do Supabase, acrescente os dois endereços exatos ao `connect-src`, por exemplo `connect-src 'self' https://sua-api.up.railway.app https://seu-projeto.supabase.co`. Sem isso, toda requisição falha como erro de rede (veja a [SECURITY.md](SECURITY.md)).
+
 ### Testes
 
 ```bash

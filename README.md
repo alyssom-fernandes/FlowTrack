@@ -134,6 +134,10 @@ Requirements: Node.js 20+, Python 3.11+ and a [Supabase](https://supabase.com) p
 | `INTERNAL_API_TOKEN` | Secret for the `/internal/*` worker endpoints |
 | `CORS_ORIGINS`, `APP_ENV` | Allowed origins and environment |
 
+### Deploying the full stack
+
+The root `vercel.json` sets the web app's security headers. Its Content-Security-Policy has `connect-src 'self'`, which is enough for the public demo (it never calls another host) but makes the browser block the real API and Supabase. Before deploying with `VITE_API_URL` and the Supabase variables, add both exact hosts to `connect-src`, for example `connect-src 'self' https://your-api.up.railway.app https://your-project.supabase.co`. Without that, every request fails as a network error (see [SECURITY.md](SECURITY.md)).
+
 ### Tests
 
 ```bash
