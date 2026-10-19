@@ -28,13 +28,17 @@ const DELTA_ICON: Record<VariationDir, IconName> = { up: 'arrowUpRight', down: '
 // Valor arredondado ao real: na variação os centavos só pesam
 const wholeSigned = (v: number) => new Intl.NumberFormat(currentLocale(), { style: 'currency', currency: 'BRL', signDisplay: 'exceptZero', maximumFractionDigits: 0 }).format(Math.round(v))
 
+// O valor com sinal e a porcentagem não quebram por dentro ("-" sozinho numa linha, no celular);
+// quando falta espaço, a porcentagem desce inteira para a linha seguinte
+const NOWRAP = { whiteSpace: 'nowrap' } as const
+
 export function DeltaChip({ d, className = 'ft-delta' }: { d: Delta; className?: string }) {
   return (
-    <span className={`${className} ${className}--${d.tone}`} style={{ color: DELTA_COLOR[d.tone] }}>
+    <span className={`${className} ${className}--${d.tone}`} style={{ color: DELTA_COLOR[d.tone], flexWrap: 'wrap' }}>
       <Icon name={DELTA_ICON[d.dir]} size={12} strokeWidth={2.25} />
       {d.amount !== undefined && Math.round(d.amount) !== 0
-        ? <><span className="ft-hideable">{wholeSigned(d.amount)}</span> <span>({d.text})</span></>
-        : d.text}
+        ? <><span className="ft-hideable" style={NOWRAP}>{wholeSigned(d.amount)}</span> <span style={NOWRAP}>({d.text})</span></>
+        : <span style={NOWRAP}>{d.text}</span>}
     </span>
   )
 }
