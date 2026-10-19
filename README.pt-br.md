@@ -141,14 +141,17 @@ O `vercel.json` da raiz define os headers de segurança do site. A Content-Secur
 ### Testes
 
 ```bash
-# Backend: 185 testes (pytest)
+# Backend: 250 testes (pytest)
 cd backend && .venv\Scripts\python -m pytest tests -q
+
+# Frontend: 8 testes de unidade (node --test, sem dependência extra): exportação CSV e fila offline
+cd frontend && npm test
 
 # Ponta a ponta: 20 cenários, no computador e no celular (Playwright, contra um build local da demonstração)
 npm install && npx playwright install chromium && npm run e2e
 ```
 
-Os dois rodam no GitHub Actions a cada envio ao `main` e em pull requests. Há também um roteiro de fotos, `frontend/scripts/fotos/rodar.mjs`, que fotografa cada tela, modal e estado vazio em 1366 e 375 pixels, nos dois temas, e falha se o navegador registrar qualquer erro; e `frontend/scripts/checar-contraste.mjs`, que mede no navegador cada pílula e selo e falha abaixo de 4,5:1 de contraste ou de 12 px.
+Todos rodam no GitHub Actions a cada envio ao `main` e em pull requests. O `frontend/scripts/checar-contraste.mjs` mede no navegador cada pílula e selo e falha abaixo de 4,5:1 de contraste ou de 12 px; ele roda depois dos testes E2E. Há também um roteiro de fotos, `frontend/scripts/fotos/rodar.mjs`, que fotografa cada tela, modal e estado vazio em 1366 e 375 pixels, nos dois temas, e falha se o navegador registrar qualquer erro.
 
 ---
 
@@ -159,7 +162,7 @@ Os dois rodam no GitHub Actions a cada envio ao `main` e em pull requests. Há t
 | Frontend | React 19, TypeScript, Vite, React Router, Zustand, Axios, Dexie (IndexedDB), i18next, jsPDF |
 | Backend | FastAPI, Python 3.11, Supabase (PostgreSQL + Auth), slowapi, structlog, Sentry |
 | IA | Claude Haiku, depois de regras e de um cache por estabelecimento |
-| Testes | pytest, Playwright |
+| Testes | pytest, node --test, Playwright |
 | Hospedagem | Vercel (frontend e a demonstração no navegador). A API e o banco estão prontos para Railway e Supabase; o site público roda só a demonstração. |
 
 ## Estrutura

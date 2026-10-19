@@ -141,14 +141,17 @@ The root `vercel.json` sets the web app's security headers. Its Content-Security
 ### Tests
 
 ```bash
-# Backend: 185 tests (pytest)
+# Backend: 250 tests (pytest)
 cd backend && .venv\Scripts\python -m pytest tests -q
+
+# Frontend: 8 unit tests (node --test, no extra dependency): CSV export and the offline queue
+cd frontend && npm test
 
 # End to end: 20 scenarios on a desktop and a phone viewport (Playwright, against a local build of the demo)
 npm install && npx playwright install chromium && npm run e2e
 ```
 
-Both run on GitHub Actions on every push to `main` and on pull requests. There is also a screenshot script, `frontend/scripts/fotos/rodar.mjs`, that captures every screen, modal and empty state at 1366 and 375 pixels in both themes, and fails if the browser logged any error; and `frontend/scripts/checar-contraste.mjs` measures every pill and badge in the browser and fails below 4.5:1 contrast or 12 px.
+All of them run on GitHub Actions on every push to `main` and on pull requests. `frontend/scripts/checar-contraste.mjs` measures every pill and badge in the browser and fails below 4.5:1 contrast or 12 px; it runs after the E2E tests. There is also a screenshot script, `frontend/scripts/fotos/rodar.mjs`, that captures every screen, modal and empty state at 1366 and 375 pixels in both themes, and fails if the browser logged any error.
 
 ---
 
@@ -159,7 +162,7 @@ Both run on GitHub Actions on every push to `main` and on pull requests. There i
 | Frontend | React 19, TypeScript, Vite, React Router, Zustand, Axios, Dexie (IndexedDB), i18next, jsPDF |
 | Backend | FastAPI, Python 3.11, Supabase (PostgreSQL + Auth), slowapi, structlog, Sentry |
 | AI | Claude Haiku, behind rules and a merchant cache |
-| Testing | pytest, Playwright |
+| Testing | pytest, node --test, Playwright |
 | Hosting | Vercel (frontend and the in-browser demo). The API and the database are set up for Railway and Supabase; the public site runs only the demo. |
 
 ## Project structure
