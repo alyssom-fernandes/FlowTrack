@@ -22,6 +22,8 @@ FlowTrack is a personal finance app. It reads bank statements (PDF, OFX or CSV),
 4. In **Reports**, pick a period and follow the money in the **Flow** section, then **Export** as a PDF, an Excel workbook or a CSV.
 5. In **Profile**, switch the language to Portuguese or the theme to light.
 
+In the demo the AI is simulated: categories come from local rules with example confidences, and the monthly summary is built from a template (the screen says so). The real worker, which asks Claude Haiku for a category and a confidence, is in [`backend/app/integrations/claude_api.py`](backend/app/integrations/claude_api.py).
+
 ## Screens
 
 Captured from the demo, in English.

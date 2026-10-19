@@ -8,6 +8,7 @@ import { REVIEW_CONFIDENCE, shownCategory } from '../../lib/review'
 import type { Account, Category, Transaction } from '../../types'
 import { CategoryGlyph } from './CategoryGlyph'
 import { categoryColor } from '../../lib/categoryColor'
+import { useAuthStore } from '../../store'
 import { dayHeading, groupByDay, groupInstallments, isFlow, PAGE_SIZE, transferPeer, useIsMobile } from './shared'
 
 interface ListProps {
@@ -43,8 +44,10 @@ function CategoryCell({ txn, categories, onChange, onConfirm, confirmLabel }: { 
   const isAi = !!cat && txn.categorized_by === 'ai'
   const low = isAi && conf < REVIEW_CONFIDENCE
   // No modo revisão, a categoria da IA com pouca confiança é só uma sugestão: pílula tracejada + ✓
+  // Na demonstração a "IA" são regras locais com confiança de exemplo: o texto do selo diz isso
+  const isDemo = useAuthStore(s => s.isDemo)
   const why = !cat ? t('transactions.row.by.none')
-    : isAi ? t(low ? 'transactions.row.by.aiLow' : 'transactions.row.by.ai', { pct })
+    : isAi ? `${t(low ? 'transactions.row.by.aiLow' : 'transactions.row.by.ai', { pct })}${isDemo ? ` ${t('transactions.row.by.demoAi')}` : ''}`
     : t(`transactions.row.by.${txn.categorized_by === 'cache' || txn.categorized_by === 'rule' ? txn.categorized_by : 'manual'}`)
 
   const change = async (id: string) => {

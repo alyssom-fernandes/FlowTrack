@@ -600,7 +600,8 @@ route('POST', '/insights', async ({ body }) => {
   const d = loadDb()
   const key = `${start_date}:${end_date}:${isEn() ? 'en' : 'pt'}`
   const cached = refresh ? undefined : d.insight_cache[key]
-  if (cached) return { text: cached.text, generated_at: cached.ts, cached: true, income: cached.income ?? null, expense: cached.expense ?? null }
+  // "sample": o texto é montado aqui a partir de um modelo pronto; o Claude só escreve na versão completa
+  if (cached) return { text: cached.text, generated_at: cached.ts, cached: true, income: cached.income ?? null, expense: cached.expense ?? null, source: 'sample' }
   await wait(600)
   const txs = d.transactions.filter(t => t.transaction_date >= start_date && t.transaction_date <= end_date && isFlow(t))
   const income = txs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
@@ -626,7 +627,7 @@ route('POST', '/insights', async ({ body }) => {
   const ts = nowIso()
   const basis = { income: Math.round(income * 100) / 100, expense: Math.round(expense * 100) / 100 }
   d.insight_cache[key] = { text, ts, ...basis }
-  return { text, generated_at: ts, cached: false, ...basis }
+  return { text, generated_at: ts, cached: false, ...basis, source: 'sample' }
 })
 
 // Orçamentos

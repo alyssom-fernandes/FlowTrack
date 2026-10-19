@@ -122,6 +122,7 @@
       "by": {
         "ai": "Categorized by AI with {{pct}} confidence.",
         "aiLow": "Categorized by AI with {{pct}} confidence. Worth a check.",
+        "demoAi": "In the demo, the AI is simulated with local rules and the confidence is an example.",
         "cache": "Categorized automatically: this description has been seen before.",
         "rule": "Categorized by an automatic rule.",
         "manual": "Category chosen by you.",

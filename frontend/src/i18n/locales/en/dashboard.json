@@ -14,6 +14,8 @@
       "title": "Monthly summary",
       "byAi": "AI-generated",
       "generated": "AI-generated · {{when}}",
+      "template": "Automatic summary, no AI · {{when}}",
+      "sample": "Sample summary — in the full version, written by Claude Haiku",
       "refresh": "Refresh summary",
       "loading": "Generating the summary",
       "error": "The summary could not be generated right now.",

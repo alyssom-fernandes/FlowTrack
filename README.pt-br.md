@@ -22,6 +22,8 @@ O FlowTrack é um app de finanças pessoais. Ele lê extratos do banco (PDF, OFX
 4. Em **Relatórios**, escolha um período e acompanhe o dinheiro na seção **Fluxo**; depois use **Exportar** para gerar PDF, Excel ou CSV.
 5. Em **Perfil**, troque o idioma para inglês ou o tema para claro.
 
+Na demonstração, a IA é simulada: as categorias vêm de regras locais com confianças de exemplo, e o resumo do mês é montado a partir de um modelo pronto (a tela avisa). O worker real, que pede ao Claude Haiku a categoria e a confiança, está em [`backend/app/integrations/claude_api.py`](backend/app/integrations/claude_api.py).
+
 ## Telas
 
 Capturadas da demonstração.

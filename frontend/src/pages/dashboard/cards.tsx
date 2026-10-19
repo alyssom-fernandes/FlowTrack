@@ -9,6 +9,7 @@ import type { Account, Alert, Budget, Category, CashflowProjection, InsightRespo
 import { CashflowChart, Sparkline } from './charts'
 import { CategoryIcon } from './CategoryIcon'
 import { categoryColor } from '../../lib/categoryColor'
+import { useAuthStore } from '../../store'
 import { shownCategory } from '../../lib/review'
 import { billsByCategory, budgetState, budgetStatusText, monthDays, BUDGET_COLOR, type BudgetStatus } from '../../lib/pace'
 import { DELTA_COLOR, dayMonth, insightBlocks, splitHighlights, type Delta, type ProjectionPoint } from './data'
@@ -65,6 +66,12 @@ export function InsightCard({ insight, loading, error, onRefresh, stale }: { ins
     else groups.push({ kind: b.kind === 'li' ? 'ul' : b.kind, texts: [b.text] })
   }
   const render = (text: string) => splitHighlights(text).map((p, i) => p.strong ? <strong key={i} className="ft-num">{p.text}</strong> : <span key={i}>{p.text}</span>)
+  // Quem escreveu o texto: na demonstração é um exemplo montado no navegador; sem chave da Anthropic,
+  // a API devolve um texto pronto ("template"); só o "ai" é do Claude
+  const isDemo = useAuthStore(s => s.isDemo)
+  const meta = isDemo || insight?.source === 'sample' ? t('dashboard.insight.sample')
+    : !insight || loading ? t('dashboard.insight.byAi')
+    : t(insight.source === 'template' ? 'dashboard.insight.template' : 'dashboard.insight.generated', { when: formatRelative(insight.generated_at) })
 
   return (
     <Card className="ft-dash-insight" aria-busy={loading || undefined}>
@@ -72,7 +79,7 @@ export function InsightCard({ insight, loading, error, onRefresh, stale }: { ins
         title={t('dashboard.insight.title')}
         subtitle={
           <span className="ft-insight__meta">
-            {insight && !loading ? t('dashboard.insight.generated', { when: formatRelative(insight.generated_at) }) : t('dashboard.insight.byAi')}
+            {meta}
           </span>
         }
         action={<IconButton icon="refresh" label={t('dashboard.insight.refresh')} onClick={onRefresh} loading={loading} />}

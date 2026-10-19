@@ -261,6 +261,8 @@ export interface InsightResponse {
   cached: boolean
   income?: number | null   // receitas e gastos que o resumo usou
   expense?: number | null
+  // ai: escrito pelo Claude · template: texto pronto da API sem chave da Anthropic · sample: exemplo da demonstração
+  source?: 'ai' | 'template' | 'sample'
 }
 
 // ── Cashflow ──────────────────────────────────────────────
