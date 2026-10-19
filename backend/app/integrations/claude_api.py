@@ -2,6 +2,8 @@ import anthropic
 from app.core.config import get_settings
 from app.core.database import get_supabase
 from app.core.logging import get_logger
+# Mesmo corte do filtro "A revisar" da API (NEEDS_REVIEW_FILTER)
+from app.api.v1._helpers import REVIEW_CONFIDENCE
 from app.integrations.rules import match_rule
 
 logger = get_logger(__name__)
@@ -10,13 +12,56 @@ logger = get_logger(__name__)
 FALLBACK_CATEGORY = "Outros"
 
 
+# Modelo usado na categorização (camada 3)
+MODEL = "claude-haiku-4-5-20251001"
+TOOL_NAME = "categorize"
+
+
 def _build_system_prompt(category_names: list[str]) -> str:
     return (
         "You are a Brazilian financial transaction categorizer. "
-        "Given a transaction description, return ONLY the most appropriate category name "
-        "from the list below — nothing else, no explanation, just the category name exactly as written.\n\n"
+        f"Given a transaction description, call the {TOOL_NAME} tool with the most appropriate category "
+        "from the list below, written exactly as listed, and your confidence from 0 to 1 that it is right. "
+        "Use a low confidence when the description is ambiguous or could fit more than one category.\n\n"
         "Categories:\n" + "\n".join(f"- {c}" for c in category_names)
     )
+
+
+def _categorize_tool(category_names: list[str]) -> dict:
+    """Saída estruturada: o modelo responde categoria e confiança pelo tool use, não em texto livre."""
+    return {
+        "name": TOOL_NAME,
+        "description": "Record the category chosen for the transaction and the confidence in that choice.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "category": {"type": "string", "enum": category_names},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            },
+            "required": ["category", "confidence"],
+        },
+    }
+
+
+def parse_categorization(response) -> tuple[str | None, float]:
+    """(nome da categoria, confiança 0..1) do tool use. Sem bloco válido: (None, 0.0).
+
+    Confiança ausente, não numérica ou fora de 0..1 vira 0.0: a categoria ainda serve de sugestão,
+    mas vai para "A revisar" em vez de passar como certa."""
+    for block in getattr(response, "content", None) or []:
+        if getattr(block, "type", None) != "tool_use" or getattr(block, "name", None) != TOOL_NAME:
+            continue
+        data = getattr(block, "input", None)
+        if not isinstance(data, dict):
+            return None, 0.0
+        name = data.get("category")
+        if not isinstance(name, str) or not name.strip():
+            return None, 0.0
+        conf = data.get("confidence")
+        if isinstance(conf, bool) or not isinstance(conf, (int, float)) or not 0 <= conf <= 1:
+            conf = 0.0
+        return name.strip(), round(float(conf), 2)
+    return None, 0.0
 
 
 def _categories_for(sb, user_id: str, defaults: list[dict]) -> tuple[dict, list[str]]:
@@ -130,41 +175,50 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
                 processed += 1
                 continue
 
-            # 3. Claude Haiku, com cache de prompt no texto de sistema
+            # 3. Claude Haiku, com resposta estruturada (categoria + confiança)
             if client is None:
                 # Sem chave da Anthropic: fica sem categoria (a pessoa escolhe na tela) e sai da fila,
                 # para não travar os itens seguintes
                 _mark_queue(sb, queue_id, "failed")
                 continue
             response = client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=32,
+                model=MODEL,
+                max_tokens=200,
                 system=[{
                     "type": "text",
                     "text": _build_system_prompt(names),
+                    # Só tem efeito se o texto passar do tamanho mínimo de cache do modelo;
+                    # o uso real aparece no log (cache_read_input_tokens)
                     "cache_control": {"type": "ephemeral"},
                 }],
+                tools=[_categorize_tool(names)],
+                tool_choice={"type": "tool", "name": TOOL_NAME},
                 messages=[{"role": "user", "content": txn.get("description_normalized") or description}],
             )
+            _log_usage(response, txn_id)
 
-            cat_name = response.content[0].text.strip()
-            cat = allowed.get(cat_name.lower())
+            cat_name, confidence = parse_categorization(response)
+            # Categoria fora da lista permitida (ou resposta inválida) não é gravada: fica sem categoria
+            cat = allowed.get(cat_name.lower()) if cat_name else None
             # "Outros" não é sugestão: a transação fica sem categoria e a pessoa escolhe na revisão
             fallback = bool(cat and cat.get("is_default") and cat["name"].lower() == FALLBACK_CATEGORY.lower())
             if fallback:
                 cat = None
 
             if cat:
-                apply(cat["id"], "ai", 0.85)
-                sb.table("merchant_cache").upsert({
-                    "normalized_description": desc_norm,
-                    "category_id": cat["id"],
-                    "user_id": user_id,
-                    "confidence": 0.85,
-                    "source": "ai",
-                }, on_conflict="normalized_description,user_id").execute()
+                # Abaixo de REVIEW_CONFIDENCE a transação entra em "A revisar" (_helpers.NEEDS_REVIEW_FILTER)
+                apply(cat["id"], "ai", confidence)
+                # Só decisão confiante vira cache: o cache é reaplicado sem passar pela revisão
+                if confidence >= REVIEW_CONFIDENCE:
+                    sb.table("merchant_cache").upsert({
+                        "normalized_description": desc_norm,
+                        "category_id": cat["id"],
+                        "user_id": user_id,
+                        "confidence": confidence,
+                        "source": "ai",
+                    }, on_conflict="normalized_description,user_id").execute()
             elif not fallback:
-                logger.warning("Claude returned unknown category", cat_name=cat_name, txn_id=txn_id)
+                logger.warning("Claude returned no valid category", cat_name=cat_name, txn_id=txn_id)
 
             _mark_queue(sb, queue_id, "done")
             processed += 1
@@ -178,6 +232,18 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
 
     logger.info("Categorization batch complete", processed=processed, total=len(items))
     return {"status": "ok", "processed": processed}
+
+
+def _log_usage(response, txn_id: str) -> None:
+    """Tokens de cada chamada, inclusive os lidos do cache de prompt, para medir custo e efeito do cache."""
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+    logger.info("Claude usage", txn_id=txn_id,
+                input_tokens=getattr(usage, "input_tokens", None),
+                output_tokens=getattr(usage, "output_tokens", None),
+                cache_read_input_tokens=getattr(usage, "cache_read_input_tokens", None),
+                cache_creation_input_tokens=getattr(usage, "cache_creation_input_tokens", None))
 
 
 def _mark_queue(sb, queue_id: str, status: str) -> None:

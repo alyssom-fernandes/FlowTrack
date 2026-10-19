@@ -13,7 +13,7 @@ Implement a 3-layer pipeline:
 
 1. **Deterministic rules** — regex/pattern matching for known payees (supermarkets, utilities, etc.)
 2. **Merchant cache** — if the same normalized merchant has been categorized before, reuse that decision
-3. **Claude Haiku** — only for merchants not covered by layers 1 and 2
+3. **Claude Haiku** — only for merchants not covered by layers 1 and 2. The model answers through a forced tool call (`categorize`) with a category from the user's allowed list and a confidence from 0 to 1. The worker validates both: a category outside the list leaves the transaction uncategorized, and a missing or out-of-range confidence is stored as 0. The stored confidence decides the review: below 0.85 the transaction goes to **To review**, and only answers at or above 0.85 are written to the merchant cache.
 
 The pipeline runs asynchronously in a background worker triggered by `cron-job.org` every 5 minutes, not at import time.
 
