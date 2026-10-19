@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { transactionsService } from './services'
-import { syncQueueService } from './store'
+import { syncQueueService, useAuthStore } from './store'
+import { flushQueue } from './lib/syncQueue'
 import { demo } from './demo'
 import i18n from './i18n'
 
@@ -119,20 +120,23 @@ export function useOnlineStatus() {
       await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/health`, { method: 'HEAD', signal: AbortSignal.timeout(3000) })
     } catch { return }
 
-    const pending = await syncQueueService.getPending()
+    // Só os itens de quem está conectado; os de outra conta neste aparelho ficam de fora
+    const userId = useAuthStore.getState().user?.id
+    if (!userId) return
+    const pending = await syncQueueService.getPending(userId)
     if (pending.length === 0) return
     setIsSyncing(true)
-    for (const item of pending) {
-      try {
-        if (item.entity === 'transaction') {
-          if (item.action === 'create') await transactionsService.create(item.data as unknown as Parameters<typeof transactionsService.create>[0])
-          else if (item.action === 'update' && item.data.id) await transactionsService.update(item.data.id as string, item.data as unknown as Parameters<typeof transactionsService.update>[1])
-          else if (item.action === 'delete' && item.data.id) await transactionsService.remove(item.data.id as string)
-        }
-        await syncQueueService.markDone(item.id)
-      } catch { await syncQueueService.markFailed(item.id, item.retry_count) }
+    try {
+      // createDirect: um reenvio que falha só reagenda o item, sem criar outro na fila
+      await flushQueue(syncQueueService, userId, async (item) => {
+        if (item.entity !== 'transaction') return
+        if (item.action === 'create') await transactionsService.createDirect(item.data as unknown as Parameters<typeof transactionsService.createDirect>[0])
+        else if (item.action === 'update' && item.data.id) await transactionsService.update(item.data.id as string, item.data as unknown as Parameters<typeof transactionsService.update>[1])
+        else if (item.action === 'delete' && item.data.id) await transactionsService.remove(item.data.id as string)
+      })
+    } finally {
+      setIsSyncing(false)
     }
-    setIsSyncing(false)
   }
 
   useEffect(() => {

@@ -22,3 +22,5 @@ Implement the offline queue using Dexie.js (IndexedDB wrapper) with a foreground
 - Transactions created offline are synced only when the user opens the app while online.
 - If the user never opens the app again after going offline, the queue is never flushed (acceptable for a personal finance app — data is on-device).
 - No background sync means no server-side processing of queued items without the app being open.
+- Each queued item stores the `user_id` of whoever created it, and only that user's items are sent. Signing out clears the queue, so pending entries are not left on a shared device (they are lost if they had not been sent yet).
+- The flush sends each item directly (`transactionsService.createDirect`); a failed retry only reschedules the item, it never queues a copy. The rules live in `frontend/src/lib/syncQueue.ts` and are covered by `frontend/tests/syncQueue.test.ts`.

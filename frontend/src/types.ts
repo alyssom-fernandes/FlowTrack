@@ -337,6 +337,7 @@ export interface SyncQueueItem {
   action: SyncAction
   entity: 'transaction' | 'account' | 'goal' | 'investment'
   data: Record<string, unknown>
+  user_id: string   // quem criou o item: só essa pessoa o reenvia
   retry_count: number
   max_retries: number
   next_retry_at: Date

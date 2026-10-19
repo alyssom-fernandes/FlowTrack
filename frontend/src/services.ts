@@ -68,6 +68,11 @@ export const authService = {
       emitDemo(null, 'SIGNED_OUT')
       return
     }
+    // Lançamentos pendentes da fila offline não ficam no aparelho depois de sair da conta
+    try {
+      const { syncQueueService } = await import('./store')
+      await syncQueueService.clear()
+    } catch { /* IndexedDB indisponível: não impede a saída */ }
     const { error } = await requireSupabase().auth.signOut()
     if (error) throw error
   },
@@ -143,15 +148,22 @@ export const transactionsService = {
     const { data } = await api.get(`/api/v1/transactions?${params}`)
     return data
   },
+  // Envio direto, sem fila: é o que o reenvio da fila offline usa (utils.ts, useOnlineStatus)
+  async createDirect(payload: TransactionCreate): Promise<Transaction> {
+    const { data } = await api.post('/api/v1/transactions', payload)
+    return data
+  },
   async create(payload: TransactionCreate): Promise<Transaction> {
     try {
-      const { data } = await api.post('/api/v1/transactions', payload)
-      return data
+      return await transactionsService.createDirect(payload)
     } catch (error: unknown) {
       const err = error as { code?: string }
       if (err.code === 'ERR_NETWORK' || !navigator.onLine) {
-        const { syncQueueService } = await import('./store')
-        await syncQueueService.add({ entity: 'transaction', action: 'create', data: payload as unknown as Record<string, unknown> })
+        const { syncQueueService, useAuthStore } = await import('./store')
+        const userId = useAuthStore.getState().user?.id
+        // Sem usuário conhecido o item não teria dono na fila: devolve o erro de rede
+        if (!userId) throw error
+        await syncQueueService.add({ entity: 'transaction', action: 'create', user_id: userId, data: payload as unknown as Record<string, unknown> })
         throw Object.assign(new Error('offline'), { offline: true })
       }
       throw error
