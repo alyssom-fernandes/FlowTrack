@@ -238,6 +238,7 @@ class InsightPeriod(BaseModel):
     start_date: str
     end_date: str
     refresh: bool = False  # True = gera de novo mesmo com resumo guardado
+    language: Literal["pt", "en"] = "pt"  # idioma da interface: o resumo vem nele
 
 class InsightResponse(BaseModel):
     text: str
@@ -246,6 +247,8 @@ class InsightResponse(BaseModel):
     # Receitas e gastos que o resumo usou: a tela compara com os números atuais e avisa se mudaram
     income: float | None = None
     expense: float | None = None
+    # "ai": escrito pelo Claude; "template": texto montado sem IA (sem chave da Anthropic)
+    source: Literal["ai", "template"] = "ai"
 
 
 # ── Cashflow ──────────────────────────────────────────────

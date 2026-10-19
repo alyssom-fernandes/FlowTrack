@@ -19,7 +19,7 @@ The pipeline runs asynchronously in a background worker triggered by `cron-job.o
 
 ## Reasons
 
-- **Cost**: Layer 1 and 2 have zero API cost. Layer 3 uses Claude Haiku (cheapest model) with prompt caching on the system prompt.
+- **Cost**: Layer 1 and 2 have zero API cost. Layer 3 uses Claude Haiku. The system prompt is marked with `cache_control`, but Anthropic only caches a prompt above a minimum length that depends on the model, and this one (instructions plus the category list) is short, so the cache may never apply. It has not been measured: the worker logs `cache_read_input_tokens` and `cache_creation_input_tokens` for every call, which shows whether it does.
 - **Latency**: Import is instant — the user sees transactions immediately with a "pending" categorization badge. Categorization arrives within minutes.
 - **Hit rate**: the share of transactions resolved by layers 1 and 2 is expected to grow as the merchant cache fills. It has not been measured.
 - **Isolation**: each queue item only reads its owner's transaction and only offers the default categories and that user's own, so one user's category names never reach another user's prompt.

@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { createClient, type Session } from '@supabase/supabase-js'
 import { demo, demoAdapter } from './demo'
+import i18n from './i18n'
 import type { Account, AccountCreate, Transaction, TransactionCreate, TransactionUpdate, TransactionFilters, PaginatedResponse, CategoryRuleResult, Goal, GoalCreate, Investment, InvestmentCreate, ParsedTransaction, Category, CategoryCreate, CategoryUpdate, Alert, Budget, BudgetCreate, InsightResponse, CashflowProjection, NetWorth, ProjectionData, AuditLogEntry } from './types'
 
 // ── Supabase (opcional: sem as variáveis o app roda só em demonstração) ──
@@ -298,7 +299,9 @@ export const cashflowService = {
 // ── Insights ──────────────────────────────────────────────
 export const insightsService = {
   async generate(startDate: string, endDate: string, refresh = false): Promise<InsightResponse> {
-    const { data } = await api.post('/api/v1/insights', { start_date: startDate, end_date: endDate, refresh })
+    // O resumo vem no idioma da interface (a demonstração já segue o idioma por conta própria)
+    const language = i18n.language?.startsWith('en') ? 'en' : 'pt'
+    const { data } = await api.post('/api/v1/insights', { start_date: startDate, end_date: endDate, refresh, language })
     return data
   },
 }
