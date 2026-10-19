@@ -25,6 +25,11 @@ jobs:
         working-directory: backend
         run: pip install -r requirements.txt
 
+      # demo_seed.py não é importado pelos testes: a checagem de sintaxe cobre o que o pytest não alcança
+      - name: Syntax check (demo seed)
+        working-directory: backend
+        run: python -m compileall -q demo_seed.py
+
       - name: Run all backend tests
         working-directory: backend
         env:
