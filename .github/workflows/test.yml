@@ -66,3 +66,7 @@ jobs:
       - name: Translation keys (pt/en)
         working-directory: frontend
         run: node scripts/checar-traducoes.mjs
+
+      - name: Unit tests (node --test)
+        working-directory: frontend
+        run: npm test
