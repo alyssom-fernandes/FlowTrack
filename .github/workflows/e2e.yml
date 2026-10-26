@@ -27,8 +27,12 @@ jobs:
           npm ci
           npm ci --prefix frontend
 
+      # A raiz (testes E2E) e o frontend (checar-contraste.mjs) têm cada um o seu @playwright/test, e o
+      # Dependabot sobe os dois em PRs separados: instala o navegador das duas versões.
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: |
+          npx playwright install --with-deps chromium
+          (cd frontend && npx playwright install chromium)
 
       # O Playwright faz o build e sobe o preview (playwright.config.ts).
       # Sem variáveis do Supabase o app roda só em demonstração, sem depender de servidor.
