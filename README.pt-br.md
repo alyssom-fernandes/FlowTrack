@@ -104,7 +104,7 @@ Abra `http://localhost:5173` e clique em **Ver a demonstração**. Sem as variá
 
 ### Tudo, com backend
 
-Requisitos: Node.js 20+, Python 3.11+ e um projeto no [Supabase](https://supabase.com).
+Requisitos: Node.js 22+, Python 3.11+ e um projeto no [Supabase](https://supabase.com).
 
 1. Rode `docs/schema.sql` no editor SQL do Supabase.
 2. Copie os arquivos de ambiente e preencha:

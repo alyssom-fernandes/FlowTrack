@@ -23,6 +23,11 @@ Fixes from a review of the AI pipeline, the demo and the repository.
 - Performance stays a warning (≥ 0.85), measured as the median of three runs: on the shared CI runner a single run went from 0.91–0.92 to 0.79 on 2026-10-19 with no change in the app
 - The duplicated `compileall` job is gone (pytest already covers the app; `demo_seed.py` keeps a syntax check); the contrast script runs after the E2E tests
 - Dependabot groups minor and patch updates per ecosystem and skips major versions
+- GitHub Actions on their current major versions (`checkout`, `setup-node`, `setup-python` and `upload-artifact` v7) and Node.js 24 in the CI, E2E and Lighthouse workflows: Node.js 20 reached end of life on 2026-04-30
+
+### Dependencies
+- Backend: `anthropic` 0.125 → 2.3 and `structlog` 25 → 26. SDK 2.x sends API version `2026-10-21`, which rejects `temperature`, `top_p` and `top_k`; neither the categorization worker nor the monthly summary sends them, so their requests are unchanged
+- Development: `concurrently` 8 → 10, which needs Node.js 22 or newer (the README now says 22+), and `vite-plugin-pwa` 1 → 2
 
 ### Docs
 - README: a note that the demo's AI is simulated, with a link to the real worker, and a deployment section on adding the API and Supabase hosts to the CSP `connect-src`
