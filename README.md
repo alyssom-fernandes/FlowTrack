@@ -104,7 +104,7 @@ Open `http://localhost:5173` and click **Try the demo**. Without Supabase variab
 
 ### The full stack
 
-Requirements: Node.js 20+, Python 3.11+ and a [Supabase](https://supabase.com) project.
+Requirements: Node.js 22+, Python 3.11+ and a [Supabase](https://supabase.com) project.
 
 1. Run `docs/schema.sql` in the Supabase SQL editor.
 2. Copy the environment files and fill them in:
