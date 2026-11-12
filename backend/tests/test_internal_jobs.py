@@ -1,17 +1,20 @@
-"""Rotina interna chamada pelo cron: a fila de categorização.
+"""Rotinas internas chamadas pelo cron: a fila de categorização e a geração das recorrências.
 
 Usa o Supabase em memória (fake_supabase.py), que emula as funções SQL do schema.sql
-(claim_categorization_queue)."""
+(claim_categorization_queue e create_transaction_with_balance), inclusive o "tudo ou nada" delas."""
+from datetime import date, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import anthropic
 import httpx
 
+from app.api.v1 import internal
 from app.integrations import claude_api
 from tests.fake_supabase import FakeSupabase
 
 USER = "user-alice"
+ACC = "acc-alice"
 
 
 def tool_response(category, confidence=0.95):
@@ -98,3 +101,37 @@ class TestQueueRetry:
         item = db.rows("categorization_queue")[0]
         assert (item["status"], item["retry_count"]) == ("failed", 3)
         assert db.rows("transactions")[0]["category_id"] is None
+
+
+def recurring_db():
+    today = date.today()
+    last_month = today.replace(day=1) - timedelta(days=1)
+    return FakeSupabase({
+        "accounts": [{"id": ACC, "user_id": USER, "balance": 1000.0}],
+        "transactions": [{"id": "tx-rent", "user_id": USER, "account_id": ACC, "category_id": "cat-home",
+                          "description": "Aluguel", "amount": -800.0, "type": "debit", "is_recurring": True,
+                          "transaction_date": str(last_month.replace(day=5))}],
+    })
+
+
+def generate(db):
+    with patch.object(internal, "get_supabase", return_value=db):
+        return internal.generate_recurring()
+
+
+class TestGenerateRecurring:
+    def test_creates_the_transaction_and_adjusts_the_balance(self):
+        db = recurring_db()
+        assert generate(db) == {"created": 1, "skipped": 0}
+        new = db.rows("transactions")[-1]
+        assert (new["description"], new["amount"], new["is_recurring"]) == ("Aluguel", -800.0, True)
+        assert new["transaction_date"] == str(date.today().replace(day=5))
+        assert db.rows("accounts")[0]["balance"] == 200.0
+
+    def test_balance_failure_does_not_leave_the_transaction_behind(self):
+        db = recurring_db()
+        db.fail_on.add(("accounts", "update"))
+        assert generate(db) == {"created": 0, "skipped": 1}
+        # Nem a transação nem o saldo mudam: as duas gravações valem juntas ou nenhuma vale
+        assert [t["id"] for t in db.rows("transactions")] == ["tx-rent"]
+        assert db.rows("accounts")[0]["balance"] == 1000.0

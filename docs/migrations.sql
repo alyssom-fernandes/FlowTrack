@@ -93,7 +93,7 @@ update categories set is_default = false where is_default = true and user_id is 
 alter table goals add column if not exists color text;
 alter table goals add column if not exists icon text;
 
--- v2.3 — fila de categorização com trava (revisão do backend de novembro de 2026)
+-- v2.3 — fila de categorização com trava e recorrências atômicas (revisão do backend de novembro de 2026)
 -- Pega um lote da fila de uma vez: FOR UPDATE SKIP LOCKED impede que duas chamadas peguem o mesmo item.
 -- Item em 'processing' há mais de 15 minutos (worker caiu no meio) volta a ser elegível.
 create or replace function claim_categorization_queue(p_limit integer)
@@ -114,6 +114,31 @@ as $$
   returning *;
 $$;
 
--- Só a API (service_role) chama a função; pela REST pública ninguém a executa
+-- Transação e saldo numa só transação do banco: ou as duas gravações valem, ou nenhuma
+create or replace function create_transaction_with_balance(
+  p_user_id uuid, p_account_id uuid, p_category_id uuid, p_description text,
+  p_description_normalized text, p_amount numeric, p_transaction_date date, p_type text,
+  p_is_recurring boolean, p_categorized_by categorized_by_enum, p_dedup_hash text
+)
+returns setof transactions
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_tx transactions;
+begin
+  insert into transactions (user_id, account_id, category_id, description, description_normalized, amount,
+                            transaction_date, type, is_recurring, sync_status, categorized_by, dedup_hash)
+  values (p_user_id, p_account_id, p_category_id, p_description, p_description_normalized, p_amount,
+          p_transaction_date, p_type, p_is_recurring, 'synced', p_categorized_by, p_dedup_hash)
+  returning * into v_tx;
+  update accounts set balance = balance + p_amount where id = p_account_id and user_id = p_user_id;
+  return next v_tx;
+end;
+$$;
+
+-- Só a API (service_role) chama as duas funções; pela REST pública ninguém as executa
 revoke execute on function claim_categorization_queue(integer) from public, anon, authenticated;
+revoke execute on function create_transaction_with_balance(uuid, uuid, uuid, text, text, numeric, date, text, boolean, categorized_by_enum, text) from public, anon, authenticated;
 grant execute on function claim_categorization_queue(integer) to service_role;
+grant execute on function create_transaction_with_balance(uuid, uuid, uuid, text, text, numeric, date, text, boolean, categorized_by_enum, text) to service_role;

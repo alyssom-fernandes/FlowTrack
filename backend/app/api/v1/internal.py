@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from app.core.security import verify_internal_token
 from app.core.database import get_supabase
 from app.core.logging import get_logger
-from app.api.v1._helpers import normalize_desc, dedup_hash, _adjust_account_balance
+from app.api.v1._helpers import normalize_desc, dedup_hash
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -70,13 +70,13 @@ def generate_recurring():
             "category_id": tx.get("category_id"),
             "description": tx["description"], "description_normalized": desc_norm,
             "amount": tx["amount"], "transaction_date": tx_date_str,
-            "type": tx["type"], "is_recurring": True,
-            "sync_status": "synced", "categorized_by": "rule",
+            "type": tx["type"], "is_recurring": True, "categorized_by": "rule",
             "dedup_hash": dedup_hash(tx["account_id"], tx_date_str, tx["amount"], desc_norm),
         }
         try:
-            sb.table("transactions").insert(new_tx).execute()
-            _adjust_account_balance(sb, tx["user_id"], tx["account_id"], tx["amount"])
+            # Transação (sync_status 'synced') e saldo numa só transação do banco (docs/migrations.sql v2.3):
+            # se uma das gravações falhar, nenhuma fica
+            sb.rpc("create_transaction_with_balance", {f"p_{k}": v for k, v in new_tx.items()}).execute()
             created += 1
         except Exception as e:
             skipped += 1

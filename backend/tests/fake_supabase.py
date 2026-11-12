@@ -100,6 +100,8 @@ class _Query:
         return [r for r in self.db.tables.setdefault(self.table, []) if all(f(r) for f in self.filters)]
 
     def execute(self):
+        if (self.table, self.op) in self.db.fail_on:
+            raise RuntimeError(f"falha simulada: {self.op} em {self.table}")
         rows = self.db.tables.setdefault(self.table, [])
         if self.op in ("insert", "upsert"):
             items = self.payload if isinstance(self.payload, list) else [self.payload]
@@ -155,10 +157,22 @@ class _Rpc:
             r["status"] = "processing"
         return [copy.deepcopy(r) for r in pending]
 
+    def _create_transaction_with_balance(self, **p):
+        row = {k[2:]: v for k, v in p.items()}
+        tx = self.db.table("transactions").insert({**row, "sync_status": "synced"}).execute().data
+        acc = (self.db.table("accounts").select("balance").eq("id", row["account_id"])
+               .eq("user_id", row["user_id"]).execute().data)
+        if acc:
+            self.db.table("accounts").update({"balance": round((acc[0]["balance"] or 0) + row["amount"], 2)}) \
+                .eq("id", row["account_id"]).eq("user_id", row["user_id"]).execute()
+        return tx
+
 
 class FakeSupabase:
     def __init__(self, tables: dict | None = None):
         self.tables: dict[str, list[dict]] = copy.deepcopy(tables or {})
+        # (tabela, operação) que devem falhar, para simular erro do banco no meio de uma rotina
+        self.fail_on: set[tuple[str, str]] = set()
 
     def table(self, name: str) -> _Query:
         return _Query(self, name)
