@@ -15,10 +15,14 @@ Fixes from a review of the AI pipeline, the demo and the repository.
 ### Fixed
 - **Offline queue** — a failed retry no longer adds a copy of the item to the queue (the flush sends directly with `createDirect`); each item stores its `user_id`, only the signed-in user's items are sent, and signing out clears the queue
 - **CSV injection** — CSV exports from the API and from the browser prefix with an apostrophe any text cell that starts with `=`, `+`, `-`, `@`, tab or carriage return
+- **Categorization queue without a lock** — two calls to `POST /internal/process-queue` at the same time could take the same items. The worker now claims its batch with the SQL function `claim_categorization_queue`, which moves the items to `processing` in one `UPDATE` with `FOR UPDATE SKIP LOCKED`; an item left in `processing` for more than 15 minutes becomes eligible again. Apply `docs/migrations.sql` v2.3 before deploying the API
+- **Failed queue items were never retried** — an error now sends the item back to `pending` with `retry_count` and `error_message`, up to `max_retries` (3); after that it stays `failed`
+- **Recurring transactions and the balance** — `POST /internal/generate-recurring` wrote the transaction and then the balance in a separate call, and a failed balance write left the transaction behind. Both now go through the SQL function `create_transaction_with_balance`, in one database transaction
 
 ### Tests and CI
 - PDF readers: `detect_bank`, each of the seven readers and the Mercado Pago font fix, with synthetic statement text (`backend/tests/parsers/test_pdf_parser.py`)
-- Backend: 250 tests (185 before); frontend: 8 unit tests with `node --test`, without new dependencies (`npm test` in `frontend/`)
+- Backend lint: ruff (pinned to 0.17.4) runs before pytest in the backend job, with the default rules and the settings in `backend/ruff.toml`
+- Backend: 255 tests (185 before); frontend: 8 unit tests with `node --test`, without new dependencies (`npm test` in `frontend/`)
 - Lighthouse assertions now fail the build for accessibility and best practices (≥ 0.95) and SEO (≥ 0.6). The last three Lighthouse runs on `main` (2026-10-15) scored 1, 1 and 0.66 on those (the SEO score is held down by the "is-crawlable" audit)
 - Performance stays a warning (≥ 0.85), measured as the median of three runs: on the shared CI runner a single run went from 0.91–0.92 to 0.79 on 2026-10-19 with no change in the app
 - The duplicated `compileall` job is gone (pytest already covers the app; `demo_seed.py` keeps a syntax check); the contrast script runs after the E2E tests

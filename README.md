@@ -143,7 +143,7 @@ The root `vercel.json` sets the web app's security headers. Its Content-Security
 ### Tests
 
 ```bash
-# Backend: 250 tests (pytest)
+# Backend: 255 tests (pytest)
 cd backend && .venv\Scripts\python -m pytest tests -q
 
 # Frontend: 8 unit tests (node --test, no extra dependency): CSV export and the offline queue
@@ -153,7 +153,7 @@ cd frontend && npm test
 npm install && npx playwright install chromium && npm run e2e
 ```
 
-All of them run on GitHub Actions on every push to `main` and on pull requests. `frontend/scripts/checar-contraste.mjs` measures every pill and badge in the browser and fails below 4.5:1 contrast or 12 px; it runs after the E2E tests. There is also a screenshot script, `frontend/scripts/fotos/rodar.mjs`, that captures every screen, modal and empty state at 1366 and 375 pixels in both themes, and fails if the browser logged any error.
+All of them run on GitHub Actions on every push to `main` and on pull requests. In the backend job, ruff lints the code (rules in `backend/ruff.toml`) before pytest runs. `frontend/scripts/checar-contraste.mjs` measures every pill and badge in the browser and fails below 4.5:1 contrast or 12 px; it runs after the E2E tests. There is also a screenshot script, `frontend/scripts/fotos/rodar.mjs`, that captures every screen, modal and empty state at 1366 and 375 pixels in both themes, and fails if the browser logged any error.
 
 ---
 

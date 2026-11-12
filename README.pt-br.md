@@ -143,7 +143,7 @@ O `vercel.json` da raiz define os headers de segurança do site. A Content-Secur
 ### Testes
 
 ```bash
-# Backend: 250 testes (pytest)
+# Backend: 255 testes (pytest)
 cd backend && .venv\Scripts\python -m pytest tests -q
 
 # Frontend: 8 testes de unidade (node --test, sem dependência extra): exportação CSV e fila offline
@@ -153,7 +153,7 @@ cd frontend && npm test
 npm install && npx playwright install chromium && npm run e2e
 ```
 
-Todos rodam no GitHub Actions a cada envio ao `main` e em pull requests. O `frontend/scripts/checar-contraste.mjs` mede no navegador cada pílula e selo e falha abaixo de 4,5:1 de contraste ou de 12 px; ele roda depois dos testes E2E. Há também um roteiro de fotos, `frontend/scripts/fotos/rodar.mjs`, que fotografa cada tela, modal e estado vazio em 1366 e 375 pixels, nos dois temas, e falha se o navegador registrar qualquer erro.
+Todos rodam no GitHub Actions a cada envio ao `main` e em pull requests. No job do backend, o ruff confere o código (regras em `backend/ruff.toml`) antes do pytest. O `frontend/scripts/checar-contraste.mjs` mede no navegador cada pílula e selo e falha abaixo de 4,5:1 de contraste ou de 12 px; ele roda depois dos testes E2E. Há também um roteiro de fotos, `frontend/scripts/fotos/rodar.mjs`, que fotografa cada tela, modal e estado vazio em 1366 e 375 pixels, nos dois temas, e falha se o navegador registrar qualquer erro.
 
 ---
 

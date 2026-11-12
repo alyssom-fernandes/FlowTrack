@@ -91,6 +91,8 @@ Layers 1 and 2 cost nothing, so the model is only called for merchants it has no
 
 Transactions are saved immediately. A background worker processes the `categorization_queue` table every 5 minutes via cron-job.org → `POST /internal/process-queue`. The frontend shows the transaction without a category until then and picks up the category on the next load.
 
+The worker takes its batch with the SQL function `claim_categorization_queue` (`docs/migrations.sql` v2.3), which moves the items to `processing` in one `UPDATE` using `FOR UPDATE SKIP LOCKED`, so two calls at the same time never get the same item. An item that hits an error goes back to `pending` and is tried again on the next run, up to `max_retries` (3); after that it stays `failed`.
+
 ### Offline-First PWA
 
 Transactions created offline are stored in IndexedDB (Dexie.js) with `sync_status: pending`. When connectivity is restored:
@@ -110,6 +112,8 @@ CSV files are parsed entirely client-side (browser FileReader API). The user map
 `_adjust_account_balance()` in `_helpers.py` performs a read-then-write (fetch current balance → compute new balance → update). This is technically non-atomic and would be a risk in a multi-user or high-concurrency system.
 
 **Why this is acceptable here:** FlowTrack is a single-user personal finance app. Supabase RLS policies ensure each user only touches their own `accounts` rows, making concurrent writes from different users impossible. Concurrent writes from the *same* user are extremely unlikely in a personal finance context. A PostgreSQL `UPDATE accounts SET balance = balance + $delta WHERE id = $id` would be the production-scale solution if this assumption ever changes.
+
+The monthly recurring job (`POST /internal/generate-recurring`) runs unattended, so it does not use this helper: the SQL function `create_transaction_with_balance` (`docs/migrations.sql` v2.3) inserts the transaction and runs `balance = balance + amount` in one database transaction. If either write fails, neither is kept.
 
 ### Security Layers
 
