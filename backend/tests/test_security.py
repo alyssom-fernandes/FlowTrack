@@ -46,9 +46,9 @@ def _seed() -> dict:
 @pytest.fixture
 def api():
     """Cliente autenticado como Alice sobre um banco com dados da Alice e do Bob."""
-    from app.main import app
-    from app.core.security import get_current_user_id
     from app.core.rate_limit import limiter
+    from app.core.security import get_current_user_id
+    from app.main import app
 
     db = FakeSupabase(_seed())
     app.dependency_overrides[get_current_user_id] = lambda: ALICE
@@ -379,7 +379,7 @@ class TestMoreLimits:
         assert db.rows("transactions") == []
 
     def test_investment_with_foreign_account_is_404(self, api):
-        c, db = api
+        c, _db = api
         r = c.post("/api/v1/investments", json={"name": "CDB", "account_id": ACC_BOB, "total_invested": 10, "current_value": 10})
         assert r.status_code == 404
 
@@ -415,8 +415,8 @@ class TestRateLimitKey:
 class TestProductionSecrets:
     def _settings(self, **kw):
         from app.core.config import Settings
-        base = dict(supabase_url="https://x.supabase.co", supabase_anon_key="a", supabase_service_role_key="s",
-                    supabase_jwt_secret="z" * 40, internal_api_token="y" * 40, app_env="production")
+        base = {"supabase_url": "https://x.supabase.co", "supabase_anon_key": "a", "supabase_service_role_key": "s",
+                "supabase_jwt_secret": "z" * 40, "internal_api_token": "y" * 40, "app_env": "production"}
         base.update(kw)
         return Settings(_env_file=None, **base)
 

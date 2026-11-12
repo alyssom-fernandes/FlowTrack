@@ -1,0 +1,12 @@
+# Lint do backend, rodado no CI antes dos testes (.github/workflows/test.yml).
+# Regras padrão do ruff, com dois ajustes próprios do projeto.
+target-version = "py311"
+
+[lint]
+# Pegar Exception é de propósito nas rotinas em lote e nos passos opcionais: o erro vai para o log
+# e uma linha, um usuário ou um item da fila que falha não derruba o resto
+ignore = ["BLE001"]
+
+[lint.flake8-bugbear]
+# Depends, File, Form, Query e Security como valor padrão são o jeito do FastAPI declarar parâmetros
+extend-immutable-calls = ["fastapi.Depends", "fastapi.File", "fastapi.Form", "fastapi.Query", "fastapi.Security"]

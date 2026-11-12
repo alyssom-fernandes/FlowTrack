@@ -35,9 +35,9 @@ def base_tables(transactions=None):
 
 @contextmanager
 def api(tables):
-    from app.main import app
-    from app.core.security import get_current_user_id
     from app.core.rate_limit import limiter
+    from app.core.security import get_current_user_id
+    from app.main import app
     db = FakeSupabase(tables)
     app.dependency_overrides[get_current_user_id] = lambda: USER
     limiter.enabled = False

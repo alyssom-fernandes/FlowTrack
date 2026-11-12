@@ -1,10 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.core.security import get_current_user_id
+from app.api.v1._helpers import (
+    RESTORABLE_FIELDS,
+    _adjust_account_balance,
+    _first,
+    _require_account,
+    _require_category,
+)
 from app.core.database import get_supabase
 from app.core.logging import get_logger
+from app.core.security import get_current_user_id
 from app.models import AuditLogListResponse
-from app.api.v1._helpers import _adjust_account_balance, _first, _require_account, _require_category, RESTORABLE_FIELDS
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -82,7 +88,7 @@ def _undo(sb, user_id: str, log: dict) -> dict:
             if amt:
                 _adjust_account_balance(sb, user_id, restore["account_id"], amt)
 
-    elif action == "update":
+    elif action == "update":  # noqa: SIM102 - mesma forma do ramo "delete"
         if old_values:
             to_restore = {k: old_values[k] for k in RESTORABLE_FIELDS
                           if k in old_values and k not in ("description_normalized", "dedup_hash")}

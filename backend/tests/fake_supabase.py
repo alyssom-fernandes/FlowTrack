@@ -8,7 +8,6 @@ import copy
 import uuid
 from types import SimpleNamespace
 
-
 _DEFAULTS = {
     "transactions": {"currency": "BRL", "is_recurring": False, "sync_status": "synced"},
     "goals": {"currency": "BRL", "current_amount": 0.0, "is_active": True},

@@ -1,23 +1,27 @@
 """Tests for pure helper functions in routers.py"""
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pytest
 from datetime import date
+from typing import ClassVar
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.api.v1._helpers import (
-    normalize_desc,
-    dedup_hash,
-    calc_progress,
-    calc_profitability,
-    _goal_period_range,
     _calc_goal_current,
+    _goal_period_range,
     _parse_ofx,
     bills_by_category,
     budget_state,
+    calc_profitability,
+    calc_progress,
+    dedup_hash,
     expected_by,
     goal_limit_state,
+    normalize_desc,
     period_elapsed,
 )
 
@@ -319,7 +323,7 @@ def test_latest_installments_keeps_only_most_recent_per_purchase():
 # ── Ritmo do orçamento (mesma regra de frontend/src/lib/pace.ts) ──────
 class TestBudgetState:
     # Moradia da demonstração: aluguel e condomínio no dia 6, luz no dia 12, limite de R$ 2.250
-    MORADIA = [(6, 1650.0), (6, 380.0), (12, 168.0)]
+    MORADIA: ClassVar = [(6, 1650.0), (6, 380.0), (12, 168.0)]
 
     def test_fixed_bills_paid_are_not_a_warning(self):
         assert budget_state(2223.77, 2250, self.MORADIA, day=14, dim=31) == "paid"

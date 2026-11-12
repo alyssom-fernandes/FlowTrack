@@ -17,13 +17,14 @@ Lógica do reset inteligente:
 Requer backend/.env com SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.
 """
 
-import os
-import sys
 import hashlib
+import os
 import re
-from datetime import date, datetime, timedelta, timezone
+import sys
+from datetime import UTC, date, datetime, timedelta
+
 from dotenv import load_dotenv
-from supabase import create_client, Client
+from supabase import Client, create_client
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -108,7 +109,6 @@ def build_accounts(user_id: str) -> list[dict]:
 
 
 def build_transactions(user_id: str, nub_id: str, sic_id: str, cats: dict[str, str]) -> list[dict]:
-    today = date.today()
     m0 = month_start(0)
     m1 = month_start(1)
     m2 = month_start(2)
@@ -378,7 +378,7 @@ def sync_investments(user_id: str):
 
 def record_reset(user_id: str):
     sb.table("demo_users").upsert(
-        {"user_id": user_id, "last_reset": datetime.now(timezone.utc).isoformat()},
+        {"user_id": user_id, "last_reset": datetime.now(UTC).isoformat()},
         on_conflict="user_id",
     ).execute()
 

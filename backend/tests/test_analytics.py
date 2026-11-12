@@ -1,8 +1,9 @@
 """Tests for analytics, insights, and audit endpoints."""
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pytest
 from datetime import date
 from unittest.mock import MagicMock
 

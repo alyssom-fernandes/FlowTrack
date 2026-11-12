@@ -1,5 +1,6 @@
-import sentry_sdk
 from contextlib import asynccontextmanager
+
+import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -7,10 +8,10 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.api.v1.routers import internal_router, router
 from app.core.config import get_settings
-from app.core.logging import setup_logging, correlation_id_middleware, get_logger
-from app.core.rate_limit import limiter, MAX_UPLOAD_BYTES
-from app.api.v1.routers import router, internal_router
+from app.core.logging import correlation_id_middleware, get_logger, setup_logging
+from app.core.rate_limit import MAX_UPLOAD_BYTES, limiter
 
 settings = get_settings()
 setup_logging(settings.app_env)

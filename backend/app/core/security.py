@@ -1,9 +1,11 @@
 import hmac
 import time
+
 import httpx
 import jwt
-from fastapi import HTTPException, Security, Header
+from fastapi import Header, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from app.core.config import get_settings
 from app.core.logging import get_logger
 

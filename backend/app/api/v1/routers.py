@@ -2,16 +2,16 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     accounts,
-    transactions,
-    imports,
-    goals,
-    investments,
-    categories,
-    budgets,
     analytics,
-    insights,
     audit,
+    budgets,
+    categories,
+    goals,
+    imports,
+    insights,
     internal,
+    investments,
+    transactions,
 )
 
 router = APIRouter()

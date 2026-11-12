@@ -3,10 +3,10 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends
 
-from app.core.security import verify_internal_token
+from app.api.v1._helpers import dedup_hash, normalize_desc
 from app.core.database import get_supabase
 from app.core.logging import get_logger
-from app.api.v1._helpers import normalize_desc, dedup_hash
+from app.core.security import verify_internal_token
 
 router = APIRouter()
 logger = get_logger(__name__)

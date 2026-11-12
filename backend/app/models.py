@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field, StringConstraints
-from typing import Annotated, Literal, Optional
 from datetime import date, datetime
 from enum import Enum
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field, StringConstraints
 
 
 # ── Enums ─────────────────────────────────────────────────
@@ -31,9 +32,9 @@ class AccountCreate(BaseModel):
     balance: float = 0.0
 
 class AccountUpdate(BaseModel):
-    name: Optional[str] = None; bank_name: Optional[str] = None
-    bank_color: Optional[str] = None; account_type: Optional[str] = None
-    balance: Optional[float] = None; is_active: Optional[bool] = None
+    name: str | None = None; bank_name: str | None = None
+    bank_color: str | None = None; account_type: str | None = None
+    balance: float | None = None; is_active: bool | None = None
 
 class AccountResponse(BaseModel):
     id: str; user_id: str; name: str; bank_name: str; bank_color: str
@@ -46,33 +47,33 @@ class AccountListResponse(BaseModel):
 
 # ── Transaction ───────────────────────────────────────────
 class TransactionCreate(BaseModel):
-    account_id: str; category_id: Optional[str] = None
+    account_id: str; category_id: str | None = None
     description: str = Field(..., min_length=1, max_length=300)
     amount: float = Field(..., description="Negative = debit, positive = credit")
     currency: str = "BRL"; transaction_date: date; type: str = "debit"
-    is_recurring: bool = False; installment_current: Optional[int] = None
-    installment_total: Optional[int] = None; notes: Optional[str] = Field(None, max_length=1000)
-    tags: Optional[list[str]] = Field(None, max_length=20)
+    is_recurring: bool = False; installment_current: int | None = None
+    installment_total: int | None = None; notes: str | None = Field(None, max_length=1000)
+    tags: list[str] | None = Field(None, max_length=20)
 
 class TransactionUpdate(BaseModel):
-    account_id: Optional[str] = None; category_id: Optional[str] = None
-    description: Optional[str] = None; amount: Optional[float] = None
-    transaction_date: Optional[date] = None; type: Optional[str] = None
-    is_recurring: Optional[bool] = None; notes: Optional[str] = None
-    categorized_by: Optional[CategorizedByEnum] = None
-    tags: Optional[list[str]] = None
+    account_id: str | None = None; category_id: str | None = None
+    description: str | None = None; amount: float | None = None
+    transaction_date: date | None = None; type: str | None = None
+    is_recurring: bool | None = None; notes: str | None = None
+    categorized_by: CategorizedByEnum | None = None
+    tags: list[str] | None = None
 
 class TransactionResponse(BaseModel):
-    id: str; user_id: str; account_id: str; category_id: Optional[str] = None
-    description: str; description_normalized: Optional[str] = None
+    id: str; user_id: str; account_id: str; category_id: str | None = None
+    description: str; description_normalized: str | None = None
     amount: float; currency: str; transaction_date: date; type: str
-    is_recurring: bool; installment_current: Optional[int] = None
-    installment_total: Optional[int] = None
-    categorized_by: Optional[CategorizedByEnum] = None
-    confidence_score: Optional[float] = None
-    import_batch_id: Optional[str] = None; parser_version: Optional[str] = None
-    sync_status: SyncStatusEnum; notes: Optional[str] = None
-    tags: Optional[list[str]] = None
+    is_recurring: bool; installment_current: int | None = None
+    installment_total: int | None = None
+    categorized_by: CategorizedByEnum | None = None
+    confidence_score: float | None = None
+    import_batch_id: str | None = None; parser_version: str | None = None
+    sync_status: SyncStatusEnum; notes: str | None = None
+    tags: list[str] | None = None
     created_at: datetime; updated_at: datetime
 
 class TransactionListResponse(BaseModel):
@@ -87,29 +88,29 @@ GoalColor = Literal["accent", "cat-1", "cat-2", "cat-3", "cat-5", "cat-6", "cat-
 GoalIcon = Annotated[str, StringConstraints(max_length=40, pattern=r"^[a-z][a-z-]*$")]
 
 class GoalCreate(BaseModel):
-    category_id: Optional[str] = None
+    category_id: str | None = None
     name: str = Field(..., min_length=1, max_length=100)
     type: GoalTypeEnum; target_amount: float = Field(..., gt=0)
     currency: str = "BRL"; period: str = "monthly"
-    start_date: date; end_date: Optional[date] = None
-    color: Optional[GoalColor] = None
-    icon: Optional[GoalIcon] = None
+    start_date: date; end_date: date | None = None
+    color: GoalColor | None = None
+    icon: GoalIcon | None = None
 
 class GoalUpdate(BaseModel):
-    name: Optional[str] = None; target_amount: Optional[float] = None
-    period: Optional[str] = None
-    end_date: Optional[date] = None; is_active: Optional[bool] = None
-    color: Optional[GoalColor] = None
-    icon: Optional[GoalIcon] = None
+    name: str | None = None; target_amount: float | None = None
+    period: str | None = None
+    end_date: date | None = None; is_active: bool | None = None
+    color: GoalColor | None = None
+    icon: GoalIcon | None = None
 
 class GoalResponse(BaseModel):
-    id: str; user_id: str; category_id: Optional[str] = None
+    id: str; user_id: str; category_id: str | None = None
     name: str; type: GoalTypeEnum; target_amount: float
     current_amount: float; currency: str; period: str
-    start_date: date; end_date: Optional[date] = None
+    start_date: date; end_date: date | None = None
     is_active: bool; progress_percent: float = 0.0
     # Linhas antigas guardam o que o banco tiver; só a entrada é validada
-    color: Optional[str] = None; icon: Optional[str] = None
+    color: str | None = None; icon: str | None = None
     created_at: datetime; updated_at: datetime
 
 class GoalListResponse(BaseModel):
@@ -118,26 +119,26 @@ class GoalListResponse(BaseModel):
 
 # ── Investment ────────────────────────────────────────────
 class InvestmentCreate(BaseModel):
-    account_id: Optional[str] = None
+    account_id: str | None = None
     name: str = Field(..., min_length=1, max_length=100)
     type: InvestmentTypeEnum = InvestmentTypeEnum.outro
-    institution: Optional[str] = None
+    institution: str | None = None
     total_invested: float = Field(default=0.0, ge=0)
     current_value: float = Field(default=0.0, ge=0)
-    currency: str = "BRL"; notes: Optional[str] = None
+    currency: str = "BRL"; notes: str | None = None
 
 class InvestmentUpdate(BaseModel):
-    name: Optional[str] = None; type: Optional[InvestmentTypeEnum] = None
-    institution: Optional[str] = None; total_invested: Optional[float] = None
-    current_value: Optional[float] = None; notes: Optional[str] = None
-    is_active: Optional[bool] = None
+    name: str | None = None; type: InvestmentTypeEnum | None = None
+    institution: str | None = None; total_invested: float | None = None
+    current_value: float | None = None; notes: str | None = None
+    is_active: bool | None = None
 
 class InvestmentResponse(BaseModel):
-    id: str; user_id: str; account_id: Optional[str] = None
-    name: str; type: InvestmentTypeEnum; institution: Optional[str] = None
+    id: str; user_id: str; account_id: str | None = None
+    name: str; type: InvestmentTypeEnum; institution: str | None = None
     total_invested: float; current_value: float; currency: str
     profitability: float = 0.0; profitability_percent: float = 0.0
-    notes: Optional[str] = None; is_active: bool
+    notes: str | None = None; is_active: bool
     created_at: datetime; updated_at: datetime
 
 class InvestmentListResponse(BaseModel):
@@ -150,16 +151,16 @@ class InvestmentListResponse(BaseModel):
 class CategoryCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=60)
     color: str = "#9D2449"
-    icon: Optional[str] = None
+    icon: str | None = None
 
 class CategoryUpdate(BaseModel):
-    name: Optional[str] = None
-    color: Optional[str] = None
-    icon: Optional[str] = None
+    name: str | None = None
+    color: str | None = None
+    icon: str | None = None
 
 class CategoryResponse(BaseModel):
-    id: str; user_id: Optional[str] = None
-    name: str; icon: Optional[str] = None; color: str
+    id: str; user_id: str | None = None
+    name: str; icon: str | None = None; color: str
     is_default: bool; created_at: datetime
 
 class CategoryListResponse(BaseModel):
@@ -173,7 +174,7 @@ class TransferCreate(BaseModel):
     amount: float = Field(..., gt=0, description="Positive amount to transfer")
     description: str = "Transferência"
     transaction_date: date
-    notes: Optional[str] = None
+    notes: str | None = None
 
 # ── Import ────────────────────────────────────────────────
 class ParsedTransactionItem(BaseModel):
@@ -182,9 +183,9 @@ class ParsedTransactionItem(BaseModel):
     transaction_date: date
     type: str = 'debit'
     # Categoria conferida na revisão da importação: a sugestão aceita ("rule") ou a escolha da pessoa ("manual")
-    category_id: Optional[str] = None
-    categorized_by: Optional[Literal['rule', 'manual']] = None
-    confidence_score: Optional[float] = Field(None, ge=0, le=1)
+    category_id: str | None = None
+    categorized_by: Literal['rule', 'manual'] | None = None
+    confidence_score: float | None = Field(None, ge=0, le=1)
 
 class BulkTransactionCreate(BaseModel):
     account_id: str
@@ -206,7 +207,7 @@ class BudgetCreate(BaseModel):
     limit_amount: float = Field(..., gt=0)
 
 class BudgetUpdate(BaseModel):
-    limit_amount: Optional[float] = Field(None, gt=0)
+    limit_amount: float | None = Field(None, gt=0)
 
 class BudgetResponse(BaseModel):
     id: str; user_id: str; category_id: str; month: str
@@ -214,8 +215,8 @@ class BudgetResponse(BaseModel):
 
 class BudgetWithSpending(BudgetResponse):
     spent: float; percent: float
-    category_name: Optional[str] = None
-    category_color: Optional[str] = None
+    category_name: str | None = None
+    category_color: str | None = None
 
 class BudgetListResponse(BaseModel):
     budgets: list[BudgetWithSpending]; total: int
@@ -226,8 +227,8 @@ class AlertItem(BaseModel):
     type: str  # 'danger' | 'warning' | 'info'
     message: str
     category: str  # 'budget' | 'goal' | 'account' | 'uncategorized' | 'recurring'
-    subject: Optional[str] = None  # nome da categoria, meta ou recorrente (para agrupar na tela)
-    amount: Optional[float] = None
+    subject: str | None = None  # nome da categoria, meta ou recorrente (para agrupar na tela)
+    amount: float | None = None
 
 class AlertListResponse(BaseModel):
     alerts: list[AlertItem]; total: int
@@ -306,8 +307,8 @@ class AuditLogEntry(BaseModel):
     entity_type: str
     entity_id: str
     action: str
-    old_values: Optional[dict] = None
-    new_values: Optional[dict] = None
+    old_values: dict | None = None
+    new_values: dict | None = None
     undone: bool = False
     created_at: datetime
 

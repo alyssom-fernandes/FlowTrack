@@ -230,7 +230,6 @@ class TestGoals:
         txn_q.execute.return_value = MagicMock(data=[{"amount": -120.0}])
 
         # First call is goals table, subsequent calls are transactions
-        call_count = [0]
         def side_effect(table_name):
             m = MagicMock()
             if table_name == "goals":

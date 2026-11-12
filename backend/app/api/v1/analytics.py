@@ -3,12 +3,29 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.core.security import get_current_user_id
+from app.api.v1._helpers import (
+    _calc_goal_current,
+    _first,
+    _goal_period_range,
+    bills_by_category,
+    brl,
+    budget_state,
+    goal_limit_state,
+    is_transfer,
+    latest_installments,
+    month_shift,
+    normalize_desc,
+    period_elapsed,
+)
 from app.core.database import get_supabase
 from app.core.logging import get_logger
-from app.models import AlertListResponse, NetWorthResponse, ProjectionResponse, MonthData
-from app.api.v1._helpers import (normalize_desc, _calc_goal_current, _goal_period_range, is_transfer, latest_installments, _first, brl,
-                                  month_shift, bills_by_category, budget_state, goal_limit_state, period_elapsed)
+from app.core.security import get_current_user_id
+from app.models import (
+    AlertListResponse,
+    MonthData,
+    NetWorthResponse,
+    ProjectionResponse,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -133,7 +150,7 @@ async def list_alerts(user_id: str = Depends(get_current_user_id)):
                     alerts.append({"type": "warning", "message": f'Orçamento “{cat_name}” acima do ritmo, faltam {brl(remaining)}', "category": "budget", "subject": cat_name, "amount": remaining})
                 else:
                     alerts.append({"type": "danger", "message": f'Orçamento “{cat_name}” estourado em {brl(-remaining)}', "category": "budget", "subject": cat_name, "amount": -remaining})
-        except Exception:
+        except Exception:  # noqa: S110 - se os orçamentos falharem, os outros alertas seguem
             pass
 
         return AlertListResponse(alerts=alerts, total=len(alerts))
@@ -176,7 +193,7 @@ async def cashflow_projection(user_id: str = Depends(get_current_user_id)):
                 continue
             seen_rec.add(norm)
             base = date.fromisoformat(r["transaction_date"])
-            for delta_m in range(0, 3):
+            for delta_m in range(3):
                 year = today.year + (today.month - 1 + delta_m) // 12
                 month = (today.month - 1 + delta_m) % 12 + 1
                 day = min(base.day, cal.monthrange(year, month)[1])

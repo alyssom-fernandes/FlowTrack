@@ -8,14 +8,14 @@ import re
 
 # (padrão, categoria padrão, confiança)
 RULES: list[tuple[re.Pattern, str, float]] = [
-    (re.compile(r"mercad|supermerc|zaffari|carrefour|hortifruti|p[aã]o de a[cç]|atacad|assa[ií]", re.I), "Alimentação", 0.94),
-    (re.compile(r"ifood|burger|restaur|padaria|lanch|pizza|caf[eé]", re.I), "Alimentação", 0.91),
-    (re.compile(r"uber|\b99\b|t[aá]xi|shell|posto|ipiranga|combust|estacion", re.I), "Transporte", 0.95),
-    (re.compile(r"drogasil|raia|farm[aá]c|droga|cl[ií]nic|consulta", re.I), "Saúde", 0.92),
-    (re.compile(r"livrar|curso|alura|udemy|escola", re.I), "Educação", 0.9),
-    (re.compile(r"netflix|spotify|prime|globoplay|disney|assinatura", re.I), "Assinaturas", 0.97),
-    (re.compile(r"cinema|cinemark|steam|show|ingresso", re.I), "Lazer", 0.88),
-    (re.compile(r"renner|riachuelo|zara|c&a|roupa", re.I), "Vestuário", 0.9),
+    (re.compile(r"mercad|supermerc|zaffari|carrefour|hortifruti|p[aã]o de a[cç]|atacad|assa[ií]", re.IGNORECASE), "Alimentação", 0.94),
+    (re.compile(r"ifood|burger|restaur|padaria|lanch|pizza|caf[eé]", re.IGNORECASE), "Alimentação", 0.91),
+    (re.compile(r"uber|\b99\b|t[aá]xi|shell|posto|ipiranga|combust|estacion", re.IGNORECASE), "Transporte", 0.95),
+    (re.compile(r"drogasil|raia|farm[aá]c|droga|cl[ií]nic|consulta", re.IGNORECASE), "Saúde", 0.92),
+    (re.compile(r"livrar|curso|alura|udemy|escola", re.IGNORECASE), "Educação", 0.9),
+    (re.compile(r"netflix|spotify|prime|globoplay|disney|assinatura", re.IGNORECASE), "Assinaturas", 0.97),
+    (re.compile(r"cinema|cinemark|steam|show|ingresso", re.IGNORECASE), "Lazer", 0.88),
+    (re.compile(r"renner|riachuelo|zara|c&a|roupa", re.IGNORECASE), "Vestuário", 0.9),
 ]
 
 

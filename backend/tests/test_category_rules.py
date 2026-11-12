@@ -2,8 +2,16 @@
 mesma descrição, vale antes das regras fixas e da IA, e aparece como sugestão na prévia da importação.
 A demonstração do navegador segue as mesmas regras (frontend/src/demo/backend.ts)."""
 from tests.test_helpers import OFX_WITH_CLOSE_TAGS
-from tests.test_review import ACC, CAT_FOOD, CAT_OTHER_USER, OTHER, USER, api, base_tables, tx
-from tests.test_security import _run_worker, _tx, _worker_db, ALICE
+from tests.test_review import (
+    CAT_FOOD,
+    CAT_OTHER_USER,
+    OTHER,
+    USER,
+    api,
+    base_tables,
+    tx,
+)
+from tests.test_security import ALICE, _run_worker, _tx, _worker_db
 
 CAT_TECH = "cat-health"   # categoria padrão qualquer, diferente da que a IA deu
 
@@ -77,7 +85,7 @@ class TestRuleInImportPreview:
         # No OFX de exemplo, "SUPERMERCADO ABC" casaria com a regra fixa de Alimentação (0,94)
         files = {"file": ("extrato.ofx", OFX_WITH_CLOSE_TAGS, "application/x-ofx")}
         t = tables([])
-        with api(t) as (c, db):
+        with api(t) as (c, _db):
             debit_desc = next(x for x in c.post("/api/v1/import/ofx/parse", files=files).json()["transactions"] if x["amount"] < 0)["description"]
             c.post("/api/v1/category-rules", json={"description": debit_desc, "category_id": CAT_TECH})
             debit = next(x for x in c.post("/api/v1/import/ofx/parse", files=files).json()["transactions"] if x["amount"] < 0)

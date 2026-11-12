@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.security import get_current_user_id
+from app.api.v1._helpers import _calc_goal_current, _require_category, calc_progress
 from app.core.database import get_supabase
 from app.core.logging import get_logger
-from app.models import GoalCreate, GoalUpdate, GoalResponse, GoalListResponse
-from app.api.v1._helpers import calc_progress, _calc_goal_current, _require_category
+from app.core.security import get_current_user_id
+from app.models import GoalCreate, GoalListResponse, GoalResponse, GoalUpdate
 
 router = APIRouter()
 logger = get_logger(__name__)

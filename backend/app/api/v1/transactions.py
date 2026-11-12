@@ -2,22 +2,35 @@ import csv
 import io
 import uuid
 from datetime import date
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
-from app.core.security import get_current_user_id
+from app.api.v1._helpers import (
+    NEEDS_REVIEW_FILTER,
+    _adjust_account_balance,
+    _first,
+    _require_account,
+    _require_category,
+    _serialize,
+    _write_audit,
+    csv_safe,
+    dedup_hash,
+    normalize_desc,
+    rule_key,
+)
 from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
+from app.core.security import get_current_user_id
 from app.models import (
-    TransactionCreate, TransactionUpdate, TransactionResponse, TransactionListResponse,
-    BulkTransactionCreate, TransferCreate, CategoryRuleCreate,
-)
-from app.api.v1._helpers import (
-    normalize_desc, dedup_hash, _adjust_account_balance, _write_audit, _serialize,
-    _first, _require_account, _require_category, NEEDS_REVIEW_FILTER, rule_key, csv_safe,
+    BulkTransactionCreate,
+    CategoryRuleCreate,
+    TransactionCreate,
+    TransactionListResponse,
+    TransactionResponse,
+    TransactionUpdate,
+    TransferCreate,
 )
 
 router = APIRouter()
@@ -26,10 +39,10 @@ logger = get_logger(__name__)
 
 @router.get("/transactions", response_model=TransactionListResponse, tags=["Transactions"])
 async def list_transactions(
-    account_id: Optional[str] = Query(None), category_id: Optional[str] = Query(None),
-    start_date: Optional[date] = Query(None), end_date: Optional[date] = Query(None),
-    type: Optional[str] = Query(None), search: Optional[str] = Query(None),
-    tag: Optional[str] = Query(None),
+    account_id: str | None = Query(None), category_id: str | None = Query(None),
+    start_date: date | None = Query(None), end_date: date | None = Query(None),
+    type: str | None = Query(None), search: str | None = Query(None),
+    tag: str | None = Query(None),
     needs_review: bool = Query(False, description="Só as sem categoria ou categorizadas pela IA com pouca confiança"),
     page: int = Query(default=1, ge=1), page_size: int = Query(default=50, ge=1, le=500),
     user_id: str = Depends(get_current_user_id),
@@ -264,8 +277,8 @@ async def create_category_rule(request: Request, body: CategoryRuleCreate, user_
 
 @router.get("/export/transactions", tags=["Export"])
 async def export_transactions(
-    start_date: Optional[date] = None, end_date: Optional[date] = None,
-    account_id: Optional[str] = None, user_id: str = Depends(get_current_user_id),
+    start_date: date | None = None, end_date: date | None = None,
+    account_id: str | None = None, user_id: str = Depends(get_current_user_id),
 ):
     try:
         q = get_supabase().table("transactions").select("*").eq("user_id", user_id)

@@ -3,12 +3,12 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.core.security import get_current_user_id
+from app.api.v1._helpers import visible_categories_filter
 from app.core.database import get_supabase
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
+from app.core.security import get_current_user_id
 from app.models import InsightPeriod, InsightResponse
-from app.api.v1._helpers import visible_categories_filter
 
 router = APIRouter()
 logger = get_logger(__name__)

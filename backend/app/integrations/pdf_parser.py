@@ -3,9 +3,9 @@ PDF statement parser for Brazilian banks.
 Supported: Nubank (extrato/fatura), Sicredi (extrato/fatura),
            Mercado Pago (extrato/fatura), Will Bank (fatura).
 """
-import re
 import io
-from typing import Optional
+import re
+
 import pdfplumber
 
 MONTHS_BR: dict[str, int] = {
@@ -18,11 +18,11 @@ _SKIP = re.compile(
     r'(tem alguma d[úu]vida|extrato gerado|caso a solu|nu financeira|nu pagamentos'
     r'|ouvidoria|0800|cnpj|sac |de 8h|capitais e regi|demais local'
     r'|asseguramos|responsabiliz|autenticidade)',
-    re.I,
+    re.IGNORECASE,
 )
 
 
-def _amount(s: str) -> Optional[float]:
+def _amount(s: str) -> float | None:
     s = re.sub(r'[R$\s−–]', '', s).strip()
     s = s.replace('.', '').replace(',', '.')
     try:
@@ -203,8 +203,8 @@ def _sicredi_fatura(data: bytes) -> list[dict]:
                 # dm.end() is now right after "HH:MM", not end of string
                 rest_of_line = line[dm.end():].strip()
 
-                is_neg = bool(re.search(r'[-−]\s*R\$', rest_of_line, re.I))
-                am = re.search(r'([-−]?\s*R\$\s*[\d.]+,\d{2})\s*$', rest_of_line, re.I)
+                is_neg = bool(re.search(r'[-−]\s*R\$', rest_of_line, re.IGNORECASE))
+                am = re.search(r'([-−]?\s*R\$\s*[\d.]+,\d{2})\s*$', rest_of_line, re.IGNORECASE)
                 if not am:
                     continue
 
@@ -214,7 +214,7 @@ def _sicredi_fatura(data: bytes) -> list[dict]:
 
                 desc_raw = rest_of_line[:am.start()].strip()
                 # Remove "City Presencial/Online" prefix
-                desc_clean = re.sub(r'^[\w\sÀ-ú]+\s+(presencial|online)\s*', '', desc_raw, flags=re.I).strip()
+                desc_clean = re.sub(r'^[\w\sÀ-ú]+\s+(presencial|online)\s*', '', desc_raw, flags=re.IGNORECASE).strip()
                 # Remove parcela "01/02"
                 desc_clean = re.sub(r'\s+\d{2}/\d{2}\s*$', '', desc_clean).strip()
                 if not desc_clean:
@@ -238,11 +238,11 @@ def _nubank_extrato(data: bytes) -> list[dict]:
         for page in pdf.pages:
             all_lines.extend((page.extract_text() or '').split('\n'))
 
-    current_date: Optional[str] = None
+    current_date: str | None = None
     is_credit = True
     desc_buf: list[str] = []
 
-    def emit(amt: Optional[float]) -> None:
+    def emit(amt: float | None) -> None:
         nonlocal desc_buf
         if desc_buf and amt and current_date:
             desc = ' '.join(desc_buf)[:150]
@@ -261,7 +261,7 @@ def _nubank_extrato(data: bytes) -> list[dict]:
         lo = line.lower()
 
         # Date at start (without $ anchor) — rest of line may have direction
-        dm = re.match(r'^(\d{2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+(\d{4})(.*)', line, re.I)
+        dm = re.match(r'^(\d{2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+(\d{4})(.*)', line, re.IGNORECASE)
         if dm:
             emit(None)
             d, ms, y, rest = dm.groups()
@@ -325,7 +325,7 @@ def _nubank_fatura(data: bytes) -> list[dict]:
         full = '\n'.join(p.extract_text() or '' for p in pdf.pages)
 
     # Year + month from "FATURA 14 ABR 2026"
-    fm = re.search(r'FATURA\s+\d+\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+(\d{4})', full, re.I)
+    fm = re.search(r'FATURA\s+\d+\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+(\d{4})', full, re.IGNORECASE)
     fatura_month = MONTHS_UP.get(fm.group(1).upper(), 1) if fm else 1
     fatura_year  = int(fm.group(2)) if fm else 2026
 
@@ -335,7 +335,7 @@ def _nubank_fatura(data: bytes) -> list[dict]:
     pat = re.compile(
         r'^(\d{2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)'
         r'\s+(.*?)\s+([-−]?R\$\s*[\d.]+,\d{2})$',
-        re.I | re.MULTILINE,
+        re.IGNORECASE | re.MULTILINE,
     )
     for m in pat.finditer(text):
         day, mon, desc, val = m.groups()
@@ -364,7 +364,7 @@ def _mp_extrato(data: bytes) -> list[dict]:
     with pdfplumber.open(io.BytesIO(data)) as pdf:
         for page in pdf.pages:
             table = page.extract_table()
-            if table and len(table) > 1 and len((table[1] or [])) >= 4:
+            if table and len(table) > 1 and len(table[1] or []) >= 4:
                 # Table found and looks real
                 for row in table:
                     if not row or len(row) < 4:
@@ -402,7 +402,7 @@ def _mp_extrato(data: bytes) -> list[dict]:
                 elif re.match(r'^\d{2}-\d{2}-\d{4}', line):
                     prev_desc = ''
                     last_was_tx = True
-                elif line and not re.match(r'^(Data|Descri|ID da|Valor|Saldo|Entradas|Saidas|DETALHE|Saldo final|Saldo inicial)', line, re.I):
+                elif line and not re.match(r'^(Data|Descri|ID da|Valor|Saldo|Entradas|Saidas|DETALHE|Saldo final|Saldo inicial)', line, re.IGNORECASE):
                     if not last_was_tx:
                         prev_desc = line
                     last_was_tx = False
@@ -438,7 +438,7 @@ def _mp_fatura(data: bytes) -> list[dict]:
                 if amt is None:
                     continue
                 is_payment = 'pagamento' in desc.lower()
-                desc = re.sub(r'\s+Parcela\s+\d+\s+de\s+\d+', '', desc, flags=re.I).strip()
+                desc = re.sub(r'\s+Parcela\s+\d+\s+de\s+\d+', '', desc, flags=re.IGNORECASE).strip()
                 final = amt if is_payment else -amt
                 txns.append(_tx(desc, final, _iso(day_s, month_num, year)))
     return txns
@@ -455,9 +455,9 @@ def _will_fatura(data: bytes) -> list[dict]:
     in_txns = False
     for line in full.split('\n'):
         line = line.strip()
-        if re.search(r'(Gastos|Compras à vista|Parcelamentos|Lançamentos de)', line, re.I):
+        if re.search(r'(Gastos|Compras à vista|Parcelamentos|Lançamentos de)', line, re.IGNORECASE):
             in_txns = True; continue
-        if re.search(r'(Recebidos|Os valores em detalhes|Próximas faturas|Tim-tim)', line, re.I):
+        if re.search(r'(Recebidos|Os valores em detalhes|Próximas faturas|Tim-tim)', line, re.IGNORECASE):
             in_txns = False; continue
         if not in_txns:
             continue
@@ -465,7 +465,7 @@ def _will_fatura(data: bytes) -> list[dict]:
         m = re.search(
             r'(\d{2}/\d{2}/\d{4})\s+Cart[aã]o\s+\d+\s*(?:Parcela\s+\d+\s+de\s+\d+\s*)?'
             r'(\+?)R\$\s*([\d.]+,\d{2})$',
-            line, re.I,
+            line, re.IGNORECASE,
         )
         if not m:
             continue
@@ -477,7 +477,7 @@ def _will_fatura(data: bytes) -> list[dict]:
         amt = _amount(amt_str)
         if amt is None:
             continue
-        is_payment = bool(plus_flag) or re.search(r'pag.*(fatura|saldo)', desc, re.I) is not None
+        is_payment = bool(plus_flag) or re.search(r'pag.*(fatura|saldo)', desc, re.IGNORECASE) is not None
         final = amt if is_payment else -amt
         txns.append(_tx(desc, final, _iso(d, mo, y)))
     return txns

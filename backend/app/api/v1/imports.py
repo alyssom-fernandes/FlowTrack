@@ -1,10 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
-from app.core.security import get_current_user_id
+from app.api.v1._helpers import (
+    _adjust_account_balance,
+    _parse_ofx,
+    _require_account,
+    dedup_hash,
+    normalize_desc,
+    suggest_categories,
+)
 from app.core.database import get_supabase
 from app.core.logging import get_logger
-from app.core.rate_limit import limiter, MAX_UPLOAD_BYTES
-from app.api.v1._helpers import normalize_desc, dedup_hash, _adjust_account_balance, _parse_ofx, _require_account, suggest_categories
+from app.core.rate_limit import MAX_UPLOAD_BYTES, limiter
+from app.core.security import get_current_user_id
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -22,7 +29,7 @@ async def _read_upload(file: UploadFile) -> bytes:
 @limiter.limit("10/minute")
 async def parse_pdf_preview(request: Request, file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
     """Parse PDF and return transactions without saving — for preview before import."""
-    from app.integrations.pdf_parser import parse_pdf, BANK_LABELS
+    from app.integrations.pdf_parser import BANK_LABELS, parse_pdf
     if not (file.filename or '').lower().endswith('.pdf'):
         raise HTTPException(400, "O arquivo deve ser um PDF.")
     pdf_bytes = await _read_upload(file)
@@ -52,7 +59,7 @@ async def import_pdf(
     file: UploadFile = File(...),
     user_id: str = Depends(get_current_user_id),
 ):
-    from app.integrations.pdf_parser import parse_pdf, BANK_LABELS
+    from app.integrations.pdf_parser import BANK_LABELS, parse_pdf
     if not (file.filename or '').lower().endswith('.pdf'):
         raise HTTPException(400, "O arquivo deve ser um PDF.")
     sb = get_supabase()
@@ -101,7 +108,7 @@ async def import_pdf(
 @limiter.limit("10/minute")
 async def parse_ofx_preview(request: Request, file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
     filename = (file.filename or "").lower()
-    if not (filename.endswith(".ofx") or filename.endswith(".qfx")):
+    if not filename.endswith((".ofx", ".qfx")):
         raise HTTPException(400, "O arquivo deve ser OFX ou QFX.")
     content = await _read_upload(file)
     transactions = _parse_ofx(content)

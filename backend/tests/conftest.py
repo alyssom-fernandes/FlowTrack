@@ -1,9 +1,12 @@
 """Shared fixtures for integration tests."""
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 TEST_USER_ID    = "test-user-00000000-0000-0000-0000-000000000001"
@@ -46,9 +49,9 @@ def sb():
 @pytest.fixture
 def client(sb):
     sb_mock, _ = sb
-    from app.main import app
-    from app.core.security import get_current_user_id
     from app.core.database import get_supabase
+    from app.core.security import get_current_user_id
+    from app.main import app
 
     # Clear lru_cache so patch works
     get_supabase.cache_clear()

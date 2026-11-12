@@ -5,6 +5,7 @@ ou outra quando o caso pede (janeiro, para a janela de dois meses).
 """
 from contextlib import ExitStack, contextmanager
 from datetime import date
+from typing import ClassVar
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -25,9 +26,9 @@ def fixed_date(y, m, d):
 
 @contextmanager
 def api(tables, today=(2026, 10, 13)):
-    from app.main import app
-    from app.core.security import get_current_user_id
     from app.core.rate_limit import limiter
+    from app.core.security import get_current_user_id
+    from app.main import app
     db = FakeSupabase(tables)
     app.dependency_overrides[get_current_user_id] = lambda: USER
     limiter.enabled = False
@@ -87,7 +88,7 @@ def cat_tx(desc, amount, day, cat="cat-1", recurring=False):
 
 class TestBudgetPaceAlert:
     """O alerta segue o mesmo estado da barra e da pílula (lib/pace.ts, budgetState)."""
-    CATS = [{"id": "cat-1", "name": "Moradia", "user_id": None, "is_default": True},
+    CATS: ClassVar = [{"id": "cat-1", "name": "Moradia", "user_id": None, "is_default": True},
             {"id": "cat-2", "name": "Lazer", "user_id": None, "is_default": True}]
 
     def tables(self, budgets, transactions):

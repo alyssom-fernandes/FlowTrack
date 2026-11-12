@@ -1,5 +1,6 @@
 import logging
 import uuid
+
 import structlog
 from fastapi import Request
 

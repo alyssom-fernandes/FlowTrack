@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.security import get_current_user_id
+from app.api.v1._helpers import _require_account, calc_profitability
 from app.core.database import get_supabase
 from app.core.logging import get_logger
-from app.models import InvestmentCreate, InvestmentUpdate, InvestmentResponse, InvestmentListResponse
-from app.api.v1._helpers import calc_profitability
-
-from app.api.v1._helpers import _require_account
+from app.core.security import get_current_user_id
+from app.models import (
+    InvestmentCreate,
+    InvestmentListResponse,
+    InvestmentResponse,
+    InvestmentUpdate,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)

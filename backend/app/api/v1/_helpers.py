@@ -1,6 +1,5 @@
 import hashlib
 import re
-import calendar as cal
 from datetime import date, timedelta
 
 from fastapi import HTTPException
@@ -292,7 +291,7 @@ def _parse_ofx(content: bytes) -> list[dict]:
         blocks = re.findall(r"<STMTTRN>(.*?)(?=<STMTTRN>|</BANKTRANLIST>|$)", text, re.DOTALL | re.IGNORECASE)
     txns = []
     for block in blocks:
-        def _field(tag: str) -> str:
+        def _field(tag: str, block: str = block) -> str:
             m = re.search(rf"<{tag}>([^\n<]+)", block, re.IGNORECASE)
             return m.group(1).strip() if m else ""
         dtposted = _field("DTPOSTED")
@@ -303,7 +302,7 @@ def _parse_ofx(content: bytes) -> list[dict]:
             continue
         try:
             tx_date = f"{dtposted[:4]}-{dtposted[4:6]}-{dtposted[6:8]}"
-        except Exception:
+        except Exception:  # noqa: S112 - linha sem data válida é ignorada
             continue
         try:
             amount = float(trnamt.replace(",", "."))

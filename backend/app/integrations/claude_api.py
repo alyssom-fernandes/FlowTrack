@@ -1,9 +1,10 @@
 import anthropic
+
+# Mesmo corte do filtro "A revisar" da API (NEEDS_REVIEW_FILTER)
+from app.api.v1._helpers import REVIEW_CONFIDENCE
 from app.core.config import get_settings
 from app.core.database import get_supabase
 from app.core.logging import get_logger
-# Mesmo corte do filtro "A revisar" da API (NEEDS_REVIEW_FILTER)
-from app.api.v1._helpers import REVIEW_CONFIDENCE
 from app.integrations.rules import match_rule
 
 logger = get_logger(__name__)
@@ -122,7 +123,7 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
             allowed, names = per_user[user_id]
             allowed_ids = {c["id"] for c in allowed.values()}
 
-            def apply(cat_id: str, by: str, confidence: float) -> None:
+            def apply(cat_id: str, by: str, confidence: float, txn_id: str = txn_id, user_id: str = user_id) -> None:
                 sb.table("transactions").update({
                     "category_id": cat_id, "categorized_by": by, "confidence_score": confidence,
                 }).eq("id", txn_id).eq("user_id", user_id).execute()

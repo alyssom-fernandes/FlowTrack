@@ -16,9 +16,9 @@ _MODULES = ["app.api.v1.goals"]
 
 @pytest.fixture
 def api():
-    from app.main import app
-    from app.core.security import get_current_user_id
     from app.core.rate_limit import limiter
+    from app.core.security import get_current_user_id
+    from app.main import app
 
     db = FakeSupabase({"goals": [], "categories": [], "transactions": []})
     app.dependency_overrides[get_current_user_id] = lambda: ALICE

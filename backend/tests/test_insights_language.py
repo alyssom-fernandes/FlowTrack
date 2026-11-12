@@ -23,10 +23,10 @@ class FakeClaude:
 
 @contextmanager
 def api(api_key: str):
-    from app.main import app
-    from app.core.security import get_current_user_id
-    from app.core.rate_limit import limiter
     from app.api.v1 import insights
+    from app.core.rate_limit import limiter
+    from app.core.security import get_current_user_id
+    from app.main import app
     insights._insights_cache.clear()
     db = FakeSupabase({
         "transactions": [
