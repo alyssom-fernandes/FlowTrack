@@ -15,6 +15,8 @@ FALLBACK_CATEGORY = "Outros"
 # Modelo usado na categorização (camada 3)
 MODEL = "claude-haiku-4-5-20251001"
 TOOL_NAME = "categorize"
+# Novas tentativas de um item da fila depois de um erro (o mesmo padrão da coluna max_retries no schema.sql)
+MAX_RETRIES = 3
 
 
 def _build_system_prompt(category_names: list[str]) -> str:
@@ -82,18 +84,6 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
     sb = get_supabase()
     has_ai = bool(settings.anthropic_api_key) and settings.anthropic_api_key != "pendente"
 
-    queue_res = (
-        sb.table("categorization_queue")
-        .select("id, transaction_id, user_id")
-        .eq("status", "pending")
-        .order("created_at")
-        .limit(batch_size)
-        .execute()
-    )
-    items = queue_res.data or []
-    if not items:
-        return {"status": "ok", "processed": 0}
-
     # Padrão = is_default e sem dono (uma linha com dono nunca conta como padrão)
     defaults = (sb.table("categories").select("id, name, user_id, is_default")
                 .eq("is_default", True).is_("user_id", "null").execute().data) or []
@@ -101,6 +91,12 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
         logger.warning("No default categories found in DB")
         return {"status": "ok", "processed": 0}
     default_by_name = {c["name"]: c for c in defaults}
+
+    # Pega o lote de forma atômica (FOR UPDATE SKIP LOCKED, docs/migrations.sql v2.3): os itens passam
+    # a 'processing' na mesma instrução, e uma chamada simultânea não recebe os mesmos itens
+    items = sb.rpc("claim_categorization_queue", {"p_limit": batch_size}).execute().data or []
+    if not items:
+        return {"status": "ok", "processed": 0}
 
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key) if has_ai else None
     per_user: dict[str, tuple[dict, list[str]]] = {}
@@ -225,10 +221,10 @@ def process_categorization_queue(batch_size: int = 20) -> dict:
 
         except anthropic.APIError as e:
             logger.error("Anthropic API error", queue_id=queue_id, error=str(e))
-            _mark_queue(sb, queue_id, "failed")
+            _retry_later(sb, item, str(e))
         except Exception as e:
             logger.error("Categorization error", queue_id=queue_id, error=str(e))
-            _mark_queue(sb, queue_id, "failed")
+            _retry_later(sb, item, str(e))
 
     logger.info("Categorization batch complete", processed=processed, total=len(items))
     return {"status": "ok", "processed": processed}
@@ -251,3 +247,17 @@ def _mark_queue(sb, queue_id: str, status: str) -> None:
         sb.table("categorization_queue").update({"status": status}).eq("id", queue_id).execute()
     except Exception as e:
         logger.error("Failed to update queue status", queue_id=queue_id, error=str(e))
+
+
+def _retry_later(sb, item: dict, error: str) -> None:
+    """Erro passageiro (API fora do ar, rede): o item volta para a fila e é tentado de novo na próxima
+    rodada, até esgotar max_retries; depois disso fica 'failed' com o último erro."""
+    retries = item.get("retry_count") or 0
+    if retries < (item.get("max_retries") or MAX_RETRIES):
+        change = {"status": "pending", "retry_count": retries + 1, "error_message": error[:500]}
+    else:
+        change = {"status": "failed", "error_message": error[:500]}
+    try:
+        sb.table("categorization_queue").update(change).eq("id", item["id"]).execute()
+    except Exception as e:
+        logger.error("Failed to update queue status", queue_id=item["id"], error=str(e))

@@ -128,12 +128,43 @@ class _Query:
         return SimpleNamespace(data=out, count=len(out))
 
 
+class _Rpc:
+    """Funções SQL do schema.sql chamadas pelo backend com sb.rpc(...)."""
+
+    def __init__(self, db: "FakeSupabase", name: str, params: dict):
+        self.db, self.name, self.params = db, name, params
+
+    def execute(self):
+        fn = getattr(self, "_" + self.name, None)
+        if fn is None:
+            raise RuntimeError(f"função {self.name} não existe no fake")
+        # Uma função do Postgres roda numa transação só: se algo falhar, nada do que ela gravou fica
+        snapshot = copy.deepcopy(self.db.tables)
+        try:
+            out = fn(**self.params)
+        except Exception:
+            self.db.tables = snapshot
+            raise
+        return SimpleNamespace(data=out, count=len(out))
+
+    def _claim_categorization_queue(self, p_limit):
+        # Itens 'pending' passam a 'processing' na mesma operação (no Postgres, FOR UPDATE SKIP LOCKED)
+        pending = sorted((r for r in self.db.tables.setdefault("categorization_queue", []) if r.get("status") == "pending"),
+                         key=lambda r: r.get("created_at") or "")[:p_limit]
+        for r in pending:
+            r["status"] = "processing"
+        return [copy.deepcopy(r) for r in pending]
+
+
 class FakeSupabase:
     def __init__(self, tables: dict | None = None):
         self.tables: dict[str, list[dict]] = copy.deepcopy(tables or {})
 
     def table(self, name: str) -> _Query:
         return _Query(self, name)
+
+    def rpc(self, name: str, params: dict | None = None) -> _Rpc:
+        return _Rpc(self, name, params or {})
 
     def rows(self, name: str) -> list[dict]:
         return self.tables.get(name, [])

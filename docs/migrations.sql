@@ -92,3 +92,28 @@ update categories set is_default = false where is_default = true and user_id is 
 -- v2.2 — identidade das metas de economia (cor da paleta e glifo, ambos opcionais)
 alter table goals add column if not exists color text;
 alter table goals add column if not exists icon text;
+
+-- v2.3 — fila de categorização com trava (revisão do backend de novembro de 2026)
+-- Pega um lote da fila de uma vez: FOR UPDATE SKIP LOCKED impede que duas chamadas peguem o mesmo item.
+-- Item em 'processing' há mais de 15 minutos (worker caiu no meio) volta a ser elegível.
+create or replace function claim_categorization_queue(p_limit integer)
+returns setof categorization_queue
+language sql
+set search_path = public
+as $$
+  update categorization_queue
+     set status = 'processing'
+   where id in (
+     select id from categorization_queue
+      where status = 'pending'
+         or (status = 'processing' and updated_at < now() - interval '15 minutes')
+      order by created_at
+      limit p_limit
+      for update skip locked
+   )
+  returning *;
+$$;
+
+-- Só a API (service_role) chama a função; pela REST pública ninguém a executa
+revoke execute on function claim_categorization_queue(integer) from public, anon, authenticated;
+grant execute on function claim_categorization_queue(integer) to service_role;
