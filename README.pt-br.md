@@ -14,6 +14,8 @@ O FlowTrack é um app de finanças pessoais. Ele lê extratos do banco (PDF, OFX
 
 **Demonstração: [flowtrack-afn.vercel.app](https://flowtrack-afn.vercel.app)** · Este README também está em [inglês](README.md).
 
+**Estudo de caso:** [como foi construído e por quê, com links para o código](https://alyssom-fernandes.github.io/portfolio/projetos/flowtrack/) no meu portfólio.
+
 ## Em 30 segundos
 
 1. Abra a [demonstração](https://flowtrack-afn.vercel.app) e clique em **Ver a demonstração**. Sem conta e sem servidor: os dados são fictícios e ficam só na aba do seu navegador.
