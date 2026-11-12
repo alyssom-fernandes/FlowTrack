@@ -14,6 +14,8 @@ FlowTrack is a personal finance app. It reads bank statements (PDF, OFX or CSV),
 
 **Live demo: [flowtrack-afn.vercel.app](https://flowtrack-afn.vercel.app)** · This README is also available in [Portuguese](README.pt-br.md).
 
+**Case study:** [how it was built and why, with links to the code](https://alyssom-fernandes.github.io/portfolio/en/projetos/flowtrack/) on my portfolio.
+
 ## In 30 seconds
 
 1. Open the [live demo](https://flowtrack-afn.vercel.app) and click **Try the demo**. No account, no server: the data is fictitious and stays in your browser tab.
